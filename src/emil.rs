@@ -78,6 +78,11 @@ impl ILVal {
         }
     }
 
+    /// Truncate the value to a specific size.
+    ///
+    /// # Panics
+    /// `size` must be one of 1, 2, 4, or 8 and that size must be smaller than
+    /// the current size of the value.
     pub fn truncate(&self, size: u8) -> Self {
         match (self, size) {
             (Self::Short(v), 1) => Self::Byte(*v as u8),
@@ -87,6 +92,40 @@ impl ILVal {
             (Self::Quad(q), 2) => Self::Short(*q as u16),
             (Self::Quad(q), 4) => Self::Word(*q as u32),
             (_, _) => unreachable!("Invalid truncation combination"),
+        }
+    }
+
+    /// Sign extend to a specific size.
+    ///
+    /// # Panics
+    /// `size` must be one of 1, 2, 4, or 8 and that size must be larger than
+    /// the current size of the value.
+    pub fn sext(&self, size: u8) -> Self {
+        match (self, size) {
+            (Self::Byte(v), 2) => Self::Short(*v as i8 as i16 as u16),
+            (Self::Byte(v), 4) => Self::Word(*v as i8 as i32 as u32),
+            (Self::Byte(v), 8) => Self::Quad(*v as i8 as i64 as u64),
+            (Self::Short(v), 4) => Self::Word(*v as i16 as i32 as u32),
+            (Self::Short(v), 8) => Self::Quad(*v as i16 as i64 as u64),
+            (Self::Word(v), 8) => Self::Quad(*v as i32 as i64 as u64),
+            (_, _) => unreachable!("Invalid sign extension combination"),
+        }
+    }
+
+    /// Zero extend to a specific size.
+    ///
+    /// # Panics
+    /// `size` must be one of 1, 2, 4, or 8 and that size must be larger than
+    /// the current size of the value.
+    pub fn zext(&self, size: u8) -> Self {
+        match (self, size) {
+            (Self::Byte(v), 2) => Self::Short(*v as u16),
+            (Self::Byte(v), 4) => Self::Word(*v as u32),
+            (Self::Byte(v), 8) => Self::Quad(*v as u64),
+            (Self::Short(v), 4) => Self::Word(*v as u32),
+            (Self::Short(v), 8) => Self::Quad(*v as u64),
+            (Self::Word(v), 8) => Self::Quad(*v as u64),
+            (_, _) => unreachable!("Invalid sign extension combination"),
         }
     }
 }

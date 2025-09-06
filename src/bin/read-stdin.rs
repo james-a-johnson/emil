@@ -16,7 +16,7 @@ const STACK_BASE: usize = 0xfffffffffff00000;
 const STACK_SIZE: usize = 0x000000000007f000;
 
 fn main() {
-    let required_functions: &[u64] = &[0x1054c, 0x1056e, 0x1073a, 0x29294];
+    let required_functions: &[u64] = &[0x1054c, 0x1056e, 0x1073a, 0x29294, 0x29ce8];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
         .load("/home/jaj/Documents/jamil/test-bins/sum-stdin.bndb")
@@ -24,7 +24,9 @@ fn main() {
 
     let mut prog = Program::<Rv64Reg>::default();
     for func in required_functions {
-        let bin_func = bv.function_at(bv.default_platform().unwrap().as_ref(), *func).unwrap();
+        let bin_func = bv
+            .function_at(bv.default_platform().unwrap().as_ref(), *func)
+            .unwrap();
         if let Ok(llil_func) = bin_func.low_level_il().as_ref() {
             prog.add_function(llil_func);
         }
@@ -74,8 +76,8 @@ fn main() {
         .unwrap();
 
     // println!("Stack pointer is {:X}", sp_val);
-    let mut stack_file = fs::File::create("stack.bin").unwrap();
-    stack_file.write_all(stack.as_ref()).unwrap();
+    // let mut stack_file = fs::File::create("stack.bin").unwrap();
+    // stack_file.write_all(stack.as_ref()).unwrap();
 
     state.regs_mut()[Rv64Reg::sp] = sp_val;
 

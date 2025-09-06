@@ -63,11 +63,11 @@ impl Endian for Little {
                 1
             }
             ILVal::Short(s) => {
-                data.copy_from_slice(&s.to_le_bytes());
+                data[0..2].copy_from_slice(&s.to_le_bytes());
                 2
             }
             ILVal::Word(w) => {
-                data.copy_from_slice(&w.to_le_bytes());
+                data[0..4].copy_from_slice(&w.to_le_bytes());
                 4
             }
             ILVal::Quad(q) => {
@@ -316,6 +316,12 @@ impl<S: State> Emulator<S> {
                 }
                 Emil::Truncate(out, val, size) => {
                     *self.get_ilr_mut(out) = self.get_ilr(val).truncate(size);
+                }
+                Emil::SignExtend(out, val, size) => {
+                    *self.get_ilr_mut(out) = self.get_ilr(val).sext(size);
+                }
+                Emil::ZeroExtend(out, val, size) => {
+                    *self.get_ilr_mut(out) = self.get_ilr(val).zext(size);
                 }
                 instruction => {
                     unimplemented!("Need to implement {instruction:?}");
