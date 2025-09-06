@@ -16,8 +16,8 @@
 //! first be loaded into an ILVal. In this way, reading and writing registers or memory is
 //! essentially just treated as a side effect of the instruction.
 
-use std::fmt::Debug;
 use crate::arch::Register as Reg;
+use std::fmt::Debug;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Sub};
 
 /// Reference to an [`ILVal`].
@@ -48,6 +48,34 @@ pub enum ILVal {
     Short(u16),
     Word(u32),
     Quad(u64),
+}
+
+impl ILVal {
+    pub fn signed_cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (Self::Byte(v1), Self::Byte(v2)) => {
+                let v1 = *v1 as i8;
+                let v2 = *v2 as i8;
+                v1.cmp(&v2)
+            }
+            (Self::Short(v1), Self::Short(v2)) => {
+                let v1 = *v1 as i16;
+                let v2 = *v2 as i16;
+                v1.cmp(&v2)
+            }
+            (Self::Word(v1), Self::Word(v2)) => {
+                let v1 = *v1 as i32;
+                let v2 = *v2 as i32;
+                v1.cmp(&v2)
+            }
+            (Self::Quad(v1), Self::Quad(v2)) => {
+                let v1 = *v1 as i64;
+                let v2 = *v2 as i64;
+                v1.cmp(&v2)
+            }
+            (_, _) => unreachable!("Different sized ILVals in signed comparison"),
+        }
+    }
 }
 
 impl Debug for ILVal {

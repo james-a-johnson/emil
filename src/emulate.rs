@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::ops::*;
 
@@ -100,7 +101,7 @@ macro_rules! bin_op {
         let right = $state.get_ilr($r);
         let out = $state.get_ilr_mut($o);
         *out = $op(left, right);
-    }}
+    }};
 }
 
 impl<S: State> Emulator<S> {
@@ -265,6 +266,56 @@ impl<S: State> Emulator<S> {
                     let right = self.get_ilr(right);
                     let out = self.get_ilr_mut(out);
                     *out = ILVal::Byte((left != right) as u8);
+                }
+                Emil::CmpSlt { out, left, right } => {
+                    let left = self.get_ilr(left);
+                    let right = self.get_ilr(right);
+                    let out = self.get_ilr_mut(out);
+                    *out = ILVal::Byte((left.signed_cmp(&right) == Ordering::Less) as u8);
+                }
+                Emil::CmpUlt { out, left, right } => {
+                    let left = self.get_ilr(left);
+                    let right = self.get_ilr(right);
+                    let out = self.get_ilr_mut(out);
+                    *out = ILVal::Byte((left < right) as u8);
+                }
+                Emil::CmpSle { out, left, right } => {
+                    let left = self.get_ilr(left);
+                    let right = self.get_ilr(right);
+                    let out = self.get_ilr_mut(out);
+                    let ord = left.signed_cmp(&right);
+                    *out = ILVal::Byte((ord <= Ordering::Equal) as u8);
+                }
+                Emil::CmpUle { out, left, right } => {
+                    let left = self.get_ilr(left);
+                    let right = self.get_ilr(right);
+                    let out = self.get_ilr_mut(out);
+                    *out = ILVal::Byte((left <= right) as u8);
+                }
+                Emil::CmpSgt { out, left, right } => {
+                    let left = self.get_ilr(left);
+                    let right = self.get_ilr(right);
+                    let out = self.get_ilr_mut(out);
+                    *out = ILVal::Byte((left.signed_cmp(&right) == Ordering::Greater) as u8);
+                }
+                Emil::CmpUgt { out, left, right } => {
+                    let left = self.get_ilr(left);
+                    let right = self.get_ilr(right);
+                    let out = self.get_ilr_mut(out);
+                    *out = ILVal::Byte((left > right) as u8);
+                }
+                Emil::CmpSge { out, left, right } => {
+                    let left = self.get_ilr(left);
+                    let right = self.get_ilr(right);
+                    let out = self.get_ilr_mut(out);
+                    let ord = left.signed_cmp(&right);
+                    *out = ILVal::Byte((ord >= Ordering::Equal) as u8);
+                }
+                Emil::CmpUge { out, left, right } => {
+                    let left = self.get_ilr(left);
+                    let right = self.get_ilr(right);
+                    let out = self.get_ilr_mut(out);
+                    *out = ILVal::Byte((left >= right) as u8);
                 }
                 instruction => {
                     unimplemented!("Need to implement {instruction:?}");
