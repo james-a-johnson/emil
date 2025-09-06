@@ -250,7 +250,14 @@ impl<S: State> Emulator<S> {
                 }
                 Emil::Add { out, left, right } => bin_op!(self, out, left, right, ILVal::add),
                 Emil::And { out, left, right } => bin_op!(self, out, left, right, ILVal::bitand),
+                Emil::Divu { out, left, right } => bin_op!(self, out, left, right, ILVal::div),
+                Emil::Divs { out, left, right } => {
+                    bin_op!(self, out, left, right, ILVal::signed_div)
+                }
+                Emil::Mul { out, left, right } => bin_op!(self, out, left, right, ILVal::mul),
+                Emil::Sub { out, left, right } => bin_op!(self, out, left, right, ILVal::sub),
                 Emil::Or { out, left, right } => bin_op!(self, out, left, right, ILVal::bitor),
+                Emil::Xor { out, left, right } => bin_op!(self, out, left, right, ILVal::bitxor),
                 Emil::Lsl { out, left, right } => bin_op!(self, out, left, right, ILVal::shl),
                 Emil::CmpE { out, left, right } => {
                     let left = self.get_ilr(left);

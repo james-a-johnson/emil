@@ -17,7 +17,8 @@ const STACK_SIZE: usize = 0x000000000007f000;
 
 fn main() {
     let required_functions: &[u64] = &[
-        0x1054c, 0x1056e, 0x1073a, 0x29294, 0x29ce8, 0x47830, 0x47824, 0x28ae6,
+        0x1054c, 0x1056e, 0x1073a, 0x29294, 0x29ce8, 0x47830, 0x47824, 0x28ae6, 0x10a90, 0x28962,
+        0x281d2, 0x28fcc,
     ];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session

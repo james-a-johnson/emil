@@ -78,6 +78,20 @@ impl ILVal {
         }
     }
 
+    /// Treat values as signed and divide them.
+    ///
+    /// # Panics
+    /// Two values must be of the same size.
+    pub fn signed_div(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Byte(v1), Self::Byte(v2)) => Self::Byte(((v1 as i8) / (v2 as i8)) as u8),
+            (Self::Short(v1), Self::Short(v2)) => Self::Short(((v1 as i16) / (v2 as i16)) as u16),
+            (Self::Word(v1), Self::Word(v2)) => Self::Word(((v1 as i32) / (v2 as i32)) as u32),
+            (Self::Quad(v1), Self::Quad(v2)) => Self::Quad(((v1 as i64) / (v2 as i64)) as u64),
+            (_, _) => unreachable!("Invalid combination for signed division"),
+        }
+    }
+
     /// Truncate the value to a specific size.
     ///
     /// # Panics
