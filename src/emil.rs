@@ -51,6 +51,7 @@ pub enum ILVal {
 }
 
 impl ILVal {
+    /// Treat the values as signed and compare them.
     pub fn signed_cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
             (Self::Byte(v1), Self::Byte(v2)) => {
@@ -74,6 +75,18 @@ impl ILVal {
                 v1.cmp(&v2)
             }
             (_, _) => unreachable!("Different sized ILVals in signed comparison"),
+        }
+    }
+
+    pub fn truncate(&self, size: u8) -> Self {
+        match (self, size) {
+            (Self::Short(v), 1) => Self::Byte(*v as u8),
+            (Self::Word(w), 1) => Self::Byte(*w as u8),
+            (Self::Word(w), 2) => Self::Short(*w as u16),
+            (Self::Quad(q), 1) => Self::Byte(*q as u8),
+            (Self::Quad(q), 2) => Self::Short(*q as u16),
+            (Self::Quad(q), 4) => Self::Word(*q as u32),
+            (_, _) => unreachable!("Invalid truncation combination"),
         }
     }
 }

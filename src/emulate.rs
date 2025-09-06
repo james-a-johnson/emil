@@ -146,7 +146,6 @@ impl<S: State> Emulator<S> {
         };
         'inst_loop: loop {
             let inst = unsafe { *self.prog.il.get_unchecked(self.pc) };
-            println!("inst: {:?}", inst);
             match inst {
                 Emil::Nop => {}
                 Emil::NoRet => return Exit::NoReturn,
@@ -189,13 +188,11 @@ impl<S: State> Emulator<S> {
                     // prog.rs ensures that the load size will be 8 or less
                     let mut buf = [0u8; 8];
                     let addr = self.get_ilr(addr).extend_64();
-                    println!("Loading address: {:X}", addr);
                     let read = self.state.read_mem(addr, &mut buf[0..size as usize]);
                     if let Err(f) = read {
                         return f.into();
                     }
                     let val = S::Endianness::read(&buf[0..size as usize]);
-                    println!("Read {:?}", val);
                     *self.get_ilr_mut(dest) = val;
                 }
                 Emil::Jump(a) => {
@@ -316,6 +313,9 @@ impl<S: State> Emulator<S> {
                     let right = self.get_ilr(right);
                     let out = self.get_ilr_mut(out);
                     *out = ILVal::Byte((left >= right) as u8);
+                }
+                Emil::Truncate(out, val, size) => {
+                    *self.get_ilr_mut(out) = self.get_ilr(val).truncate(size);
                 }
                 instruction => {
                     unimplemented!("Need to implement {instruction:?}");
