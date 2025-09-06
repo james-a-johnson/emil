@@ -163,6 +163,13 @@ impl<const N: usize> State for LinuxRV64<N> {
 
     fn syscall(&mut self) -> SyscallResult {
         match self.regs[Rv64Reg::a7] {
+            0x30 => {
+                // f access at
+                // Not implemented properly right now. Return an error.
+                // This is a file does not exist error.
+                self.regs[Rv64Reg::a0] = (-2_i64) as u64;
+                SyscallResult::Continue
+            }
             0x3f => {
                 // Read
                 let fd = self.regs[Rv64Reg::a0];
@@ -211,6 +218,16 @@ impl<const N: usize> State for LinuxRV64<N> {
             0x5d => {
                 // Exit
                 SyscallResult::Exit
+            }
+            0xae => {
+                // Get user id
+                self.regs[Rv64Reg::a0] = 1000;
+                SyscallResult::Continue
+            }
+            0xaf => {
+                // Get effective user id
+                self.regs[Rv64Reg::a0] = 1000;
+                SyscallResult::Continue
             }
             s => unimplemented!("Syscall 0x{s:X} is not implemented yet"),
         }

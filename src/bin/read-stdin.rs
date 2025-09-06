@@ -1,8 +1,8 @@
 use std::any::Any;
 use std::collections::VecDeque;
 
-use std::fs;
-use std::io::Write;
+// use std::fs;
+// use std::io::Write;
 
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
@@ -16,7 +16,9 @@ const STACK_BASE: usize = 0xfffffffffff00000;
 const STACK_SIZE: usize = 0x000000000007f000;
 
 fn main() {
-    let required_functions: &[u64] = &[0x1054c, 0x1056e, 0x1073a, 0x29294, 0x29ce8];
+    let required_functions: &[u64] = &[
+        0x1054c, 0x1056e, 0x1073a, 0x29294, 0x29ce8, 0x47830, 0x47824, 0x28ae6,
+    ];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
         .load("/home/jaj/Documents/jamil/test-bins/sum-stdin.bndb")
