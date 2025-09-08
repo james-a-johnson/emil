@@ -1,5 +1,6 @@
 use crate::arch::Register as Reg;
 use crate::emil::{Emil, ILRef};
+use crate::emulate::Endian;
 use binaryninja::architecture::Register as _;
 use binaryninja::low_level_il::expression::{
     ExpressionHandler, LowLevelILExpression as Expr, LowLevelILExpressionKind as ExprKind,
@@ -23,18 +24,21 @@ type LLILExpr<'e> = Expr<'e, Finalized, NonSSA, ValueExpr>;
 
 const TEMP_BIT: u32 = 0b10000000_00000000_00000000_00000000;
 
-pub struct Program<R: Reg> {
+pub struct Program<R: Reg, E: Endian> {
     /// List of all [`Emil`] instructions in order
-    pub(crate) il: Vec<Emil<R>>,
+    pub(crate) il: Vec<Emil<R, E>>,
     /// Map of architecture instruction address to index of the first IL instruction that implements it
     pub(crate) insn_map: HashMap<u64, usize>,
+    /// Map of il instruction index to program address.
+    pub(crate) addr_map: Vec<u64>,
 }
 
-impl<R: Reg> Default for Program<R> {
+impl<R: Reg, E: Endian> Default for Program<R, E> {
     fn default() -> Self {
         Self {
             il: Vec::new(),
             insn_map: HashMap::new(),
+            addr_map: Vec::new(),
         }
     }
 }
@@ -44,16 +48,12 @@ macro_rules! bin_op {
         let left = $prog.add_expr(&$op.left(), $ilr);
         let right = $prog.add_expr(&$op.right(), left.next());
         let out = right.next();
-        $prog.il.push(Emil::$instr {
-            out,
-            left,
-            right,
-        });
+        $prog.il.push(Emil::$instr { out, left, right });
         out
     }};
 }
 
-impl<R: Reg> Program<R> {
+impl<R: Reg, E: Endian> Program<R, E> {
     pub fn add_function(&mut self, func: &LLILFunc) {
         // The jump instructions will need to be fixed up after they are added. LLIL encodes those
         // as jumping to an address or going to a specific LLIL index. The instructions here will
@@ -76,9 +76,13 @@ impl<R: Reg> Program<R> {
             let llil = func
                 .instruction_from_index(LLILIdx(idx))
                 .expect("This index is in bounds");
-            self.insn_map.entry(llil.address()).or_insert(self.il.len());
+            let prog_addr = llil.address();
+            self.insn_map.entry(prog_addr).or_insert(self.il.len());
             // self.insn_map.insert(llil.address(), self.il.len());
             self.add_instruction(&llil);
+            while self.addr_map.len() != self.il.len() {
+                self.addr_map.push(prog_addr);
+            }
         }
         for reloc in &mut self.il[start..] {
             if let Emil::Goto(addr) = reloc {
@@ -224,7 +228,18 @@ impl<R: Reg> Program<R> {
             },
             ExprKind::Const(c) | ExprKind::ConstPtr(c) => {
                 let value = c.value();
-                self.il.push(Emil::Constant { reg: ilr, value });
+                let size = match c.size() {
+                    1 => 1,
+                    2 => 2,
+                    4 => 4,
+                    8 => 8,
+                    _ => panic!("Invalid constant size"),
+                };
+                self.il.push(Emil::Constant {
+                    reg: ilr,
+                    value,
+                    size,
+                });
                 ilr
             }
             ExprKind::Load(l) => {

@@ -7,8 +7,8 @@ use std::collections::VecDeque;
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
-use jamil::arch::riscv::*;
-use jamil::emulate::Emulator;
+use jamil::arch::{State, riscv::*};
+use jamil::emulate::{Emulator, Little};
 use jamil::prog::Program;
 use softmew::Perm;
 
@@ -18,14 +18,14 @@ const STACK_SIZE: usize = 0x000000000007f000;
 fn main() {
     let required_functions: &[u64] = &[
         0x1054c, 0x1056e, 0x1073a, 0x29294, 0x29ce8, 0x47830, 0x47824, 0x28ae6, 0x10a90, 0x28962,
-        0x281d2, 0x28fcc,
+        0x281d2, 0x28fcc, 0x47848, 0x4783c,
     ];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
         .load("/home/jaj/Documents/jamil/test-bins/sum-stdin.bndb")
         .expect("Couldn't load test binary");
 
-    let mut prog = Program::<Rv64Reg>::default();
+    let mut prog = Program::<Rv64Reg, Little>::default();
     for func in required_functions {
         let bin_func = bv
             .function_at(bv.default_platform().unwrap().as_ref(), *func)
@@ -85,6 +85,7 @@ fn main() {
     state.regs_mut()[Rv64Reg::sp] = sp_val;
 
     let mut emu = Emulator::new(prog, state);
+    // emu.add_hook(0x10770, compare_hook);
     let stop_reason = emu.emulate(bv.entry_point());
     println!("Stopped for: {:?}", stop_reason);
     println!("Stopped at 0x{:X}", emu.curr_pc());
@@ -93,4 +94,8 @@ fn main() {
     let mut out: Box<VecDeque<u8>> = stdout.downcast().unwrap();
     let message = String::from_utf8(out.make_contiguous().to_vec()).unwrap();
     println!("{message}");
+}
+
+fn compare_hook(state: &mut dyn State<Reg = Rv64Reg, Endianness = Little>) {
+    println!("Arg 1: {:#?}", state.read_reg(Rv64Reg::a4));
 }

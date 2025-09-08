@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
+use std::fmt::Debug;
 use std::ops::*;
 
 use crate::arch::{State, SyscallResult};
@@ -33,11 +34,12 @@ impl From<Fault> for Exit {
     }
 }
 
-pub trait Endian {
+pub trait Endian: Debug + Clone + Copy {
     fn read(data: &[u8]) -> ILVal;
     fn write(value: ILVal, data: &mut [u8; 8]) -> usize;
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Little;
 impl Endian for Little {
     fn read(data: &[u8]) -> ILVal {
@@ -72,7 +74,7 @@ impl Endian for Little {
             }
             ILVal::Quad(q) => {
                 data.copy_from_slice(&q.to_le_bytes());
-                4
+                8
             }
         }
     }
@@ -84,15 +86,15 @@ pub struct Big;
 /// Emulator for a specific BIL graph, state, and architecture.
 pub struct Emulator<S: State> {
     /// Instructions to run.
-    prog: Program<S::Reg>,
-    /// Breakpoints.
-    bps: HashSet<u64>,
+    prog: Program<S::Reg, S::Endianness>,
     /// State of the device, mainly just memory.
     state: S,
     /// Intermediate language registers.
     ilrs: [ILVal; 255],
     /// Address of current instruction.
     pc: usize,
+    /// List of instructions that have been hooked and what index they came from.
+    hooked: Vec<(Emil<S::Reg, S::Endianness>, usize)>,
 }
 
 macro_rules! bin_op {
@@ -105,22 +107,34 @@ macro_rules! bin_op {
 }
 
 impl<S: State> Emulator<S> {
-    pub fn new(prog: Program<S::Reg>, state: S) -> Self {
+    pub fn new(prog: Program<S::Reg, S::Endianness>, state: S) -> Self {
         Self {
             prog,
             state,
-            bps: HashSet::new(),
             ilrs: [ILVal::Byte(0); 255],
             pc: 0,
+            hooked: Vec::new(),
         }
     }
 
-    pub fn add_bp(&mut self, addr: u64) {
-        self.bps.insert(addr);
-    }
-
-    pub fn remove_bp(&mut self, addr: u64) {
-        self.bps.remove(&addr);
+    pub fn add_hook(
+        &mut self,
+        addr: u64,
+        hook: fn(&mut dyn State<Reg = S::Reg, Endianness = S::Endianness>),
+    ) -> bool {
+        let mut hook = Emil::Hook(hook, self.hooked.len());
+        let idx = match self.prog.insn_map.get(&addr) {
+            Some(i) => *i,
+            None => return false,
+        };
+        let instr = self
+            .prog
+            .il
+            .get_mut(idx)
+            .expect("Invalid address mapping in program");
+        std::mem::swap(&mut hook, instr);
+        self.hooked.push((hook, idx));
+        true
     }
 
     pub fn get_state(&self) -> &S {
@@ -133,10 +147,9 @@ impl<S: State> Emulator<S> {
 
     /// Get current program counter value.
     ///
-    /// This will be an index into the instruction list and not match what you can find in binary
-    /// ninja.
-    pub fn curr_pc(&self) -> usize {
-        self.pc
+    /// This will be a program address.
+    pub fn curr_pc(&self) -> u64 {
+        self.idx_to_addr(self.pc)
     }
 
     pub fn emulate(&mut self, addr: u64) -> Exit {
@@ -146,6 +159,7 @@ impl<S: State> Emulator<S> {
         };
         'inst_loop: loop {
             let inst = unsafe { *self.prog.il.get_unchecked(self.pc) };
+            println!("{:08X}: {:?}", self.idx_to_addr(self.pc), inst);
             match inst {
                 Emil::Nop => {}
                 Emil::NoRet => return Exit::NoReturn,
@@ -160,8 +174,13 @@ impl<S: State> Emulator<S> {
                 Emil::Intrinsic(intrinsic) => {
                     self.state.intrinsic(intrinsic).unwrap();
                 }
-                Emil::Constant { reg, value } => {
-                    *self.get_ilr_mut(reg) = ILVal::from(value);
+                Emil::Constant { reg, value, size } => {
+                    let val = ILVal::from(value);
+                    if size != 8 {
+                        *self.get_ilr_mut(reg) = val.truncate(size);
+                    } else {
+                        *self.get_ilr_mut(reg) = val;
+                    }
                 }
                 Emil::SetReg { reg, ilr } => {
                     let val = self.get_ilr(ilr);
@@ -232,6 +251,7 @@ impl<S: State> Emulator<S> {
                 }
                 Emil::Ret(ilr) => {
                     // JIL indexes are saved so this should always be valid
+                    // TODO: Should be saving actual addresses.
                     self.pc = self.get_ilr(ilr).extend_64() as usize;
                     continue 'inst_loop;
                 }
@@ -259,11 +279,12 @@ impl<S: State> Emulator<S> {
                 Emil::Or { out, left, right } => bin_op!(self, out, left, right, ILVal::bitor),
                 Emil::Xor { out, left, right } => bin_op!(self, out, left, right, ILVal::bitxor),
                 Emil::Lsl { out, left, right } => bin_op!(self, out, left, right, ILVal::shl),
+                Emil::Lsr { out, left, right } => bin_op!(self, out, left, right, ILVal::shr),
                 Emil::CmpE { out, left, right } => {
                     let left = self.get_ilr(left);
                     let right = self.get_ilr(right);
                     let out = self.get_ilr_mut(out);
-                    *out = ILVal::Byte((left != right) as u8);
+                    *out = ILVal::Byte((left == right) as u8);
                 }
                 Emil::CmpNe { out, left, right } => {
                     let left = self.get_ilr(left);
@@ -321,6 +342,14 @@ impl<S: State> Emulator<S> {
                     let out = self.get_ilr_mut(out);
                     *out = ILVal::Byte((left >= right) as u8);
                 }
+                Emil::BoolToInt(out, val, size) => {
+                    let val = self.get_ilr(val).extend_64();
+                    let mut int = ILVal::Byte((val != 0) as u8);
+                    if size != 1 {
+                        int = int.zext(size);
+                    }
+                    *self.get_ilr_mut(out) = int;
+                }
                 Emil::Truncate(out, val, size) => {
                     *self.get_ilr_mut(out) = self.get_ilr(val).truncate(size);
                 }
@@ -330,12 +359,21 @@ impl<S: State> Emulator<S> {
                 Emil::ZeroExtend(out, val, size) => {
                     *self.get_ilr_mut(out) = self.get_ilr(val).zext(size);
                 }
+                Emil::Hook(func, _) => {
+                    func(&mut self.state);
+                    return Exit::Exited;
+                }
                 instruction => {
                     unimplemented!("Need to implement {instruction:?}");
                 }
             }
             self.pc += 1;
         }
+    }
+
+    #[inline(always)]
+    fn idx_to_addr(&self, idx: usize) -> u64 {
+        unsafe { *self.prog.addr_map.get_unchecked(idx) }
     }
 
     #[inline(always)]

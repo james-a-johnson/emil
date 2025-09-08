@@ -4,7 +4,7 @@ use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
 use jamil::arch::riscv::*;
-use jamil::emulate::Emulator;
+use jamil::emulate::{Emulator, Little};
 use jamil::prog::Program;
 use softmew::Perm;
 
@@ -34,7 +34,7 @@ fn main() {
         .load("/home/jaj/Documents/jamil/test-bins/hello-riscv")
         .expect("Couldn't load test binary");
 
-    let mut prog = Program::<Rv64Reg>::default();
+    let mut prog = Program::<Rv64Reg, Little>::default();
     for func in &bv.functions() {
         prog.add_function(func.low_level_il().as_ref().unwrap());
     }

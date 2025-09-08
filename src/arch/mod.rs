@@ -24,7 +24,7 @@ pub enum SyscallResult {
     Error(Fault),
 }
 
-pub trait Register: TryFrom<u32> + Debug + Display + Copy {
+pub trait Register: TryFrom<u32> + Debug + Display + Clone + Copy {
     /// Get the register used as the stack register
     fn stack() -> Self;
 }

@@ -26,7 +26,6 @@ impl Environment {
         data.fill(0);
         let mut current = top;
         let argc = self.args.len();
-        println!("argument count is: {}", argc);
         let mut len = data.len();
         let mut env_ptrs = Vec::new();
         let mut arg_ptrs = Vec::new();
@@ -34,14 +33,12 @@ impl Environment {
             len = len - e.as_bytes().len() - 1;
             current = current - e.as_bytes().len() as u64 - 1;
             data[len..][..e.as_bytes().len()].copy_from_slice(e.as_bytes());
-            println!("Env addr at: {:X}", current);
             env_ptrs.push(current);
         }
         for a in &self.args {
             len = len - a.as_bytes().len() - 1;
             current = current - a.as_bytes().len() as u64 - 1;
             data[len..][..a.as_bytes().len()].copy_from_slice(a.as_bytes());
-            println!("Arg addr at: {:X}", current);
             arg_ptrs.push(current);
         }
         while len % 64 != 0 {
@@ -49,8 +46,6 @@ impl Environment {
             current -= 1;
         }
         for ptr in env_ptrs {
-            println!("Writing env at offset: {:X}", len);
-            println!("Writing pointer: {:X}", ptr);
             data[len..][..8].copy_from_slice(&ptr.to_le_bytes());
             len -= 8;
             current -= 8;
@@ -58,8 +53,6 @@ impl Environment {
         len -= 8;
         current -= 8;
         for ptr in arg_ptrs {
-            println!("Writing arg at offset: {:X}", len);
-            println!("Writing pointer: {:X}", ptr);
             data[len..][..8].copy_from_slice(&ptr.to_le_bytes());
             len -= 8;
             current -= 8;
@@ -226,6 +219,16 @@ impl<const N: usize> State for LinuxRV64<N> {
             }
             0xaf => {
                 // Get effective user id
+                self.regs[Rv64Reg::a0] = 1000;
+                SyscallResult::Continue
+            }
+            0xb0 => {
+                // Get group id
+                self.regs[Rv64Reg::a0] = 1000;
+                SyscallResult::Continue
+            }
+            0xb1 => {
+                // Get effective group id
                 self.regs[Rv64Reg::a0] = 1000;
                 SyscallResult::Continue
             }

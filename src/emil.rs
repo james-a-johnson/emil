@@ -16,9 +16,10 @@
 //! first be loaded into an ILVal. In this way, reading and writing registers or memory is
 //! essentially just treated as a side effect of the instruction.
 
-use crate::arch::Register as Reg;
-use std::fmt::Debug;
-use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Sub};
+use crate::arch::{Register as Reg, State};
+use crate::emulate::Endian;
+use std::fmt::{Debug, Display, LowerHex, UpperHex};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub};
 
 /// Reference to an [`ILVal`].
 ///
@@ -151,6 +152,39 @@ impl Debug for ILVal {
             Self::Short(s) => write!(f, "{:X}s", s),
             Self::Word(w) => write!(f, "{:X}w", w),
             Self::Quad(q) => write!(f, "{:X}q", q),
+        }
+    }
+}
+
+impl Display for ILVal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Byte(b) => write!(f, "{:X}", b),
+            Self::Short(s) => write!(f, "{:X}", s),
+            Self::Word(w) => write!(f, "{:X}", w),
+            Self::Quad(q) => write!(f, "{:X}", q),
+        }
+    }
+}
+
+impl LowerHex for ILVal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Byte(v) => LowerHex::fmt(v, f),
+            Self::Short(v) => LowerHex::fmt(v, f),
+            Self::Word(v) => LowerHex::fmt(v, f),
+            Self::Quad(v) => LowerHex::fmt(v, f),
+        }
+    }
+}
+
+impl UpperHex for ILVal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Byte(v) => UpperHex::fmt(v, f),
+            Self::Short(v) => UpperHex::fmt(v, f),
+            Self::Word(v) => UpperHex::fmt(v, f),
+            Self::Quad(v) => UpperHex::fmt(v, f),
         }
     }
 }
@@ -408,8 +442,22 @@ impl Shl for ILVal {
     }
 }
 
+impl Shr for ILVal {
+    type Output = Self;
+
+    fn shr(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l >> r),
+            (Self::Short(l), Self::Short(r)) => Self::Short(l >> r),
+            (Self::Word(l), Self::Word(r)) => Self::Word(l >> r),
+            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l >> r),
+            _ => panic!("Incompatible sizes for remainder operation"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
-pub enum Emil<R: Reg> {
+pub enum Emil<R: Reg, E: Endian> {
     /// No operation instruction.
     Nop,
     /// No return.
@@ -462,7 +510,7 @@ pub enum Emil<R: Reg> {
     /// Perform an intrinsic operation.
     Intrinsic(u32),
     /// Load a constant into an IL register.
-    Constant { reg: ILRef, value: u64 },
+    Constant { reg: ILRef, value: u64, size: u8 },
     /// Add two values together.
     Add {
         out: ILRef,
@@ -687,4 +735,10 @@ pub enum Emil<R: Reg> {
     SignExtend(ILRef, ILRef, u8),
     /// Zero extend a value.
     ZeroExtend(ILRef, ILRef, u8),
+    /// Pseudo instruction to hook execution at a certain point in a program.
+    ///
+    /// This does not correspond to any specific instruction in LLIL. It is
+    /// used to hook execution in a program so a user can run arbitrary code
+    /// on the current state.
+    Hook(fn(&mut dyn State<Reg = R, Endianness = E>), usize),
 }
