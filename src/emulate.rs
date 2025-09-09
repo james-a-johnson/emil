@@ -186,6 +186,11 @@ impl<S: State> Emulator<S> {
         Some(BpID(replaced_idx))
     }
 
+    pub fn remove_breakpoint(&mut self, bp_id: BpID) {
+        let mut bp = self.replaced[bp_id.0];
+        std::mem::swap(&mut bp.0, self.prog.il.get_mut(bp.1).unwrap());
+    }
+
     pub fn get_state(&self) -> &S {
         &self.state
     }
@@ -359,8 +364,9 @@ impl<S: State> Emulator<S> {
                 return ExecutionState::Continue;
             }
             Emil::Call { target, stack: _ } => {
-                let ret = self.pc + 1;
-                if let Err(fault) = self.state.save_ret_addr(ret as u64) {
+                let curr_addr = self.curr_pc();
+                let ret_addr = self.prog.addr_map[self.pc..].iter().filter(|x| **x > curr_addr).map(|x| *x).nth(0).unwrap_or(curr_addr + 1);
+                if let Err(fault) = self.state.save_ret_addr(ret_addr) {
                     return ExecutionState::Exit(fault.into());
                 }
                 let target = self.get_ilr(target).extend_64();
@@ -382,8 +388,8 @@ impl<S: State> Emulator<S> {
             }
             Emil::Ret(ilr) => {
                 // JIL indexes are saved so this should always be valid
-                // TODO: Should be saving actual addresses.
-                self.pc = self.get_ilr(ilr).extend_64() as usize;
+                let address = self.get_ilr(ilr).extend_64();
+                self.pc = *self.prog.insn_map.get(&address).expect("Invalid return address");
                 return ExecutionState::Continue;
             }
             Emil::If {
@@ -494,6 +500,7 @@ impl<S: State> Emulator<S> {
                 func(&mut self.state);
                 return ExecutionState::Hook(idx);
             }
+            Emil::UserBp(_) => return ExecutionState::Exit(Exit::UserBreakpoint),
             instruction => {
                 unimplemented!("Need to implement {instruction:?}");
             }

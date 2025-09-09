@@ -8,7 +8,7 @@ use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
 use jamil::arch::{State, riscv::*};
-use jamil::emulate::{Emulator, Little};
+use jamil::emulate::{Emulator, Exit, Little};
 use jamil::prog::Program;
 use softmew::Perm;
 
@@ -90,10 +90,20 @@ fn main() {
     state.set_heap(0x80000000, 0x10000);
 
     let mut emu = Emulator::new(prog, state);
-    emu.add_hook(0x24ea6, compare_hook);
+    let wordcopy = emu.add_breakpoint(0x24e92).expect("Failed to add breakpoint");
+    // emu.add_hook(0x24ea6, compare_hook);
     let stop_reason = emu.run(bv.entry_point());
-    println!("Stopped for: {:?}", stop_reason);
-    println!("Stopped at 0x{:X}", emu.curr_pc());
+    assert!(matches!(Exit::UserBreakpoint, stop_reason));
+    emu.remove_breakpoint(wordcopy);
+    let ra = emu.get_state().regs()[Rv64Reg::ra];
+    println!("ra: {:#x}", ra);
+    while emu.curr_pc() != 0x24ea6 {
+        emu.step();
+        let a2 = emu.get_state().regs()[Rv64Reg::a2];
+        let a4 = emu.get_state().regs()[Rv64Reg::a4];
+        let a5 = emu.get_state().regs()[Rv64Reg::a5];
+        println!("{:#x} {:#x} {:#x}", a2, a4, a5);
+    }
 
     let stdout = emu.get_state_mut().take_fd(1).unwrap() as Box<dyn Any>;
     let mut out: Box<VecDeque<u8>> = stdout.downcast().unwrap();
