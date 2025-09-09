@@ -18,7 +18,7 @@ const STACK_SIZE: usize = 0x000000000007f000;
 fn main() {
     let required_functions: &[u64] = &[
         0x1054c, 0x1056e, 0x1073a, 0x29294, 0x29ce8, 0x47830, 0x47824, 0x28ae6, 0x10a90, 0x28962,
-        0x281d2, 0x28fcc, 0x47848, 0x4783c,
+        0x281d2, 0x28fcc, 0x47848, 0x4783c, 0x26c18, 0x26bec, 0x24dfe, 0x24e92,
     ];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
@@ -82,11 +82,16 @@ fn main() {
     // let mut stack_file = fs::File::create("stack.bin").unwrap();
     // stack_file.write_all(stack.as_ref()).unwrap();
 
+    let _heap = mem
+        .map_memory(0x80000000, 0x10000, Perm::READ | Perm::WRITE)
+        .unwrap();
+
     state.regs_mut()[Rv64Reg::sp] = sp_val;
+    state.set_heap(0x80000000, 0x10000);
 
     let mut emu = Emulator::new(prog, state);
-    // emu.add_hook(0x10770, compare_hook);
-    let stop_reason = emu.emulate(bv.entry_point());
+    emu.add_hook(0x24ea6, compare_hook);
+    let stop_reason = emu.run(bv.entry_point());
     println!("Stopped for: {:?}", stop_reason);
     println!("Stopped at 0x{:X}", emu.curr_pc());
 
@@ -97,5 +102,5 @@ fn main() {
 }
 
 fn compare_hook(state: &mut dyn State<Reg = Rv64Reg, Endianness = Little>) {
-    println!("Arg 1: {:#?}", state.read_reg(Rv64Reg::a4));
+    println!("Arg 1: {:#?}", state.read_reg(Rv64Reg::a5));
 }

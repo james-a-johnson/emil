@@ -741,4 +741,10 @@ pub enum Emil<R: Reg, E: Endian> {
     /// used to hook execution in a program so a user can run arbitrary code
     /// on the current state.
     Hook(fn(&mut dyn State<Reg = R, Endianness = E>), usize),
+    /// Breakpoint added by a user.
+    ///
+    /// This is a breakpoint that was not already present in the original
+    /// program. This has extra information added to it so that emulation
+    /// can stop at the breakpoint and then later continue through it.
+    UserBp(usize),
 }

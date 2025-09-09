@@ -7,7 +7,7 @@ use softmew::page::Page;
 use softmew::{MMU, fault::Fault, page::SimplePage};
 
 use std::collections::HashMap;
-use std::ops::{Index, IndexMut};
+use std::ops::{Index, IndexMut, Range};
 
 pub struct AuxV {
     pub ty: u64,
@@ -68,6 +68,7 @@ pub struct LinuxRV64<const N: usize> {
     mem: MMU<SimplePage>,
     flag: u64,
     fds: HashMap<u32, Box<dyn FileDescriptor>>,
+    heap: Range<u64>,
 }
 
 impl<const N: usize> LinuxRV64<N> {
@@ -82,6 +83,7 @@ impl<const N: usize> LinuxRV64<N> {
             mem: mmu,
             flag: 0,
             fds: HashMap::new(),
+            heap: 0..1,
         }
     }
 
@@ -113,6 +115,11 @@ impl<const N: usize> LinuxRV64<N> {
     #[inline]
     pub fn take_fd(&mut self, fd: u32) -> Option<Box<dyn FileDescriptor>> {
         self.fds.remove(&fd)
+    }
+
+    #[inline]
+    pub fn set_heap(&mut self, base: u64, size: u64) {
+        self.heap = base..base + size;
     }
 }
 
@@ -230,6 +237,16 @@ impl<const N: usize> State for LinuxRV64<N> {
             0xb1 => {
                 // Get effective group id
                 self.regs[Rv64Reg::a0] = 1000;
+                SyscallResult::Continue
+            }
+            0xd6 => {
+                // brk
+                let addr = self.regs[Rv64Reg::a0];
+                if addr < self.heap.start {
+                    self.regs[Rv64Reg::a0] = self.heap.start;
+                } else if addr > self.heap.end {
+                    self.regs[Rv64Reg::a0] = self.heap.end;
+                }
                 SyscallResult::Continue
             }
             s => unimplemented!("Syscall 0x{s:X} is not implemented yet"),

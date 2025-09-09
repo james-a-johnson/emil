@@ -66,7 +66,7 @@ fn main() {
     mem.read_perm(0x11168, &mut buffer).unwrap();
 
     let mut emu = Emulator::new(prog, state);
-    let stop_reason = emu.emulate(bv.entry_point());
+    let stop_reason = emu.run(bv.entry_point());
     println!("Stopped for: {:?}", stop_reason);
 
     let stdout = emu.get_state_mut().take_fd(1).unwrap() as Box<dyn Any>;
