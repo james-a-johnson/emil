@@ -180,7 +180,11 @@ impl<S: State> Emulator<S> {
             Some(i) => *i,
             None => return None,
         };
-        let inst = self.prog.il.get_mut(idx).expect("Invalid address mapping in program");
+        let inst = self
+            .prog
+            .il
+            .get_mut(idx)
+            .expect("Invalid address mapping in program");
         std::mem::swap(&mut bp, inst);
         self.replaced.push((bp, idx));
         Some(BpID(replaced_idx))
@@ -214,12 +218,12 @@ impl<S: State> Emulator<S> {
         loop {
             match self.emulate(*self.curr_inst()) {
                 ExecutionState::Exit(e) => return e,
-                ExecutionState::Continue => {},
+                ExecutionState::Continue => {}
                 ExecutionState::Hook(idx) => {
                     let replaced = self.replaced[idx];
                     match self.emulate(replaced.0) {
                         ExecutionState::Exit(e) => return e,
-                        ExecutionState::Continue => {},
+                        ExecutionState::Continue => {}
                         ExecutionState::Hook(_) => unreachable!("Can't hook a hook instruction"),
                     }
                 }
@@ -239,12 +243,12 @@ impl<S: State> Emulator<S> {
             let replaced = self.replaced[*idx];
             match self.emulate(replaced.0) {
                 ExecutionState::Exit(e) => return e,
-                ExecutionState::Continue => {},
+                ExecutionState::Continue => {}
                 ExecutionState::Hook(idx) => {
                     let replaced = self.replaced[idx];
                     match self.emulate(replaced.0) {
                         ExecutionState::Exit(e) => return e,
-                        ExecutionState::Continue => {},
+                        ExecutionState::Continue => {}
                         ExecutionState::Hook(_) => unreachable!("Can't hook a hook instruction"),
                     }
                 }
@@ -253,12 +257,12 @@ impl<S: State> Emulator<S> {
         loop {
             match self.emulate(*self.curr_inst()) {
                 ExecutionState::Exit(e) => return e,
-                ExecutionState::Continue => {},
+                ExecutionState::Continue => {}
                 ExecutionState::Hook(idx) => {
                     let replaced = self.replaced[idx];
                     match self.emulate(replaced.0) {
                         ExecutionState::Exit(e) => return e,
-                        ExecutionState::Continue => {},
+                        ExecutionState::Continue => {}
                         ExecutionState::Hook(_) => unreachable!("Can't hook a hook instruction"),
                     }
                 }
@@ -276,12 +280,12 @@ impl<S: State> Emulator<S> {
         while addr == self.curr_pc() {
             match self.emulate(*self.curr_inst()) {
                 ExecutionState::Exit(e) => return e,
-                ExecutionState::Continue => {},
+                ExecutionState::Continue => {}
                 ExecutionState::Hook(idx) => {
                     let replaced = self.replaced[idx];
                     match self.emulate(replaced.0) {
                         ExecutionState::Exit(e) => return e,
-                        ExecutionState::Continue => {},
+                        ExecutionState::Continue => {}
                         ExecutionState::Hook(_) => unreachable!("Can't hook a hook instruction"),
                     }
                 }
@@ -364,8 +368,23 @@ impl<S: State> Emulator<S> {
                 return ExecutionState::Continue;
             }
             Emil::Call { target, stack: _ } => {
+                // Need to determine the return address for this call instruction. This is making
+                // the assumption that a call instruction will return to the next valid address.
+                // That is true for most architectures and I believe is true for all architectures
+                // that binary ninja supports so this should be a fine assumption to make for now.
+                // Find the next valid address by looking for the next address different from the
+                // current one in the addr_map. It is not necessarily just the mapping of the next
+                // IL address because binary ninja will sometimes add a goto to the correct next
+                // address after a call instruction. So just blindly taking the address of the next
+                // IL index might just create an infinite loop of returning to the call of the
+                // function that needs to be returned from.
                 let curr_addr = self.curr_pc();
-                let ret_addr = self.prog.addr_map[self.pc..].iter().filter(|x| **x > curr_addr).map(|x| *x).nth(0).unwrap_or(curr_addr + 1);
+                let ret_addr = self.prog.addr_map[self.pc..]
+                    .iter()
+                    .filter(|x| **x > curr_addr)
+                    .map(|x| *x)
+                    .nth(0)
+                    .unwrap_or(curr_addr + 1);
                 if let Err(fault) = self.state.save_ret_addr(ret_addr) {
                     return ExecutionState::Exit(fault.into());
                 }
@@ -387,10 +406,14 @@ impl<S: State> Emulator<S> {
                 return ExecutionState::Continue;
             }
             Emil::Ret(ilr) => {
-                // JIL indexes are saved so this should always be valid
                 let address = self.get_ilr(ilr).extend_64();
-                self.pc = *self.prog.insn_map.get(&address).expect("Invalid return address");
-                return ExecutionState::Continue;
+                return match self.prog.insn_map.get(&address) {
+                    Some(idx) => {
+                        self.pc = *idx;
+                        ExecutionState::Continue
+                    }
+                    None => Exit::InstructionFault(address).into(),
+                };
             }
             Emil::If {
                 condition,
