@@ -210,6 +210,10 @@ impl<R: Reg, E: Endian> Program<R, E> {
                 self.il.push(Emil::Undef);
                 ilr
             }
+            ExprKind::Undef(_) => {
+                self.il.push(Emil::Undef);
+                ilr
+            }
             ExprKind::Reg(r) => match r.source_reg() {
                 binaryninja::low_level_il::LowLevelILRegisterKind::Arch(a) => {
                     let arch_reg = R::try_from(a.id().0)

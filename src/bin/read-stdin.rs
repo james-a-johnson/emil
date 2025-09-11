@@ -7,9 +7,9 @@ use std::collections::VecDeque;
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
-use jamil::arch::{State, riscv::*};
-use jamil::emulate::{Emulator, Exit, Little};
-use jamil::prog::Program;
+use emil::arch::{State, riscv::*};
+use emil::emulate::{Emulator, Exit, Little};
+use emil::prog::Program;
 use softmew::Perm;
 
 const STACK_BASE: usize = 0xfffffffffff00000;
@@ -22,7 +22,7 @@ fn main() {
     ];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
-        .load("/home/jaj/Documents/jamil/test-bins/sum-stdin.bndb")
+        .load("./test-bins/sum-stdin.bndb")
         .expect("Couldn't load test binary");
 
     let mut prog = Program::<Rv64Reg, Little>::default();

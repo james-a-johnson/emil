@@ -3,9 +3,9 @@ use std::any::Any;
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
-use jamil::arch::riscv::*;
-use jamil::emulate::{Emulator, Little};
-use jamil::prog::Program;
+use emil::arch::riscv::*;
+use emil::emulate::{Emulator, Little};
+use emil::prog::Program;
 use softmew::Perm;
 
 #[derive(Clone, Default)]
