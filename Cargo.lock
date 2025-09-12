@@ -14,7 +14,7 @@ dependencies = [
 [[package]]
 name = "binaryninja"
 version = "0.1.0"
-source = "git+https://github.com/Vector35/binaryninja-api.git?branch=dev#9e83ea144de09b78a696a0a9997ec28e3bc55327"
+source = "git+https://github.com/Vector35/binaryninja-api.git?rev=4c1c8712f0e0a700fc7af5cf06f3425826ba9a2f#4c1c8712f0e0a700fc7af5cf06f3425826ba9a2f"
 dependencies = [
  "binaryninjacore-sys",
  "log",
@@ -27,7 +27,7 @@ dependencies = [
 [[package]]
 name = "binaryninjacore-sys"
 version = "0.1.0"
-source = "git+https://github.com/Vector35/binaryninja-api.git?branch=dev#9e83ea144de09b78a696a0a9997ec28e3bc55327"
+source = "git+https://github.com/Vector35/binaryninja-api.git?rev=4c1c8712f0e0a700fc7af5cf06f3425826ba9a2f#4c1c8712f0e0a700fc7af5cf06f3425826ba9a2f"
 dependencies = [
  "bindgen",
  "cmake",
@@ -62,9 +62,9 @@ checksum = "2261d10cca569e4643e526d8dc2e62e433cc8aba21ab764233731f8d369bf394"
 
 [[package]]
 name = "cc"
-version = "1.2.36"
+version = "1.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5252b3d2648e5eedbc1a6f501e3c795e07025c1e93bbf8bbdd6eef7f447a6d54"
+checksum = "65193589c6404eb80b450d618eaf9a2cafaaafd57ecce47370519ef674a7bd44"
 dependencies = [
  "find-msvc-tools",
  "shlex",
