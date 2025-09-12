@@ -10,6 +10,7 @@ use binaryninja::headless::Session;
 use emil::arch::{State, riscv::*};
 use emil::emulate::{Emulator, Exit, HookStatus, Little};
 use emil::prog::Program;
+use emil::os::linux::{Environment, AuxVal};
 use softmew::Perm;
 
 const STACK_BASE: usize = 0xfffffffffff00000;
@@ -18,7 +19,7 @@ const STACK_SIZE: usize = 0x000000000007f000;
 fn main() {
     let required_functions: &[u64] = &[
         0x1054c, 0x1056e, 0x1073a, 0x29294, 0x29ce8, 0x47830, 0x47824, 0x28ae6, 0x10a90, 0x28962,
-        0x281d2, 0x28fcc, 0x47848, 0x4783c, 0x26c18, 0x26bec, 0x24dfe, 0x24e92,
+        0x281d2, 0x28fcc, 0x47848, 0x4783c, 0x26c18, 0x26bec, 0x24dfe, 0x24e92, 0x28988,
     ];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
@@ -74,6 +75,11 @@ fn main() {
     let mut env = Environment::default();
     env.args.push("read-stdin".into());
     env.env.push("EMULATOR=1".into());
+    env.aux.push(AuxVal::Uid(1000));
+    env.aux.push(AuxVal::Euid(1000));
+    env.aux.push(AuxVal::Gid(1000));
+    env.aux.push(AuxVal::Egid(1000));
+    env.aux.push(AuxVal::Random([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]));
     let sp_val = env
         .encode(stack.as_mut(), (STACK_BASE + STACK_SIZE) as u64)
         .unwrap();
@@ -90,7 +96,9 @@ fn main() {
     state.set_heap(0x80000000, 0x10000);
 
     let mut emu = Emulator::new(prog, state);
-    // emu.add_hook(0x24ea6, compare_hook);
+    // emu.add_hook(0x29318, compare_hook);
+    // This is the it just returns without parsing the auxiliary vectors
+    // emu.add_breakpoint(0x294ca);
     let mut stop_reason: Exit;
     emu.set_pc(bv.entry_point());
     loop {
@@ -103,7 +111,10 @@ fn main() {
                         .add_function(f.low_level_il().unwrap().as_ref());
                     println!("Added: {:?}", f.symbol().full_name());
                 }
-                None => break,
+                None => {
+                    println!("Fault hit address that isn't start of a function");
+                    break;
+                }
             }
         } else {
             break;
@@ -120,6 +131,11 @@ fn main() {
 }
 
 fn compare_hook(state: &mut dyn State<Reg = Rv64Reg, Endianness = Little>) -> HookStatus {
-    println!("Arg 1: {:#?}", state.read_reg(Rv64Reg::a5));
-    HookStatus::Continue
+    let t3 = state.read_reg(Rv64Reg::t3).extend_64();
+    println!("t3 is: {:#?}", state.read_reg(Rv64Reg::t3));
+    if t3 == 0 {
+        HookStatus::Exit
+    } else {
+        HookStatus::Continue
+    }
 }

@@ -1,6 +1,7 @@
 pub mod arch;
 pub mod emil;
 pub mod emulate;
+pub mod os;
 pub mod prog;
 
 const _: () = assert!(

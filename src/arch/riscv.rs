@@ -9,59 +9,6 @@ use softmew::{MMU, fault::Fault, page::SimplePage};
 use std::collections::HashMap;
 use std::ops::{Index, IndexMut, Range};
 
-pub struct AuxV {
-    pub ty: u64,
-    pub val: u64,
-}
-
-#[derive(Default)]
-pub struct Environment {
-    pub args: Vec<String>,
-    pub env: Vec<String>,
-    pub aux: Vec<AuxV>,
-}
-
-impl Environment {
-    pub fn encode(&self, data: &mut [u8], top: u64) -> Result<u64, ()> {
-        data.fill(0);
-        let mut current = top;
-        let argc = self.args.len();
-        let mut len = data.len();
-        let mut env_ptrs = Vec::new();
-        let mut arg_ptrs = Vec::new();
-        for e in &self.env {
-            len = len - e.as_bytes().len() - 1;
-            current = current - e.as_bytes().len() as u64 - 1;
-            data[len..][..e.as_bytes().len()].copy_from_slice(e.as_bytes());
-            env_ptrs.push(current);
-        }
-        for a in &self.args {
-            len = len - a.as_bytes().len() - 1;
-            current = current - a.as_bytes().len() as u64 - 1;
-            data[len..][..a.as_bytes().len()].copy_from_slice(a.as_bytes());
-            arg_ptrs.push(current);
-        }
-        while len % 64 != 0 {
-            len -= 1;
-            current -= 1;
-        }
-        for ptr in env_ptrs {
-            data[len..][..8].copy_from_slice(&ptr.to_le_bytes());
-            len -= 8;
-            current -= 8;
-        }
-        len -= 8;
-        current -= 8;
-        for ptr in arg_ptrs {
-            data[len..][..8].copy_from_slice(&ptr.to_le_bytes());
-            len -= 8;
-            current -= 8;
-        }
-        data[len..][..8].copy_from_slice(&argc.to_le_bytes());
-        Ok(current)
-    }
-}
-
 pub struct LinuxRV64<const N: usize> {
     regs: Rv64State,
     temps: [u64; N],
