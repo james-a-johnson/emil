@@ -17,7 +17,7 @@
 //! essentially just treated as a side effect of the instruction.
 
 use crate::arch::{Register as Reg, State};
-use crate::emulate::Endian;
+use crate::emulate::{Endian, HookStatus};
 use std::fmt::{Debug, Display, LowerHex, UpperHex};
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub};
 
@@ -735,12 +735,14 @@ pub enum Emil<R: Reg, E: Endian> {
     SignExtend(ILRef, ILRef, u8),
     /// Zero extend a value.
     ZeroExtend(ILRef, ILRef, u8),
+    // The hook is not a Box<dyn FnMut(...)> because the project currently
+    // relies on these instructions being copyable.
     /// Pseudo instruction to hook execution at a certain point in a program.
     ///
     /// This does not correspond to any specific instruction in LLIL. It is
     /// used to hook execution in a program so a user can run arbitrary code
     /// on the current state.
-    Hook(fn(&mut dyn State<Reg = R, Endianness = E>), usize),
+    Hook(fn(&mut dyn State<Reg = R, Endianness = E>) -> HookStatus, usize),
     /// Breakpoint added by a user.
     ///
     /// This is a breakpoint that was not already present in the original

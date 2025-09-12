@@ -26,6 +26,10 @@ pub enum Exit {
     /// skipping over the breakpoint. Just calling run or single step again will cause this
     /// breakpoint to be executed again.
     UserBreakpoint,
+    /// Hook function caused emulation to stop.
+    ///
+    /// This is returned when a hook returns [`HookStatus::Exit`].
+    HookExit,
     /// Program executed a single instruction.
     SingleStep,
     /// A no-return instruction from LLIL was executed.
@@ -98,6 +102,19 @@ pub struct Big;
 /// Handle to a hook that was installed.
 pub struct HookID(usize);
 
+/// Status that can be returned from a hook function.
+///
+/// These can affect program flow and will allow a hook to change how a program
+/// will execute.
+pub enum HookStatus {
+    /// Continue program execution normally.
+    Continue,
+    /// Exit the program.
+    Exit,
+    /// Jump execution to a specific address.
+    Goto(u64),
+}
+
 /// Handle to a breakpoint that was installed.
 pub struct BpID(usize);
 
@@ -147,10 +164,25 @@ impl<S: State> Emulator<S> {
         }
     }
 
+    /// Hook a specific instruction in the program.
+    ///
+    /// A hook is some function that will run before an instruction is emulated.
+    /// The hook will have mutable access to the current state of the program.
+    /// The hook can just observe state using that or modify it in some way to
+    /// change the state.
+    ///
+    /// The hook should return what action the emulator should take after
+    /// running the hook. Those options are to exit, continue, or jump to a
+    /// specific target address.
+    ///
+    /// # Return
+    /// This returns a [`HookID`] that can be used to reference the hook upon
+    /// success. Otherwise `None` will be returned. Installing the hook will
+    /// only fail if an invalid address is passed.
     pub fn add_hook(
         &mut self,
         addr: u64,
-        hook: fn(&mut dyn State<Reg = S::Reg, Endianness = S::Endianness>),
+        hook: fn(&mut dyn State<Reg = S::Reg, Endianness = S::Endianness>) -> HookStatus,
     ) -> Option<HookID> {
         let replaced_idx = self.replaced.len();
         let mut hook = Emil::Hook(hook, replaced_idx);
@@ -520,8 +552,19 @@ impl<S: State> Emulator<S> {
                 *self.get_ilr_mut(out) = self.get_ilr(val).zext(size);
             }
             Emil::Hook(func, idx) => {
-                func(&mut self.state);
-                return ExecutionState::Hook(idx);
+                match func(&mut self.state) {
+                    HookStatus::Continue => return ExecutionState::Hook(idx),
+                    HookStatus::Exit => return ExecutionState::Exit(Exit::HookExit),
+                    HookStatus::Goto(addr) => {
+                        let idx = self.prog.insn_map.get(&addr);
+                        if let Some(idx) = idx {
+                            self.pc = *idx;
+                            return ExecutionState::Continue;
+                        } else {
+                            return ExecutionState::Exit(Exit::InstructionFault(addr));
+                        }
+                    }
+                };
             }
             Emil::UserBp(_) => return ExecutionState::Exit(Exit::UserBreakpoint),
             instruction => {

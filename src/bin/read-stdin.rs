@@ -8,7 +8,7 @@ use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
 use emil::arch::{State, riscv::*};
-use emil::emulate::{Emulator, Little};
+use emil::emulate::{Emulator, HookStatus, Little};
 use emil::prog::Program;
 use softmew::Perm;
 
@@ -100,6 +100,7 @@ fn main() {
     println!("{message}");
 }
 
-fn compare_hook(state: &mut dyn State<Reg = Rv64Reg, Endianness = Little>) {
+fn compare_hook(state: &mut dyn State<Reg = Rv64Reg, Endianness = Little>) -> HookStatus {
     println!("Arg 1: {:#?}", state.read_reg(Rv64Reg::a5));
+    HookStatus::Continue
 }
