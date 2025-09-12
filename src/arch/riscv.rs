@@ -9,16 +9,15 @@ use softmew::{MMU, fault::Fault, page::SimplePage};
 use std::collections::HashMap;
 use std::ops::{Index, IndexMut, Range};
 
-pub struct LinuxRV64<const N: usize> {
+pub struct LinuxRV64 {
     regs: Rv64State,
-    temps: [u64; N],
     mem: MMU<SimplePage>,
     flag: u64,
     fds: HashMap<u32, Box<dyn FileDescriptor>>,
     heap: Range<u64>,
 }
 
-impl<const N: usize> LinuxRV64<N> {
+impl LinuxRV64 {
     pub const ARCH_NAME: &'static str = "rv64gc";
 
     pub fn new() -> Self {
@@ -26,7 +25,6 @@ impl<const N: usize> LinuxRV64<N> {
         let mmu = MMU::new();
         Self {
             regs,
-            temps: [0; N],
             mem: mmu,
             flag: 0,
             fds: HashMap::new(),
@@ -70,7 +68,7 @@ impl<const N: usize> LinuxRV64<N> {
     }
 }
 
-impl<const N: usize> State for LinuxRV64<N> {
+impl State for LinuxRV64 {
     type Reg = Rv64Reg;
     type Endianness = Little;
 
@@ -82,14 +80,6 @@ impl<const N: usize> State for LinuxRV64<N> {
     #[inline(always)]
     fn write_reg(&mut self, id: Rv64Reg, val: ILVal) {
         self.regs[id] = val.extend_64();
-    }
-
-    fn read_temp(&self, idx: usize) -> u64 {
-        self.temps[idx]
-    }
-
-    fn write_temp(&mut self, idx: usize, val: u64) {
-        self.temps[idx] = val;
     }
 
     fn read_mem(&self, addr: u64, buf: &mut [u8]) -> Result<(), Fault> {
@@ -178,6 +168,12 @@ impl<const N: usize> State for LinuxRV64<N> {
                 // This is used for futex implementations. Should be safe to
                 // ignore for single threaded programs.
                 self.regs[Rv64Reg::a0] = 0;
+                SyscallResult::Continue
+            }
+            0xa0 => {
+                // uname
+                // Not sure how to implement this one so just returning an error.
+                self.regs[Rv64Reg::a0] = (-1_i64) as u64;
                 SyscallResult::Continue
             }
             0xae => {

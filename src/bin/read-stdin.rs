@@ -45,7 +45,7 @@ fn main() {
     let mut stdin = VecDeque::new();
     stdin.extend(b"10\n11\n12\n13\n");
     let stdout = VecDeque::new();
-    let mut state = LinuxRV64::<0>::new();
+    let mut state = LinuxRV64::new();
     state.register_fd(0, Box::new(stdin));
     state.register_fd(1, Box::new(stdout));
     let mem = state.memory_mut();

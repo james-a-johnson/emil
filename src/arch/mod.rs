@@ -38,11 +38,6 @@ pub trait State {
     /// Set a register value
     fn write_reg(&mut self, id: Self::Reg, value: ILVal);
 
-    /// Read a temporary register value
-    fn read_temp(&self, idx: usize) -> u64;
-    /// Set a temporary register value
-    fn write_temp(&mut self, idx: usize, val: u64);
-
     /// Read from system memory
     fn read_mem(&self, addr: u64, buf: &mut [u8]) -> Result<(), Fault>;
     /// Write to system memory

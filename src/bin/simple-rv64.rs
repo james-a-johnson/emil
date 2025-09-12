@@ -39,7 +39,7 @@ fn main() {
         prog.add_function(func.low_level_il().as_ref().unwrap());
     }
 
-    let mut state = LinuxRV64::<0>::new();
+    let mut state = LinuxRV64::new();
     state.register_fd(1, Box::new(Fd::default()));
     let mem = state.memory_mut();
     for segment in bv.segments().iter() {
