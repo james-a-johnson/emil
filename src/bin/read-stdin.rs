@@ -8,7 +8,7 @@ use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
 use emil::arch::{State, riscv::*};
-use emil::emulate::{Emulator, Exit, Little};
+use emil::emulate::{Emulator, Little};
 use emil::prog::Program;
 use softmew::Perm;
 

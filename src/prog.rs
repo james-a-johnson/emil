@@ -387,6 +387,10 @@ impl<R: Reg, E: Endian> Program<R, E> {
                 self.il.push(Emil::FloatToInt(value.next(), value, size));
                 value.next()
             }
+            ExprKind::Flag(_) => {
+                self.il.push(Emil::Flag(ilr));
+                ilr
+            }
             _ => unimplemented!("Expression kind: {:?}", expr),
         }
     }
