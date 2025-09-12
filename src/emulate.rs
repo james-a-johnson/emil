@@ -154,6 +154,11 @@ macro_rules! bin_op {
 }
 
 impl<S: State> Emulator<S> {
+    /// Create a new emulator from the given program and state.
+    ///
+    /// `prog` is the actual program that is to be emulated. `state` will
+    /// determine how the program interacts with its environment. It will
+    /// emulate the memory accesses and system calls.
     pub fn new(prog: Program<S::Reg, S::Endianness>, state: S) -> Self {
         Self {
             prog,
@@ -200,11 +205,22 @@ impl<S: State> Emulator<S> {
         Some(HookID(replaced_idx))
     }
 
+    /// Remove the hook from the program.
     pub fn remove_hook(&mut self, hook_id: HookID) {
         let mut hook = self.replaced[hook_id.0];
         std::mem::swap(&mut hook.0, self.prog.il.get_mut(hook.1).unwrap());
     }
 
+    /// Place a breakpoint at a specific instruction in the program.
+    ///
+    /// This breakpoint will cause the emulator to exit with [`Exit::UserBreakpoint`].
+    /// There may already have been breakpoints in the program in which case
+    /// [`Exit::Breakpoint`] will be returned.
+    ///
+    /// # Return
+    /// Returns an identifier for the placed breakpoint on success. That identifier
+    /// can be used to refer to the specific breakpoint later. Otherwise, `None`
+    /// is returned.
     pub fn add_breakpoint(&mut self, addr: u64) -> Option<BpID> {
         let replaced_idx = self.replaced.len();
         let mut bp = Emil::UserBp(replaced_idx);
@@ -222,6 +238,7 @@ impl<S: State> Emulator<S> {
         Some(BpID(replaced_idx))
     }
 
+    /// Remove the given breakpoint from the program.
     pub fn remove_breakpoint(&mut self, bp_id: BpID) {
         let mut bp = self.replaced[bp_id.0];
         std::mem::swap(&mut bp.0, self.prog.il.get_mut(bp.1).unwrap());
@@ -233,6 +250,16 @@ impl<S: State> Emulator<S> {
 
     pub fn get_state_mut(&mut self) -> &mut S {
         &mut self.state
+    }
+
+    /// Get a reference to the underlying program.
+    pub fn get_prog(&self) -> &Program<S::Reg, S::Endianness> {
+        &self.prog
+    }
+
+    /// Get a mutable reference to the underlying program.
+    pub fn get_prog_mut(&mut self) -> &mut Program<S::Reg, S::Endianness> {
+        &mut self.prog
     }
 
     /// Get current program counter value.
