@@ -8,7 +8,7 @@ use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
 use emil::arch::{State, riscv::*};
-use emil::emulate::{Emulator, HookStatus, Little};
+use emil::emulate::{Emulator, Exit, HookStatus, Little};
 use emil::prog::Program;
 use softmew::Perm;
 
@@ -91,8 +91,27 @@ fn main() {
 
     let mut emu = Emulator::new(prog, state);
     // emu.add_hook(0x24ea6, compare_hook);
+    let mut stop_reason: Exit;
+    emu.set_pc(bv.entry_point());
+    loop {
+        stop_reason = emu.proceed();
+        if let Exit::InstructionFault(addr) = stop_reason {
+            let func = bv.function_at(bv.default_platform().unwrap().as_ref(), addr);
+            match func {
+                Some(f) => {
+                    emu.get_prog_mut()
+                        .add_function(f.low_level_il().unwrap().as_ref());
+                    println!("Added: {:?}", f.symbol().full_name());
+                }
+                None => break,
+            }
+        } else {
+            break;
+        }
+    }
     let stop_reason = emu.run(bv.entry_point());
     println!("Stop reason: {:?}", stop_reason);
+    println!("Stopped at: {:#x}", emu.curr_pc());
 
     let stdout = emu.get_state_mut().take_fd(1).unwrap() as Box<dyn Any>;
     let mut out: Box<VecDeque<u8>> = stdout.downcast().unwrap();

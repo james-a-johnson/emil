@@ -742,7 +742,10 @@ pub enum Emil<R: Reg, E: Endian> {
     /// This does not correspond to any specific instruction in LLIL. It is
     /// used to hook execution in a program so a user can run arbitrary code
     /// on the current state.
-    Hook(fn(&mut dyn State<Reg = R, Endianness = E>) -> HookStatus, usize),
+    Hook(
+        fn(&mut dyn State<Reg = R, Endianness = E>) -> HookStatus,
+        usize,
+    ),
     /// Breakpoint added by a user.
     ///
     /// This is a breakpoint that was not already present in the original

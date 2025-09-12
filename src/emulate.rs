@@ -269,6 +269,20 @@ impl<S: State> Emulator<S> {
         self.idx_to_addr(self.pc)
     }
 
+    /// Set the address to start emulation at.
+    ///
+    /// You can call this function and then you can can [`Emulator::proceed`]
+    /// and it will start executing at the correct address.
+    pub fn set_pc(&mut self, addr: u64) -> bool {
+        let idx = self.prog.insn_map.get(&addr);
+        if let Some(idx) = idx {
+            self.pc = *idx;
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn run(&mut self, addr: u64) -> Exit {
         match self.prog.insn_map.get(&addr) {
             Some(idx) => self.pc = *idx,

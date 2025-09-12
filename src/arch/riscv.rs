@@ -18,7 +18,7 @@ pub struct AuxV {
 pub struct Environment {
     pub args: Vec<String>,
     pub env: Vec<String>,
-    pub aus: Vec<AuxV>,
+    pub aux: Vec<AuxV>,
 }
 
 impl Environment {
@@ -219,6 +219,20 @@ impl<const N: usize> State for LinuxRV64<N> {
                 // Exit
                 SyscallResult::Exit
             }
+            0x60 => {
+                // set_tid_address
+                // I think this can be safely ignored for single threaded
+                // programs. Just need to return the thread id.
+                self.regs[Rv64Reg::a0] = 100;
+                SyscallResult::Continue
+            }
+            0x63 => {
+                // set_robust_list
+                // This is used for futex implementations. Should be safe to
+                // ignore for single threaded programs.
+                self.regs[Rv64Reg::a0] = 0;
+                SyscallResult::Continue
+            }
             0xae => {
                 // Get user id
                 self.regs[Rv64Reg::a0] = 1000;
@@ -275,7 +289,13 @@ impl<const N: usize> State for LinuxRV64<N> {
     }
 
     fn intrinsic(&mut self, id: u32) -> Result<(), Fault> {
-        todo!("Intrinsics unimplemented for riscv: {}", id);
+        match id {
+            26214400 => {
+                // This is a memory fence. Just ignore it.
+                Ok(())
+            }
+            _ => unimplemented!("Intrinsic {id}"),
+        }
     }
 }
 
