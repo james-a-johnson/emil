@@ -1,34 +1,31 @@
-use crate::arch::{FileDescriptor, State};
+use crate::arch::{RegState, State};
 use crate::arch::{Register, SyscallResult};
 use crate::emil::ILVal;
 use crate::emulate::Little;
+use crate::os::linux::LinuxSyscalls;
 use from_id::FromId;
-use softmew::page::Page;
 use softmew::{MMU, fault::Fault, page::SimplePage};
 
-use std::collections::HashMap;
-use std::ops::{Index, IndexMut, Range};
+use std::ops::{Index, IndexMut};
 
-pub struct LinuxRV64 {
-    regs: Rv64State,
-    mem: MMU<SimplePage>,
-    flag: u64,
-    fds: HashMap<u32, Box<dyn FileDescriptor>>,
-    heap: Range<u64>,
+pub struct LinuxRV64<S> {
+    pub regs: Rv64State,
+    pub mem: MMU<SimplePage>,
+    pub flag: u64,
+    pub syscalls: S,
 }
 
-impl LinuxRV64 {
+impl<S> LinuxRV64<S> {
     pub const ARCH_NAME: &'static str = "rv64gc";
 
-    pub fn new() -> Self {
+    pub fn new(syscalls: S) -> Self {
         let regs = Rv64State::default();
         let mmu = MMU::new();
         Self {
             regs,
             mem: mmu,
             flag: 0,
-            fds: HashMap::new(),
-            heap: 0..1,
+            syscalls,
         }
     }
 
@@ -51,24 +48,9 @@ impl LinuxRV64 {
     pub fn regs_mut(&mut self) -> &mut Rv64State {
         &mut self.regs
     }
-
-    #[inline]
-    pub fn register_fd(&mut self, fd: u32, file: Box<dyn FileDescriptor>) {
-        self.fds.insert(fd, file);
-    }
-
-    #[inline]
-    pub fn take_fd(&mut self, fd: u32) -> Option<Box<dyn FileDescriptor>> {
-        self.fds.remove(&fd)
-    }
-
-    #[inline]
-    pub fn set_heap(&mut self, base: u64, size: u64) {
-        self.heap = base..base + size;
-    }
 }
 
-impl State for LinuxRV64 {
+impl<S: LinuxSyscalls<Rv64State, MMU<SimplePage>>> State for LinuxRV64<S> {
     type Reg = Rv64Reg;
     type Endianness = Little;
 
@@ -100,112 +82,18 @@ impl State for LinuxRV64 {
 
     fn syscall(&mut self) -> SyscallResult {
         match self.regs[Rv64Reg::a7] {
-            0x30 => {
-                // f access at
-                // Not implemented properly right now. Return an error.
-                // This is a file does not exist error.
-                self.regs[Rv64Reg::a0] = (-2_i64) as u64;
-                SyscallResult::Continue
-            }
-            0x3f => {
-                // Read
-                let fd = self.regs[Rv64Reg::a0];
-                let ptr = self.regs[Rv64Reg::a1] as usize;
-                let len = self.regs[Rv64Reg::a2] as usize;
-                match self.fds.get_mut(&(fd as u32)) {
-                    Some(file) => {
-                        let page = self.mem.get_mapping_mut(ptr).unwrap();
-                        let start = page.start();
-                        let buf = &mut page.as_mut()[ptr - start..][..len];
-                        let res = file.read(buf);
-                        match res {
-                            Ok(b) => self.regs[Rv64Reg::a0] = b as u64,
-                            Err(e) => {
-                                self.regs[Rv64Reg::a0] = e.raw_os_error().unwrap_or(-9) as u64;
-                            }
-                        }
-                    }
-                    None => self.regs[Rv64Reg::a0] = (-9_i64) as u64,
-                };
-                SyscallResult::Continue
-            }
-            0x40 => {
-                // Write
-                let fd = self.regs[Rv64Reg::a0];
-                let ptr = self.regs[Rv64Reg::a1];
-                let len = self.regs[Rv64Reg::a2];
-                let mut data = vec![0; len as usize];
-                self.mem
-                    .read_perm(ptr as usize, &mut data)
-                    .expect("Failed to read message");
-                match self.fds.get_mut(&(fd as u32)) {
-                    Some(file) => {
-                        let res = file.write(&data);
-                        match res {
-                            Ok(b) => self.regs[Rv64Reg::a0] = b as u64,
-                            Err(e) => {
-                                self.regs[Rv64Reg::a0] = e.raw_os_error().unwrap_or(-9) as u64;
-                            }
-                        }
-                    }
-                    None => self.regs[Rv64Reg::a0] = len,
-                }
-                SyscallResult::Continue
-            }
-            0x5d => {
-                // Exit
-                SyscallResult::Exit
-            }
-            0x60 => {
-                // set_tid_address
-                // I think this can be safely ignored for single threaded
-                // programs. Just need to return the thread id.
-                self.regs[Rv64Reg::a0] = 100;
-                SyscallResult::Continue
-            }
-            0x63 => {
-                // set_robust_list
-                // This is used for futex implementations. Should be safe to
-                // ignore for single threaded programs.
-                self.regs[Rv64Reg::a0] = 0;
-                SyscallResult::Continue
-            }
-            0xa0 => {
-                // uname
-                // Not sure how to implement this one so just returning an error.
-                self.regs[Rv64Reg::a0] = (-1_i64) as u64;
-                SyscallResult::Continue
-            }
-            0xae => {
-                // Get user id
-                self.regs[Rv64Reg::a0] = 1000;
-                SyscallResult::Continue
-            }
-            0xaf => {
-                // Get effective user id
-                self.regs[Rv64Reg::a0] = 1000;
-                SyscallResult::Continue
-            }
-            0xb0 => {
-                // Get group id
-                self.regs[Rv64Reg::a0] = 1000;
-                SyscallResult::Continue
-            }
-            0xb1 => {
-                // Get effective group id
-                self.regs[Rv64Reg::a0] = 1000;
-                SyscallResult::Continue
-            }
-            0xd6 => {
-                // brk
-                let addr = self.regs[Rv64Reg::a0];
-                if addr < self.heap.start {
-                    self.regs[Rv64Reg::a0] = self.heap.start;
-                } else if addr > self.heap.end {
-                    self.regs[Rv64Reg::a0] = self.heap.end;
-                }
-                SyscallResult::Continue
-            }
+            0x30 => self.syscalls.faccessat(&mut self.regs, &mut self.mem),
+            0x3f => self.syscalls.read(&mut self.regs, &mut self.mem),
+            0x40 => self.syscalls.write(&mut self.regs, &mut self.mem),
+            0x5d => self.syscalls.exit(&mut self.regs, &mut self.mem),
+            0x60 => self.syscalls.set_tid_address(&mut self.regs, &mut self.mem),
+            0x63 => self.syscalls.set_robust_list(&mut self.regs, &mut self.mem),
+            0xa0 => self.syscalls.uname(&mut self.regs, &mut self.mem),
+            0xae => self.syscalls.getuid(&mut self.regs, &mut self.mem),
+            0xaf => self.syscalls.geteuid(&mut self.regs, &mut self.mem),
+            0xb0 => self.syscalls.getgid(&mut self.regs, &mut self.mem),
+            0xb1 => self.syscalls.getegid(&mut self.regs, &mut self.mem),
+            0xd6 => self.syscalls.brk(&mut self.regs, &mut self.mem),
             s => unimplemented!("Syscall 0x{s:X} is not implemented yet"),
         }
     }
@@ -245,6 +133,12 @@ impl State for LinuxRV64 {
 #[derive(Default, Clone, Copy, Debug)]
 pub struct Rv64State {
     gregs: [u64; 32],
+}
+
+impl RegState for Rv64State {
+    fn set_syscall_return(&mut self, val: ILVal) {
+        self.gregs[(Rv64Reg::a0 as u32) as usize] = val.extend_64();
+    }
 }
 
 impl Index<Rv64Reg> for Rv64State {
@@ -413,8 +307,7 @@ impl std::fmt::Display for Rv64Reg {
 }
 
 impl Register for Rv64Reg {
-    /// Returns [`Self::sp`] as the stack register
-    fn stack() -> Self {
-        Self::sp
+    fn syscall_ret() -> Self {
+        Self::a0
     }
 }

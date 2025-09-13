@@ -1,37 +1,41 @@
-use std::any::Any;
-
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
-use emil::arch::riscv::*;
+use emil::arch::{riscv::*, SyscallResult};
 use emil::emulate::{Emulator, Little};
+use emil::os::linux::LinuxSyscalls;
 use emil::prog::Program;
-use softmew::Perm;
+use softmew::page::SimplePage;
+use softmew::{Perm, MMU};
 
-#[derive(Clone, Default)]
-struct Fd(Vec<u8>);
-
-impl std::io::Read for Fd {
-    fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-        Ok(0)
-    }
+#[derive(Default)]
+pub struct RvMachine {
+    stdout: Vec<u8>,
 }
 
-impl std::io::Write for Fd {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0.extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
+impl LinuxSyscalls<Rv64State, MMU<SimplePage>> for RvMachine {
+    fn write(&mut self, regs: &mut Rv64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let fd = regs[Rv64Reg::a0];
+        let ptr = regs[Rv64Reg::a1];
+        let len = regs[Rv64Reg::a2];
+        let mut data = vec![0; len as usize];
+        mem .read_perm(ptr as usize, &mut data)
+            .expect("Failed to read message");
+        match fd {
+            1 => {
+                self.stdout.extend_from_slice(&data);
+                regs[Rv64Reg::a0] = len as u64;
+            }
+            _ => regs[Rv64Reg::a0] = len,
+        }
+        SyscallResult::Continue
     }
 }
 
 fn main() {
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
-        .load("/home/jaj/Documents/jamil/test-bins/hello-riscv")
+        .load("./test-bins/hello-riscv")
         .expect("Couldn't load test binary");
 
     let mut prog = Program::<Rv64Reg, Little>::default();
@@ -39,8 +43,7 @@ fn main() {
         prog.add_function(func.low_level_il().as_ref().unwrap());
     }
 
-    let mut state = LinuxRV64::new();
-    state.register_fd(1, Box::new(Fd::default()));
+    let mut state = LinuxRV64::new(RvMachine::default());
     let mem = state.memory_mut();
     for segment in bv.segments().iter() {
         let mut perm = Perm::NONE;
@@ -62,15 +65,10 @@ fn main() {
         bv.read(mem_seg.as_mut(), range.start);
     }
 
-    let mut buffer = [0u8; 8];
-    mem.read_perm(0x11168, &mut buffer).unwrap();
-
     let mut emu = Emulator::new(prog, state);
     let stop_reason = emu.run(bv.entry_point());
     println!("Stopped for: {:?}", stop_reason);
 
-    let stdout = emu.get_state_mut().take_fd(1).unwrap() as Box<dyn Any>;
-    let out: Box<Fd> = stdout.downcast().unwrap();
-    let message = String::from_utf8(out.0).unwrap();
-    println!("{message}");
+    let stdout = String::from_utf8_lossy(&emu.get_state().syscalls.stdout);
+    println!("{stdout}");
 }

@@ -25,8 +25,11 @@ pub enum SyscallResult {
 }
 
 pub trait Register: TryFrom<u32> + Debug + Display + Clone + Copy {
-    /// Get the register used as the stack register
-    fn stack() -> Self;
+    fn syscall_ret() -> Self;
+}
+
+pub trait RegState {
+    fn set_syscall_return(&mut self, val: ILVal);
 }
 
 pub trait State {

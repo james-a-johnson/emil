@@ -1,3 +1,5 @@
+use crate::{arch::{RegState, Register, State, SyscallResult}, emil::ILVal};
+
 /// Auxiliary vector entries.
 #[derive(Clone, Copy, Debug)]
 pub enum AuxVal {
@@ -198,4 +200,36 @@ impl Environment {
         data[len..][..8].copy_from_slice(&argc.to_le_bytes());
         Ok(current)
     }
+}
+
+/// Errno for ENOTSUP.
+pub const UNIMPLEMENTED: ILVal = ILVal::Quad((-95_i64) as u64);
+
+macro_rules! define_syscall {
+    ($name:ident) => {
+        fn $name(&mut self, regs: &mut R, _mem: &mut M) -> SyscallResult {
+            regs.set_syscall_return(UNIMPLEMENTED);
+            SyscallResult::Continue
+        }
+    };
+}
+
+pub trait LinuxSyscalls<R: RegState, M> {
+    define_syscall!(faccessat);
+    define_syscall!(openat);
+    define_syscall!(read);
+    define_syscall!(write);
+    define_syscall!(set_tid_address);
+    define_syscall!(set_robust_list);
+    define_syscall!(uname);
+    define_syscall!(getuid);
+    define_syscall!(geteuid);
+    define_syscall!(getgid);
+    define_syscall!(getegid);
+    define_syscall!(brk);
+
+    fn exit(&mut self, _regs: &mut R, _mem: &mut M) -> SyscallResult {
+        SyscallResult::Exit
+    }
+    
 }

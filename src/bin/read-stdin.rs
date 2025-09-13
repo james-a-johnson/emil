@@ -1,5 +1,6 @@
 use std::any::Any;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
+use std::io::{Read, Write};
 
 // use std::fs;
 // use std::io::Write;
@@ -7,14 +8,138 @@ use std::collections::VecDeque;
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
-use emil::arch::{State, riscv::*};
+use emil::arch::{riscv::*, State, SyscallResult};
 use emil::emulate::{Emulator, Exit, HookStatus, Little};
 use emil::prog::Program;
-use emil::os::linux::{Environment, AuxVal};
-use softmew::Perm;
+use emil::os::linux::{AuxVal, Environment, LinuxSyscalls};
+use softmew::page::{Page, SimplePage};
+use softmew::{Perm, MMU};
+use std::ops::Range;
 
 const STACK_BASE: usize = 0xfffffffffff00000;
 const STACK_SIZE: usize = 0x000000000007f000;
+
+pub struct RvMachine {
+    fds: HashMap<u32, VecDeque<u8>>,
+    heap: Range<u64>,
+}
+
+impl RvMachine {
+    pub fn new(heap: Range<u64>) -> Self {
+        let mut map = HashMap::new();
+        map.insert(0, VecDeque::new());
+        map.insert(1, VecDeque::new());
+        map.insert(2, VecDeque::new());
+        Self {
+            fds: map,
+            heap,
+        }
+    }
+
+    pub fn take_fd(&mut self, fd: u32) -> Option<VecDeque<u8>> {
+        self.fds.remove(&fd)
+    }
+
+    pub fn set_stdin(&mut self, data: VecDeque<u8>) -> Option<VecDeque<u8>> {
+        self.fds.insert(0, data)
+    }
+}
+
+impl LinuxSyscalls<Rv64State, MMU<SimplePage>> for RvMachine {
+    fn faccessat(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = (-2_i64) as u64;
+        SyscallResult::Continue
+    }
+
+    fn read(&mut self, regs: &mut Rv64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let fd = regs[Rv64Reg::a0];
+        let ptr = regs[Rv64Reg::a1] as usize;
+        let len = regs[Rv64Reg::a2] as usize;
+        match self.fds.get_mut(&(fd as u32)) {
+            Some(file) => {
+                let page = mem.get_mapping_mut(ptr).unwrap();
+                let start = page.start();
+                let buf = &mut page.as_mut()[ptr - start..][..len];
+                let res = file.read(buf);
+                match res {
+                    Ok(b) => regs[Rv64Reg::a0] = b as u64,
+                    Err(e) => {
+                        regs[Rv64Reg::a0] = e.raw_os_error().unwrap_or(-9) as u64;
+                    }
+                }
+            }
+            None => regs[Rv64Reg::a0] = (-9_i64) as u64,
+        };
+        SyscallResult::Continue
+    }
+
+    fn write(&mut self, regs: &mut Rv64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let fd = regs[Rv64Reg::a0];
+        let ptr = regs[Rv64Reg::a1];
+        let len = regs[Rv64Reg::a2];
+        let mut data = vec![0; len as usize];
+        mem .read_perm(ptr as usize, &mut data)
+            .expect("Failed to read message");
+        match self.fds.get_mut(&(fd as u32)) {
+            Some(file) => {
+                let res = file.write(&data);
+                match res {
+                    Ok(b) => regs[Rv64Reg::a0] = b as u64,
+                    Err(e) => {
+                        regs[Rv64Reg::a0] = e.raw_os_error().unwrap_or(-9) as u64;
+                    }
+                }
+            }
+            None => regs[Rv64Reg::a0] = len,
+        }
+        SyscallResult::Continue
+    }
+
+    fn set_tid_address(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = 100;
+        SyscallResult::Continue
+    }
+
+    fn set_robust_list(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = 0;
+        SyscallResult::Continue
+    }
+
+    fn uname(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = (-95_i64) as u64;
+        SyscallResult::Continue
+    }
+
+    fn getuid(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = 1000;
+        SyscallResult::Continue
+    }
+
+    fn geteuid(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = 1000;
+        SyscallResult::Continue
+    }
+
+    fn getgid(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = 1000;
+        SyscallResult::Continue
+    }
+
+    fn getegid(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = 1000;
+        SyscallResult::Continue
+    }
+
+    fn brk(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let addr = regs[Rv64Reg::a0];
+        if addr < self.heap.start {
+            regs[Rv64Reg::a0] = self.heap.start;
+        } else if addr > self.heap.end {
+            regs[Rv64Reg::a0] = self.heap.end;
+        }
+        SyscallResult::Continue
+    }
+}
 
 fn main() {
     let required_functions: &[u64] = &[
@@ -44,10 +169,8 @@ fn main() {
 
     let mut stdin = VecDeque::new();
     stdin.extend(b"10\n11\n12\n13\n");
-    let stdout = VecDeque::new();
-    let mut state = LinuxRV64::new();
-    state.register_fd(0, Box::new(stdin));
-    state.register_fd(1, Box::new(stdout));
+    let mut state = LinuxRV64::new(RvMachine::new(0x80000000..0x80010000));
+    state.syscalls.set_stdin(stdin);
     let mem = state.memory_mut();
     for segment in bv.segments().iter() {
         let mut perm = Perm::NONE;
@@ -93,7 +216,6 @@ fn main() {
         .unwrap();
 
     state.regs_mut()[Rv64Reg::sp] = sp_val;
-    state.set_heap(0x80000000, 0x10000);
 
     let mut emu = Emulator::new(prog, state);
     // emu.add_hook(0x29318, compare_hook);
@@ -124,9 +246,8 @@ fn main() {
     println!("Stop reason: {:?}", stop_reason);
     println!("Stopped at: {:#x}", emu.curr_pc());
 
-    let stdout = emu.get_state_mut().take_fd(1).unwrap() as Box<dyn Any>;
-    let mut out: Box<VecDeque<u8>> = stdout.downcast().unwrap();
-    let message = String::from_utf8(out.make_contiguous().to_vec()).unwrap();
+    let mut stdout = emu.get_state_mut().syscalls.take_fd(1).unwrap();
+    let message = String::from_utf8(stdout.make_contiguous().to_vec()).unwrap();
     println!("{message}");
 }
 
