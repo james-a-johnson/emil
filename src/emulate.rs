@@ -138,6 +138,8 @@ pub struct Emulator<S: State> {
     state: S,
     /// Intermediate language registers.
     ilrs: [ILVal; 255],
+    /// Temporary registers used by LLIL.
+    temps: [ILVal; 16],
     /// Address of current instruction.
     pc: usize,
     /// List of instructions that have been hooked and what index they came from.
@@ -164,6 +166,7 @@ impl<S: State> Emulator<S> {
             prog,
             state,
             ilrs: [ILVal::Byte(0); 255],
+            temps: [ILVal::Byte(0); 16],
             pc: 0,
             replaced: Vec::new(),
         }
@@ -402,6 +405,12 @@ impl<S: State> Emulator<S> {
             Emil::LoadReg { reg, ilr } => {
                 let val = self.state.read_reg(reg);
                 *self.get_ilr_mut(ilr) = val;
+            }
+            Emil::SetTemp { t, ilr } => {
+                self.temps[t as usize] = self.get_ilr(ilr);
+            }
+            Emil::LoadTemp { ilr, t } => {
+                *self.get_ilr_mut(ilr) = self.temps[t as usize];
             }
             Emil::SetFlag(ilr) => {
                 let val = self.get_ilr(ilr);
