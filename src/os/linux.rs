@@ -1,4 +1,4 @@
-use crate::{arch::{RegState, Register, State, SyscallResult}, emil::ILVal};
+use crate::{arch::{RegState, SyscallResult}, emil::ILVal};
 
 /// Auxiliary vector entries.
 #[derive(Clone, Copy, Debug)]
@@ -214,6 +214,15 @@ macro_rules! define_syscall {
     };
 }
 
+/// All of the Linux system calls.
+///
+/// **NOTE:** Not all of the system calls are currently implemented here. Adding
+/// all of them is still a work in progress.
+///
+/// This trait provides a default implementation for each system call that just
+/// returns an error saying the operation is not supported. The only exception
+/// is the exit system call which will cause the program to terminate
+/// execution.
 pub trait LinuxSyscalls<R: RegState, M> {
     define_syscall!(faccessat);
     define_syscall!(openat);
@@ -227,6 +236,10 @@ pub trait LinuxSyscalls<R: RegState, M> {
     define_syscall!(getgid);
     define_syscall!(getegid);
     define_syscall!(brk);
+    define_syscall!(prlimit64);
+    define_syscall!(readlinkat);
+    define_syscall!(getrandom);
+    define_syscall!(clock_gettime);
 
     fn exit(&mut self, _regs: &mut R, _mem: &mut M) -> SyscallResult {
         SyscallResult::Exit

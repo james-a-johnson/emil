@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::collections::{HashMap, VecDeque};
 use std::io::{Read, Write};
 
@@ -105,8 +104,42 @@ impl LinuxSyscalls<Rv64State, MMU<SimplePage>> for RvMachine {
         SyscallResult::Continue
     }
 
-    fn uname(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
-        regs[Rv64Reg::a0] = (-95_i64) as u64;
+    fn uname(&mut self, regs: &mut Rv64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let addr = regs[Rv64Reg::a0];
+        regs[Rv64Reg::a0] = (-14_i64) as u64;
+        if mem.write_perm(addr as usize, b"Linux\x00").is_err() {
+            return SyscallResult::Continue;
+        }
+        if mem.write_perm((addr + 65) as usize, b"binja.emu\x00").is_err() {
+            return SyscallResult::Continue;
+        }
+        if mem.write_perm((addr + 65 * 2) as usize, b"6.0\x00").is_err() {
+            return SyscallResult::Continue;
+        }
+        if mem.write_perm((addr + 65 * 3) as usize, b"6.0\x00").is_err() {
+            return SyscallResult::Continue;
+        }
+        if mem.write_perm((addr + 65 * 4) as usize, b"rv64gc\x00").is_err() {
+            return SyscallResult::Continue;
+        }
+        if mem.write_perm((addr + 65 * 5) as usize, b"binja.emu\x00").is_err() {
+            return SyscallResult::Continue;
+        }
+        regs[Rv64Reg::a0] = 0;
+        SyscallResult::Continue
+    }
+
+    fn getrandom(&mut self, regs: &mut Rv64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let addr = regs[Rv64Reg::a0];
+        let size = regs[Rv64Reg::a1];
+        regs[Rv64Reg::a0] = (-14_i64) as u64;
+        for i in addr..(addr + size) {
+            if mem.write_perm(i as usize, &[0xee]).is_err() {
+                return SyscallResult::Continue
+            }
+        }
+
+        regs[Rv64Reg::a0] = 0;
         SyscallResult::Continue
     }
 
