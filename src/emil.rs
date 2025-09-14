@@ -433,10 +433,10 @@ impl Shl for ILVal {
 
     fn shl(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l << r),
-            (Self::Short(l), Self::Short(r)) => Self::Short(l << r),
-            (Self::Word(l), Self::Word(r)) => Self::Word(l << r),
-            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l << r),
+            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.overflowing_shl(r as u32).0),
+            (Self::Short(l), Self::Short(r)) => Self::Short(l.overflowing_shl(r as u32).0),
+            (Self::Word(l), Self::Word(r)) => Self::Word(l.overflowing_shl(r as u32).0),
+            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.overflowing_shl(r as u32).0),
             _ => panic!("Incompatible sizes for remainder operation"),
         }
     }
