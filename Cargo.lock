@@ -308,8 +308,8 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
 name = "softmew"
-version = "0.4.0"
-source = "git+https://github.com/james-a-johnson/softmew?tag=v0.5.0#fafa3c364726a3c73820fbe9b065e5362046c518"
+version = "0.6.1"
+source = "git+https://github.com/james-a-johnson/softmew?tag=v0.6.1#c037968e0439440e19f98798bd5c42049ab3b926"
 
 [[package]]
 name = "syn"

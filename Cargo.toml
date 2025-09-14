@@ -9,5 +9,5 @@ members = ["from_id"]
 
 [dependencies]
 binaryninja = { git = "https://github.com/Vector35/binaryninja-api.git", rev = "4c1c8712f0e0a700fc7af5cf06f3425826ba9a2f" }
-softmew = { git = "https://github.com/james-a-johnson/softmew", tag = "v0.5.0" }
+softmew = { git = "https://github.com/james-a-johnson/softmew", tag = "v0.6.1" }
 from_id = { path = "./from_id" }

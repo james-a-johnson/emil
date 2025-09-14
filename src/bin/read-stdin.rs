@@ -173,6 +173,33 @@ impl LinuxSyscalls<Rv64State, MMU<SimplePage>> for RvMachine {
         }
         SyscallResult::Continue
     }
+
+    fn mmap(&mut self, regs: &mut Rv64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let addr = regs[Rv64Reg::a0];
+        let len = regs[Rv64Reg::a1];
+
+        if addr != 0 {
+            // Just map at any address that has the required size
+            let range = mem.gaps().find(|r| r.size() >= len as usize);
+            if let Some(addrs) = range {
+                let page = mem.map_memory(addrs.start, len as usize, Perm::READ | Perm::WRITE);
+                if page.is_ok() {
+                    regs[Rv64Reg::a0] = addrs.start as u64;
+                    return SyscallResult::Continue;
+                }
+            }
+            regs[Rv64Reg::a0] = u64::MAX;
+            return SyscallResult::Continue;
+        } else {
+            let page = mem.map_memory(addr as usize, len as usize, Perm::READ | Perm::WRITE);
+            if page.is_ok() {
+                regs[Rv64Reg::a0] = addr;
+                return SyscallResult::Continue;
+            }
+            regs[Rv64Reg::a0] = u64::MAX;
+            return SyscallResult::Continue;
+        }
+    }
 }
 
 fn main() {
@@ -276,7 +303,6 @@ fn main() {
                 }
             }
         } else {
-            println!("Wat");
             break;
         }
     }

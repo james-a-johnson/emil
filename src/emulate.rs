@@ -646,28 +646,3 @@ impl<S: State> Emulator<S> {
         unsafe { self.ilrs.get_unchecked_mut(idx.0 as usize) }
     }
 }
-
-fn sign_extend(val: u64, size: usize) -> u64 {
-    debug_assert!(size <= 8);
-    const MAX_SIZE: usize = 8;
-    let shift_left = MAX_SIZE - size;
-    let shifted_val = (val << shift_left) as i64;
-    (shifted_val >> shift_left) as u64
-}
-
-const MASKS: [u64; 9] = [
-    0x0,
-    0xff,
-    0xffff,
-    0xffffff,
-    0xffffffff,
-    0xffffffffff,
-    0xffffffffffff,
-    0xffffffffffffff,
-    0xffffffffffffffff,
-];
-
-fn zero_extend(val: u64, size: usize) -> u64 {
-    debug_assert!(size <= 8);
-    val & MASKS[size]
-}

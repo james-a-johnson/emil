@@ -240,6 +240,7 @@ pub trait LinuxSyscalls<R: RegState, M> {
     define_syscall!(readlinkat);
     define_syscall!(getrandom);
     define_syscall!(clock_gettime);
+    define_syscall!(mmap);
 
     fn exit(&mut self, _regs: &mut R, _mem: &mut M) -> SyscallResult {
         SyscallResult::Exit

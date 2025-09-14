@@ -96,6 +96,7 @@ impl<S: LinuxSyscalls<Rv64State, MMU<SimplePage>>> State for LinuxRV64<S> {
             0xb0 => self.syscalls.getgid(&mut self.regs, &mut self.mem),
             0xb1 => self.syscalls.getegid(&mut self.regs, &mut self.mem),
             0xd6 => self.syscalls.brk(&mut self.regs, &mut self.mem),
+            0xde => self.syscalls.mmap(&mut self.regs, &mut self.mem),
             0x105 => self.syscalls.prlimit64(&mut self.regs, &mut self.mem),
             0x116 => self.syscalls.getrandom(&mut self.regs, &mut self.mem),
             s => unimplemented!("Syscall 0x{s:X} is not implemented yet"),
