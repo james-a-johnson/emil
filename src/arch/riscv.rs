@@ -7,6 +7,8 @@ use from_id::FromId;
 use softmew::{MMU, fault::Fault, page::SimplePage};
 
 use std::ops::{Index, IndexMut};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 pub struct LinuxRV64<S> {
     pub regs: Rv64State,
@@ -136,6 +138,7 @@ impl<S: LinuxSyscalls<Rv64State, MMU<SimplePage>>> State for LinuxRV64<S> {
 }
 
 #[derive(Default, Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Rv64State {
     gregs: [u64; 32],
 }
@@ -238,6 +241,7 @@ impl IndexMut<Rv64Reg> for Rv64State {
 #[allow(non_camel_case_types)]
 #[repr(u32)]
 #[derive(FromId, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Rv64Reg {
     zero = 0,
     ra = 1,

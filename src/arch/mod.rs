@@ -5,6 +5,7 @@
 // ```
 
 pub use softmew::fault::Fault;
+use softmew::MMU;
 
 use std::{
     any::Any,
@@ -55,6 +56,10 @@ pub trait State {
     fn push(&mut self, val: &[u8]) -> Result<(), Fault>;
     fn pop(&mut self, data: &mut [u8]) -> Result<(), Fault>;
     fn intrinsic(&mut self, id: u32) -> Result<(), Fault>;
+}
+
+pub trait Saveable<R, P>: State {
+    fn state(self) -> (R, MMU<P>);
 }
 
 /// Helper trait that can be used as a trait for adding a file descriptor to some target's state.

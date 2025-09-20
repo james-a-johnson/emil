@@ -21,12 +21,16 @@ use crate::emulate::{Endian, HookStatus};
 use std::fmt::{Debug, Display, LowerHex, UpperHex};
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Reference to an [`ILVal`].
 ///
 /// These are registers that can be used for intermediate computations of executing a single architecture level
 /// instruction. There can be a maximum of 255 of them, and they are not guaranteed to be preserved between instructions.
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
 #[repr(transparent)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ILRef(pub(crate) u8);
 
 impl ILRef {
@@ -44,6 +48,7 @@ impl ILRef {
 /// It implements many arithmetic operations. Only two values of the same size can be used in an
 /// operation. Otherwise, the implementation will panic.
 #[derive(Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ILVal {
     Byte(u8),
     Short(u16),
@@ -457,6 +462,7 @@ impl Shr for ILVal {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Emil<R: Reg, E: Endian> {
     /// No operation instruction.
     Nop,
@@ -727,7 +733,7 @@ pub enum Emil<R: Reg, E: Endian> {
     BoolToInt(ILRef, ILRef, u8),
     /// Convert a floating point value to an integer
     FloatToInt(ILRef, ILRef, u8),
-    /// Convert an integer to a flaoting point value.
+    /// Convert an integer to a floating point value.
     IntToFloat(ILRef, ILRef, u8),
     /// Value of an external pointer.
     ExternPtr(ILRef, u64),
@@ -742,6 +748,7 @@ pub enum Emil<R: Reg, E: Endian> {
     /// This does not correspond to any specific instruction in LLIL. It is
     /// used to hook execution in a program so a user can run arbitrary code
     /// on the current state.
+    #[cfg_attr(feature = "serde", serde(skip))]
     Hook(
         fn(&mut dyn State<Reg = R, Endianness = E>) -> HookStatus,
         usize,
@@ -751,5 +758,6 @@ pub enum Emil<R: Reg, E: Endian> {
     /// This is a breakpoint that was not already present in the original
     /// program. This has extra information added to it so that emulation
     /// can stop at the breakpoint and then later continue through it.
+    #[cfg_attr(feature = "serde", serde(skip))]
     UserBp(usize),
 }

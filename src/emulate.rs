@@ -1,12 +1,17 @@
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::*;
-
-use crate::arch::{State, SyscallResult};
+use crate::arch::{Saveable, State, SyscallResult};
 use crate::emil::{Emil, ILRef, ILVal};
 use crate::prog::Program;
 
 use softmew::fault::Fault;
+use softmew::MMU;
+
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")]
+use std::io::{Read, Write};
 
 /// Reason that the emulator stopped executing.
 #[derive(Clone, Debug)]
@@ -644,5 +649,72 @@ impl<S: State> Emulator<S> {
         // indexing into an array of size 256 so it is not possible to index
         // past the end of the array or before the array.
         unsafe { self.ilrs.get_unchecked_mut(idx.0 as usize) }
+    }
+}
+
+
+pub struct SaveState<S: State, P, R> {
+    /// Instructions to run.
+    prog: Program<S::Reg, S::Endianness>,
+    /// State of the device, mainly just memory.
+    memory: MMU<P>,
+    /// Target architecture registers.
+    registers: R,
+    /// Temporary registers used by LLIL.
+    temps: [ILVal; 16],
+    /// Address of current instruction.
+    pc: usize,
+    /// Flag register or state value.
+    flag: u64,
+}
+
+impl<S: Saveable<R, P>, P, R> From<Emulator<S>> for SaveState<S, P, R> {
+    fn from(value: Emulator<S>) -> Self {
+        let Emulator {
+            prog,
+            state,
+            pc,
+            temps,
+            ..
+        } = value;
+        let flag = state.get_flags();
+        let (regs, mem) = state.state();
+        Self {
+            prog, memory: mem, registers: regs, temps, pc, flag,
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<S: State, P, R> SaveState<S, P, R>
+where S::Reg : Serialize, S::Endianness: Serialize, R: Serialize, P: Serialize {
+    pub fn save<W: Write>(&self, file: &mut W) -> Result<(), rmp_serde::encode::Error> {
+        use rmp_serde::encode::Serializer;
+        let mut serializer = Serializer::new(file);
+        self.prog.serialize(&mut serializer)?;
+        self.memory.serialize(&mut serializer)?;
+        self.registers.serialize(&mut serializer)?;
+        self.temps.serialize(&mut serializer)?;
+        self.pc.serialize(&mut serializer)?;
+        self.flag.serialize(&mut serializer)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, S: State, P, R> SaveState<S, P, R>
+where S::Reg: Deserialize<'de>, S::Endianness: Deserialize<'de>, R: Deserialize<'de>, P: Deserialize<'de> {
+    pub fn load<F: Read>(file: &mut F) -> Result<SaveState<S, P, R>, rmp_serde::decode::Error> {
+        use rmp_serde::decode::Deserializer;
+        let mut deserializer = Deserializer::new(file);
+        let prog = Program::deserialize(&mut deserializer)?;
+        let memory = <MMU<P> as Deserialize>::deserialize(&mut deserializer)?;
+        let regs = R::deserialize(&mut deserializer)?;
+        let temps = <[ILVal; 16]>::deserialize(&mut deserializer)?;
+        let pc = usize::deserialize(&mut deserializer)?;
+        let flag = u64::deserialize(&mut deserializer)?;
+        Ok(Self {
+            prog, memory, registers: regs, temps, pc, flag,
+        })
     }
 }
