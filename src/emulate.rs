@@ -5,7 +5,6 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::*;
 
-use softmew::MMU;
 use softmew::fault::Fault;
 
 #[cfg(feature = "serde")]
