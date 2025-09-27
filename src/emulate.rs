@@ -596,7 +596,7 @@ impl<S: State> Emulator<S> {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Byte((left >= right) as u8);
+                *out = ILVal::Flag(left >= right);
             }
             Emil::BoolToInt(out, val, size) => {
                 let val = self.get_ilr(val).extend_64();
@@ -691,50 +691,41 @@ impl<S: Saveable> From<Emulator<S>> for SaveState<S> {
 }
 
 #[cfg(feature = "serde")]
-impl<S: State, P, R> SaveState<S, P, R>
+impl<S: Saveable> SaveState<S>
 where
     S::Reg: Serialize,
     S::Endianness: Serialize,
-    R: Serialize,
-    P: Serialize,
+    S::Intrin: Serialize,
 {
-    pub fn save<W: Write>(&self, file: &mut W) -> Result<(), rmp_serde::encode::Error> {
+    pub fn save<W: Write>(&self, file: &mut W) -> Result<(), Box<dyn std::error::Error>> {
         use rmp_serde::encode::Serializer;
         let mut serializer = Serializer::new(file);
-        self.prog.serialize(&mut serializer)?;
-        self.memory.serialize(&mut serializer)?;
-        self.registers.serialize(&mut serializer)?;
-        self.temps.serialize(&mut serializer)?;
         self.pc.serialize(&mut serializer)?;
-        self.flag.serialize(&mut serializer)?;
+        self.temps.serialize(&mut serializer)?;
+        self.prog.serialize(&mut serializer)?;
         Ok(())
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'de, S: State, P, R> SaveState<S, P, R>
+impl<'de, S: Saveable> SaveState<S>
 where
     S::Reg: Deserialize<'de>,
     S::Endianness: Deserialize<'de>,
-    R: Deserialize<'de>,
-    P: Deserialize<'de>,
+    S::Intrin: Deserialize<'de>,
 {
-    pub fn load<F: Read>(file: &mut F) -> Result<SaveState<S, P, R>, rmp_serde::decode::Error> {
+    pub fn load<F: Read>(file: &mut F) -> Result<SaveState<S>, Box<dyn std::error::Error>> {
         use rmp_serde::decode::Deserializer;
         let mut deserializer = Deserializer::new(file);
-        let prog = Program::deserialize(&mut deserializer)?;
-        let memory = <MMU<P> as Deserialize>::deserialize(&mut deserializer)?;
-        let regs = R::deserialize(&mut deserializer)?;
-        let temps = <[ILVal; 16]>::deserialize(&mut deserializer)?;
         let pc = usize::deserialize(&mut deserializer)?;
-        let flag = u64::deserialize(&mut deserializer)?;
+        let temps = <[ILVal; 16]>::deserialize(&mut deserializer)?;
+        let prog = Program::deserialize(&mut deserializer)?;
+        let state = todo!();
         Ok(Self {
             prog,
-            memory,
-            registers: regs,
             temps,
             pc,
-            flag,
+            state,
         })
     }
 }

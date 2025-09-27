@@ -242,7 +242,7 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
 
     fn set_flag(&mut self, val: bool, id: u32) {
         if id < 32 {
-            self.flag &= !((val as u64) << id);
+            self.flag &= !((1u64) << id);
             self.flag |= (val as u64) << id;
         } else {
             self.conds[(id - 0x80000000) as usize] = val as u8;
@@ -311,6 +311,7 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
             (0x38, openat),
             (0x3f, read),
             (0x40, write),
+            (0x4e, readlinkat),
             (0x60, set_tid_address),
             (0x63, set_robust_list),
             (0xae, getuid),
@@ -319,6 +320,7 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
             (0xb0, getgid),
             (0xb1, getegid),
             (0xd6, brk),
+            (0x105, prlimit64),
             (0x125, rseq)
         )
     }
@@ -681,7 +683,6 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
     }
 
     fn uname(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
-        println!("uname syscall");
         let addr = regs[Arm64Reg::x0];
         regs[Arm64Reg::x0] = (-14_i64) as u64;
         if mem.write_perm(addr as usize, b"Linux\x00").is_err() {
@@ -805,6 +806,32 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
         let _fd = regs[Arm64Reg::x0];
         let _iov = regs[Arm64Reg::x1];
         let _iocnt = regs[Arm64Reg::x2];
+        SyscallResult::Continue
+    }
+
+    fn readlinkat(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let mut path_addr = regs[Arm64Reg::x1];
+        let mut path = Vec::new();
+        let mut buf = [0u8];
+        let link_buf = regs[Arm64Reg::x2];
+        loop {
+            if mem.read_perm(path_addr as usize, &mut buf).is_err() {
+                regs[Arm64Reg::x0] = (-14_i64) as u64;
+                return SyscallResult::Continue;
+            }
+            if buf[0] == 0 {
+                break;
+            }
+            path.push(buf[0]);
+            path_addr += 1;
+        }
+        match <Vec<u8> as AsRef<[u8]>>::as_ref(&path) {
+            b"/proc/self/exe" => {
+                mem.write_perm(link_buf as usize, b"/home/project/read-stdin\x00");
+                regs[Arm64Reg::x0] = 24;
+            }
+            _ => regs[Arm64Reg::x0] = (-2_i64) as u64,
+        }
         SyscallResult::Continue
     }
 }

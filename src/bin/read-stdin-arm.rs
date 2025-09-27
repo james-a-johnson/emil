@@ -16,7 +16,7 @@ const STACK_BASE: usize = 0xfffffffffff00000;
 const STACK_SIZE: usize = 0x000000000007f000;
 
 fn main() {
-    let functions_to_load: &[u64] = &[0x423a10, 0x40fa10, 0x400850, 0x425160, 0x449440];
+    let functions_to_load: &[u64] = &[0x449440, 0x423a10, 0x40fa10, 0x400850, 0x425160];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
         .load("./test-bins/sum-stdin-arm.bndb")

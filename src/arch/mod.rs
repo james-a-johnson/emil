@@ -14,6 +14,9 @@ use std::{
     io::{Read, Write},
 };
 
+#[cfg(feature = "serde")]
+use serde::{ser::Serializer, de::Deserializer};
+
 pub mod arm64;
 pub mod riscv;
 
@@ -36,7 +39,14 @@ pub trait RegState {
     fn set_syscall_return(&mut self, val: ILVal);
 }
 
+/// Intrinsic instruction.
+///
+/// This is so that an intrinsic instruction can be parsed into some state that the state understands and can implement
+/// and emulate behind the scenes.
+///
+/// If you want to be able to save state to disk, this this type will need to be serializable.
 pub trait Intrinsic: Sized + Clone + Copy + Debug {
+    /// Parse an intrinsic operation into the implementing type.
     fn parse(intrinsic: &Operation<'_, Finalized, NonSSA, LLILIntrinsic>) -> Result<Self, String>;
 }
 
@@ -67,8 +77,8 @@ pub trait State {
 }
 
 pub trait Saveable: State + Sized {
-    fn save<W: Write>(&self, file: W) -> std::io::Result<()>;
-    fn load<R: Read>(file: R) -> std::io::Result<Self>;
+    fn save<W: Write>(&self, file: &mut W) -> Result<(), Box<dyn std::error::Error>>;
+    fn load<R: Read>(file: &mut R) -> Result<Self, Box<dyn std::error::Error>>;
 }
 
 /// Helper trait that can be used as a trait for adding a file descriptor to some target's state.
