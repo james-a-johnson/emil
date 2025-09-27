@@ -1,15 +1,15 @@
-use std::cmp::Ordering;
-use std::fmt::Debug;
-use std::ops::*;
 use crate::arch::{Saveable, State, SyscallResult};
 use crate::emil::{Emil, ILRef, ILVal};
 use crate::prog::Program;
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::ops::*;
 
-use softmew::fault::Fault;
 use softmew::MMU;
+use softmew::fault::Fault;
 
 #[cfg(feature = "serde")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use std::io::{Read, Write};
 
@@ -81,6 +81,7 @@ impl Endian for Little {
 
     fn write(value: ILVal, data: &mut [u8; 8]) -> usize {
         match value {
+            ILVal::Flag(_) => unreachable!("Can't write a byte"),
             ILVal::Byte(b) => {
                 data[0] = b;
                 1
@@ -138,7 +139,7 @@ impl From<Exit> for ExecutionState {
 /// Emulator for a specific BIL graph, state, and architecture.
 pub struct Emulator<S: State> {
     /// Instructions to run.
-    prog: Program<S::Reg, S::Endianness>,
+    prog: Program<S::Reg, S::Endianness, S::Intrin>,
     /// State of the device, mainly just memory.
     state: S,
     /// Intermediate language registers.
@@ -148,7 +149,7 @@ pub struct Emulator<S: State> {
     /// Address of current instruction.
     pc: usize,
     /// List of instructions that have been hooked and what index they came from.
-    replaced: Vec<(Emil<S::Reg, S::Endianness>, usize)>,
+    replaced: Vec<(Emil<S::Reg, S::Endianness, S::Intrin>, usize)>,
 }
 
 macro_rules! bin_op {
@@ -166,7 +167,7 @@ impl<S: State> Emulator<S> {
     /// `prog` is the actual program that is to be emulated. `state` will
     /// determine how the program interacts with its environment. It will
     /// emulate the memory accesses and system calls.
-    pub fn new(prog: Program<S::Reg, S::Endianness>, state: S) -> Self {
+    pub fn new(prog: Program<S::Reg, S::Endianness, S::Intrin>, state: S) -> Self {
         Self {
             prog,
             state,
@@ -195,7 +196,9 @@ impl<S: State> Emulator<S> {
     pub fn add_hook(
         &mut self,
         addr: u64,
-        hook: fn(&mut dyn State<Reg = S::Reg, Endianness = S::Endianness>) -> HookStatus,
+        hook: fn(
+            &mut dyn State<Reg = S::Reg, Endianness = S::Endianness, Intrin = S::Intrin>,
+        ) -> HookStatus,
     ) -> Option<HookID> {
         let replaced_idx = self.replaced.len();
         let mut hook = Emil::Hook(hook, replaced_idx);
@@ -261,12 +264,12 @@ impl<S: State> Emulator<S> {
     }
 
     /// Get a reference to the underlying program.
-    pub fn get_prog(&self) -> &Program<S::Reg, S::Endianness> {
+    pub fn get_prog(&self) -> &Program<S::Reg, S::Endianness, S::Intrin> {
         &self.prog
     }
 
     /// Get a mutable reference to the underlying program.
-    pub fn get_prog_mut(&mut self) -> &mut Program<S::Reg, S::Endianness> {
+    pub fn get_prog_mut(&mut self) -> &mut Program<S::Reg, S::Endianness, S::Intrin> {
         &mut self.prog
     }
 
@@ -376,15 +379,15 @@ impl<S: State> Emulator<S> {
     }
 
     #[inline(always)]
-    fn curr_inst(&self) -> &Emil<S::Reg, S::Endianness> {
+    fn curr_inst(&self) -> &Emil<S::Reg, S::Endianness, S::Intrin> {
         unsafe { self.prog.il.get_unchecked(self.pc) }
     }
 
-    fn emulate(&mut self, inst: Emil<S::Reg, S::Endianness>) -> ExecutionState {
+    fn emulate(&mut self, inst: Emil<S::Reg, S::Endianness, S::Intrin>) -> ExecutionState {
         match inst {
             Emil::Nop => {}
             Emil::NoRet => return Exit::NoReturn.into(),
-            Emil::Syscall => match self.state.syscall() {
+            Emil::Syscall => match self.state.syscall(self.curr_pc()) {
                 SyscallResult::Exit => return Exit::Exited.into(),
                 SyscallResult::Error(e) => return ExecutionState::Exit(e.into()),
                 _ => {}
@@ -393,7 +396,7 @@ impl<S: State> Emulator<S> {
             Emil::Undef => return Exit::Undefined.into(),
             Emil::Trap(v) => unimplemented!("Hit trap: {v}"),
             Emil::Intrinsic(intrinsic) => {
-                self.state.intrinsic(intrinsic).unwrap();
+                self.state.intrinsic(&intrinsic).unwrap();
             }
             Emil::Constant { reg, value, size } => {
                 let val = ILVal::from(value);
@@ -417,9 +420,13 @@ impl<S: State> Emulator<S> {
             Emil::LoadTemp { ilr, t } => {
                 *self.get_ilr_mut(ilr) = self.temps[t as usize];
             }
-            Emil::SetFlag(ilr) => {
+            Emil::SetFlag(ilr, id) => {
                 let val = self.get_ilr(ilr);
-                self.state.set_flags(val);
+                self.state.set_flag(val.truth(), id);
+            }
+            Emil::Flag(ilr, id) => {
+                let val = ILVal::Flag(self.state.get_flag(id));
+                *self.get_ilr_mut(ilr) = val;
             }
             Emil::Store { value, addr } => {
                 let mut buf = [0u8; 8];
@@ -522,6 +529,8 @@ impl<S: State> Emulator<S> {
                 bin_op!(self, out, left, right, ILVal::signed_div)
             }
             Emil::Mul { out, left, right } => bin_op!(self, out, left, right, ILVal::mul),
+            Emil::Not(dest, source) => *self.get_ilr_mut(dest) = !self.get_ilr(source),
+            Emil::Negate(dest, source) => *self.get_ilr_mut(dest) = -self.get_ilr(source),
             Emil::Sub { out, left, right } => bin_op!(self, out, left, right, ILVal::sub),
             Emil::Or { out, left, right } => bin_op!(self, out, left, right, ILVal::bitor),
             Emil::Xor { out, left, right } => bin_op!(self, out, left, right, ILVal::bitxor),
@@ -652,23 +661,18 @@ impl<S: State> Emulator<S> {
     }
 }
 
-
-pub struct SaveState<S: State, P, R> {
+pub struct SaveState<S: State> {
     /// Instructions to run.
-    prog: Program<S::Reg, S::Endianness>,
-    /// State of the device, mainly just memory.
-    memory: MMU<P>,
-    /// Target architecture registers.
-    registers: R,
+    prog: Program<S::Reg, S::Endianness, S::Intrin>,
+    /// State of the target.
+    state: S,
     /// Temporary registers used by LLIL.
     temps: [ILVal; 16],
     /// Address of current instruction.
     pc: usize,
-    /// Flag register or state value.
-    flag: u64,
 }
 
-impl<S: Saveable<R, P>, P, R> From<Emulator<S>> for SaveState<S, P, R> {
+impl<S: Saveable> From<Emulator<S>> for SaveState<S> {
     fn from(value: Emulator<S>) -> Self {
         let Emulator {
             prog,
@@ -677,17 +681,23 @@ impl<S: Saveable<R, P>, P, R> From<Emulator<S>> for SaveState<S, P, R> {
             temps,
             ..
         } = value;
-        let flag = state.get_flags();
-        let (regs, mem) = state.state();
         Self {
-            prog, memory: mem, registers: regs, temps, pc, flag,
+            prog,
+            pc,
+            state,
+            temps,
         }
     }
 }
 
 #[cfg(feature = "serde")]
 impl<S: State, P, R> SaveState<S, P, R>
-where S::Reg : Serialize, S::Endianness: Serialize, R: Serialize, P: Serialize {
+where
+    S::Reg: Serialize,
+    S::Endianness: Serialize,
+    R: Serialize,
+    P: Serialize,
+{
     pub fn save<W: Write>(&self, file: &mut W) -> Result<(), rmp_serde::encode::Error> {
         use rmp_serde::encode::Serializer;
         let mut serializer = Serializer::new(file);
@@ -703,7 +713,12 @@ where S::Reg : Serialize, S::Endianness: Serialize, R: Serialize, P: Serialize {
 
 #[cfg(feature = "serde")]
 impl<'de, S: State, P, R> SaveState<S, P, R>
-where S::Reg: Deserialize<'de>, S::Endianness: Deserialize<'de>, R: Deserialize<'de>, P: Deserialize<'de> {
+where
+    S::Reg: Deserialize<'de>,
+    S::Endianness: Deserialize<'de>,
+    R: Deserialize<'de>,
+    P: Deserialize<'de>,
+{
     pub fn load<F: Read>(file: &mut F) -> Result<SaveState<S, P, R>, rmp_serde::decode::Error> {
         use rmp_serde::decode::Deserializer;
         let mut deserializer = Deserializer::new(file);
@@ -714,7 +729,12 @@ where S::Reg: Deserialize<'de>, S::Endianness: Deserialize<'de>, R: Deserialize<
         let pc = usize::deserialize(&mut deserializer)?;
         let flag = u64::deserialize(&mut deserializer)?;
         Ok(Self {
-            prog, memory, registers: regs, temps, pc, flag,
+            prog,
+            memory,
+            registers: regs,
+            temps,
+            pc,
+            flag,
         })
     }
 }

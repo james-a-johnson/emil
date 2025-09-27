@@ -1,62 +1,65 @@
-use crate::{arch::{RegState, SyscallResult}, emil::ILVal};
+use crate::{
+    arch::{RegState, SyscallResult},
+    emil::ILVal,
+};
 
 /// Auxiliary vector entries.
 #[derive(Clone, Copy, Debug)]
 pub enum AuxVal {
-    /// end of vector     
+    /// end of vector
     Null,
-    /// entry should be ignored     
+    /// entry should be ignored
     Ignore,
-    /// file descriptor of program     
+    /// file descriptor of program
     Execfd,
-    /// program headers for program     
+    /// program headers for program
     Phdr,
-    /// size of program header entry     
+    /// size of program header entry
     Phent,
-    /// number of program headers     
+    /// number of program headers
     Phnum,
-    /// system page size     
+    /// system page size
     Pagesz,
-    /// base address of interpreter     
+    /// base address of interpreter
     Base,
-    /// flags     
+    /// flags
     Flags,
-    /// entry point of program     
+    /// entry point of program
     Entry(u64),
-    /// program is not ELF     
+    /// program is not ELF
     Notelf,
-    /// real uid     
+    /// real uid
     Uid(u64),
-    /// effective uid     
+    /// effective uid
     Euid(u64),
-    /// real gid     
+    /// real gid
     Gid(u64),
-    /// effective gid     
+    /// effective gid
     Egid(u64),
-    /// string identifying CPU for optimizations     
+    /// string identifying CPU for optimizations
     Platform,
-    /// arch dependent hints at CPU capabilities     
-    Hwcap,
-    /// frequency at which times() increments     
+    /// arch dependent hints at CPU capabilities
+    Hwcap(u64),
+    /// frequency at which times() increments
     Clktck,
     // AT_* values 18 through 22 are reserved
-    /// secure mode boolean     
+    /// secure mode boolean
     Secure,
     /// string identifying real platform, may differ from AT_PLATFORM
     BasePlatform,
-    /// address of 16 random bytes     
+    /// address of 16 random bytes
     Random([u8; 16]),
-    /// extension of AT_HWCAP     
+    /// extension of AT_HWCAP
     Hwcap2,
-    /// rseq supported feature size     
+    /// rseq supported feature size
     RseqFeatureSize,
-    /// rseq allocation alignment     
+    /// rseq allocation alignment
     RseqAlign,
-    /// extension of AT_HWCAP     
+    /// extension of AT_HWCAP
     Hwcap3,
-    /// extension of AT_HWCAP     
+    /// extension of AT_HWCAP
     Hwcap4,
-    /// filename of program     
+    /// filename of program
     Execfn,
     /// Minimum stack size for signal stack
     Minsigstksz,
@@ -88,7 +91,7 @@ impl AuxVal {
             Self::Gid(_) => 13,
             Self::Egid(_) => 14,
             Self::Platform => 15,
-            Self::Hwcap => 16,
+            Self::Hwcap(_) => 16,
             Self::Clktck => 17,
             Self::Secure => 23,
             Self::BasePlatform => 24,
@@ -130,9 +133,9 @@ pub struct Environment {
 impl Environment {
     pub fn encode(&self, data: &mut [u8], top: u64) -> Result<u64, ()> {
         data.fill(0);
-        let mut current = top;
+        let mut current = top - 0x10;
         let argc = self.args.len();
-        let mut len = data.len();
+        let mut len = data.len() - 0x10;
         let mut env_ptrs = Vec::new();
         let mut arg_ptrs = Vec::new();
         let mut aux_vals: Vec<(u64, u64)> = Vec::new();
@@ -156,7 +159,11 @@ impl Environment {
         aux_vals.push((AuxVal::Null.discrim(), 0));
         for aux in self.aux.iter() {
             match aux {
-                AuxVal::Uid(id) | AuxVal::Euid(id) | AuxVal::Gid(id) | AuxVal::Egid(id) => {
+                AuxVal::Uid(id)
+                | AuxVal::Euid(id)
+                | AuxVal::Gid(id)
+                | AuxVal::Egid(id)
+                | AuxVal::Hwcap(id) => {
                     aux_vals.push((aux.discrim(), *id));
                 }
                 AuxVal::Random(rand) => {
@@ -225,7 +232,6 @@ macro_rules! define_syscall {
 /// execution.
 pub trait LinuxSyscalls<R: RegState, M> {
     define_syscall!(faccessat);
-    define_syscall!(openat);
     define_syscall!(read);
     define_syscall!(write);
     define_syscall!(set_tid_address);
@@ -241,9 +247,15 @@ pub trait LinuxSyscalls<R: RegState, M> {
     define_syscall!(getrandom);
     define_syscall!(clock_gettime);
     define_syscall!(mmap);
+    define_syscall!(writev);
+    define_syscall!(rseq);
+
+    fn openat(&mut self, regs: &mut R, _mem: &mut M) -> SyscallResult {
+        regs.set_syscall_return(ILVal::Quad((-2_i64) as u64));
+        SyscallResult::Continue
+    }
 
     fn exit(&mut self, _regs: &mut R, _mem: &mut M) -> SyscallResult {
         SyscallResult::Exit
     }
-    
 }

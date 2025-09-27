@@ -1,10 +1,10 @@
-use crate::arch::Register as Reg;
+use crate::arch::{Intrinsic, Register as Reg};
 use crate::emil::{Emil, ILRef};
 use crate::emulate::Endian;
-use binaryninja::architecture::Register as _;
+use binaryninja::architecture::{Flag, Intrinsic as _, Register as _};
 use binaryninja::low_level_il::expression::{
-    ExpressionHandler, LowLevelILExpression as Expr, LowLevelILExpressionKind as ExprKind,
-    ValueExpr,
+    ExpressionHandler, LowLevelExpressionIndex, LowLevelILExpression as Expr,
+    LowLevelILExpressionKind as ExprKind, ValueExpr,
 };
 use binaryninja::low_level_il::function::{Finalized, LowLevelILFunction, NonSSA};
 use binaryninja::low_level_il::instruction::{
@@ -16,7 +16,7 @@ use binaryninja::low_level_il::instruction::{
 use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Helper type to describe an LLIL function in non-ssa finalized form
 type LLILFunc = LowLevelILFunction<Finalized, NonSSA>;
@@ -28,16 +28,16 @@ type LLILExpr<'e> = Expr<'e, Finalized, NonSSA, ValueExpr>;
 const TEMP_BIT: u32 = 0b10000000_00000000_00000000_00000000;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Program<R: Reg, E: Endian> {
+pub struct Program<R: Reg, E: Endian, I: Intrinsic> {
     /// List of all [`Emil`] instructions in order
-    pub(crate) il: Vec<Emil<R, E>>,
+    pub(crate) il: Vec<Emil<R, E, I>>,
     /// Map of architecture instruction address to index of the first IL instruction that implements it
     pub(crate) insn_map: HashMap<u64, usize>,
     /// Map of il instruction index to program address.
     pub(crate) addr_map: Vec<u64>,
 }
 
-impl<R: Reg, E: Endian> Default for Program<R, E> {
+impl<R: Reg, E: Endian, I: Intrinsic> Default for Program<R, E, I> {
     fn default() -> Self {
         Self {
             il: Vec::new(),
@@ -57,7 +57,7 @@ macro_rules! bin_op {
     }};
 }
 
-impl<R: Reg, E: Endian> Program<R, E> {
+impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
     pub fn add_function(&mut self, func: &LLILFunc) {
         // The jump instructions will need to be fixed up after they are added. LLIL encodes those
         // as jumping to an address or going to a specific LLIL index. The instructions here will
@@ -104,16 +104,17 @@ impl<R: Reg, E: Endian> Program<R, E> {
     }
 
     /// Add a single LLIL instruction to the program.
-    fn add_instruction(&mut self, insn: &LLILInsn<'_>) {
+    fn add_instruction(&mut self, &insn: &LLILInsn<'_>) {
         match insn.kind() {
             Kind::Nop(_) => self.il.push(Emil::Nop),
             Kind::Syscall(_) | Kind::SyscallSsa(_) => self.il.push(Emil::Syscall),
             Kind::NoRet(_) => self.il.push(Emil::NoRet),
             Kind::Bp(_) => self.il.push(Emil::Bp),
             Kind::Undef(_) => self.il.push(Emil::Undef),
-            Kind::Intrinsic(i) => self.il.push(Emil::Intrinsic(
-                i.intrinsic().expect("Unknown intrinsic").id.0,
-            )),
+            Kind::Intrinsic(i) => {
+                let intrinsic = I::parse(&i).expect("Unimplemented intrinsic");
+                self.il.push(Emil::Intrinsic(intrinsic));
+            }
             Kind::Trap(t) => self.il.push(Emil::Trap(t.vector())),
             Kind::SetReg(sr) => {
                 let ilr = self.add_expr(&sr.source_expr(), ILRef(0));
@@ -197,6 +198,15 @@ impl<R: Reg, E: Endian> Program<R, E> {
                 let value = self.add_expr(&p.operand(), ILRef(0));
                 self.il.push(Emil::Push(value));
             }
+            Kind::SetFlag(sf) => {
+                let value = self.add_expr(&sf.source_expr(), ILRef(0));
+                let id = sf.dest_flag().id().0;
+                self.il.push(Emil::SetFlag(value, id));
+            }
+            Kind::Value(_) => {
+                // I think we can safely skip this for now.
+                // Appears that it can't affect state so should be safe to skip.
+            }
             _ => unimplemented!(
                 "Encountered unimplemented instruction kind: {:?} 0x{:X}",
                 insn,
@@ -237,11 +247,14 @@ impl<R: Reg, E: Endian> Program<R, E> {
             ExprKind::Const(c) | ExprKind::ConstPtr(c) => {
                 let value = c.value();
                 let size = match c.size() {
+                    // This came up in an arm64 binary for a conditional compare.
+                    // I think the size of setting some flags can be zero.
+                    0 => 1,
                     1 => 1,
                     2 => 2,
                     4 => 4,
                     8 => 8,
-                    _ => panic!("Invalid constant size"),
+                    s => panic!("Invalid constant {value} with size {s}"),
                 };
                 self.il.push(Emil::Constant {
                     reg: ilr,
@@ -339,6 +352,16 @@ impl<R: Reg, E: Endian> Program<R, E> {
             ExprKind::FcmpGT(cmp) => bin_op!(cmp, FcmpGT, self, ilr),
             ExprKind::FcmpO(cmp) => bin_op!(cmp, FcmpO, self, ilr),
             ExprKind::FcmpUO(cmp) => bin_op!(cmp, FcmpUO, self, ilr),
+            ExprKind::Not(n) => {
+                let value = self.add_expr(&n.operand(), ilr);
+                self.il.push(Emil::Not(value.next(), value));
+                value.next()
+            }
+            ExprKind::Neg(n) => {
+                let value = self.add_expr(&n.operand(), ilr);
+                self.il.push(Emil::Negate(value.next(), value));
+                value.next()
+            }
             ExprKind::Sx(extend) => {
                 let value = self.add_expr(&extend.operand(), ilr);
                 let size: u8 = extend
@@ -391,8 +414,9 @@ impl<R: Reg, E: Endian> Program<R, E> {
                 self.il.push(Emil::FloatToInt(value.next(), value, size));
                 value.next()
             }
-            ExprKind::Flag(_) => {
-                self.il.push(Emil::Flag(ilr));
+            ExprKind::Flag(f) => {
+                let id = f.source_flag().id().0;
+                self.il.push(Emil::Flag(ilr, id));
                 ilr
             }
             _ => unimplemented!("Expression kind: {:?}", expr),

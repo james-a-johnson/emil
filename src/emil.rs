@@ -16,7 +16,7 @@
 //! first be loaded into an ILVal. In this way, reading and writing registers or memory is
 //! essentially just treated as a side effect of the instruction.
 
-use crate::arch::{Register as Reg, State};
+use crate::arch::{Intrinsic, Register as Reg, State};
 use crate::emulate::{Endian, HookStatus};
 use std::fmt::{Debug, Display, LowerHex, UpperHex};
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub};
@@ -50,6 +50,7 @@ impl ILRef {
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ILVal {
+    Flag(bool),
     Byte(u8),
     Short(u16),
     Word(u32),
@@ -57,6 +58,32 @@ pub enum ILVal {
 }
 
 impl ILVal {
+    /// Convert the value to a u32.
+    ///
+    /// Will either truncate or zero extend to get a 32 bit value.
+    pub fn to_u32(&self) -> u32 {
+        match self {
+            Self::Flag(v) => *v as u32,
+            Self::Byte(v) => *v as u32,
+            Self::Short(v) => *v as u32,
+            Self::Word(v) => *v,
+            Self::Quad(v) => *v as u32,
+        }
+    }
+
+    /// Checks if the value is true or not.
+    ///
+    /// This follows the standard c definition of true. So any non-zero value is considered to be true and zero is false.
+    pub fn truth(&self) -> bool {
+        match self {
+            Self::Flag(v) => *v,
+            Self::Byte(v) => *v != 0,
+            Self::Short(v) => *v != 0,
+            Self::Word(v) => *v != 0,
+            Self::Quad(v) => *v != 0,
+        }
+    }
+
     /// Treat the values as signed and compare them.
     pub fn signed_cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
@@ -122,11 +149,14 @@ impl ILVal {
     /// the current size of the value.
     pub fn sext(&self, size: u8) -> Self {
         match (self, size) {
+            (Self::Byte(v), 1) => Self::Byte(*v),
             (Self::Byte(v), 2) => Self::Short(*v as i8 as i16 as u16),
             (Self::Byte(v), 4) => Self::Word(*v as i8 as i32 as u32),
             (Self::Byte(v), 8) => Self::Quad(*v as i8 as i64 as u64),
+            (Self::Short(v), 2) => Self::Short(*v),
             (Self::Short(v), 4) => Self::Word(*v as i16 as i32 as u32),
             (Self::Short(v), 8) => Self::Quad(*v as i16 as i64 as u64),
+            (Self::Word(v), 4) => Self::Word(*v),
             (Self::Word(v), 8) => Self::Quad(*v as i32 as i64 as u64),
             (_, _) => unreachable!("Invalid sign extension combination"),
         }
@@ -139,13 +169,17 @@ impl ILVal {
     /// the current size of the value.
     pub fn zext(&self, size: u8) -> Self {
         match (self, size) {
+            (Self::Byte(v), 1) => Self::Byte(*v),
             (Self::Byte(v), 2) => Self::Short(*v as u16),
             (Self::Byte(v), 4) => Self::Word(*v as u32),
             (Self::Byte(v), 8) => Self::Quad(*v as u64),
+            (Self::Short(v), 2) => Self::Short(*v),
             (Self::Short(v), 4) => Self::Word(*v as u32),
             (Self::Short(v), 8) => Self::Quad(*v as u64),
+            (Self::Word(v), 4) => Self::Word(*v),
             (Self::Word(v), 8) => Self::Quad(*v as u64),
-            (_, _) => unreachable!("Invalid sign extension combination"),
+            (Self::Quad(v), 8) => Self::Quad(*v),
+            (_, _) => unreachable!("Invalid zero extension combination {self:?} -> {size}"),
         }
     }
 }
@@ -153,6 +187,7 @@ impl ILVal {
 impl Debug for ILVal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Flag(b) => write!(f, "{b}"),
             Self::Byte(b) => write!(f, "{:X}b", b),
             Self::Short(s) => write!(f, "{:X}s", s),
             Self::Word(w) => write!(f, "{:X}w", w),
@@ -164,6 +199,7 @@ impl Debug for ILVal {
 impl Display for ILVal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Flag(b) => write!(f, "{b}"),
             Self::Byte(b) => write!(f, "{:X}", b),
             Self::Short(s) => write!(f, "{:X}", s),
             Self::Word(w) => write!(f, "{:X}", w),
@@ -175,6 +211,7 @@ impl Display for ILVal {
 impl LowerHex for ILVal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Flag(v) => LowerHex::fmt(if *v { &1 } else { &0 }, f),
             Self::Byte(v) => LowerHex::fmt(v, f),
             Self::Short(v) => LowerHex::fmt(v, f),
             Self::Word(v) => LowerHex::fmt(v, f),
@@ -186,6 +223,7 @@ impl LowerHex for ILVal {
 impl UpperHex for ILVal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Flag(v) => UpperHex::fmt(if *v { &1 } else { &0 }, f),
             Self::Byte(v) => UpperHex::fmt(v, f),
             Self::Short(v) => UpperHex::fmt(v, f),
             Self::Word(v) => UpperHex::fmt(v, f),
@@ -197,6 +235,7 @@ impl UpperHex for ILVal {
 impl ILVal {
     pub fn extend_64(&self) -> u64 {
         match self {
+            Self::Flag(b) => *b as u64,
             Self::Byte(b) => *b as u64,
             Self::Short(s) => *s as u64,
             Self::Word(w) => *w as u64,
@@ -208,6 +247,7 @@ impl ILVal {
 impl PartialEq for ILVal {
     fn eq(&self, other: &Self) -> bool {
         match (*self, *other) {
+            (Self::Flag(b1), Self::Flag(b2)) => b1 == b2,
             (Self::Byte(b1), Self::Byte(b2)) => b1 == b2,
             (Self::Short(s1), Self::Short(s2)) => s1 == s2,
             (Self::Word(w1), Self::Word(w2)) => w1 == w2,
@@ -222,12 +262,19 @@ impl Eq for ILVal {}
 impl PartialOrd for ILVal {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match (*self, *other) {
+            (Self::Flag(b1), Self::Flag(b2)) => b1.partial_cmp(&b2),
             (Self::Byte(b1), Self::Byte(b2)) => b1.partial_cmp(&b2),
             (Self::Short(s1), Self::Short(s2)) => s1.partial_cmp(&s2),
             (Self::Word(w1), Self::Word(w2)) => w1.partial_cmp(&w2),
             (Self::Quad(q1), Self::Quad(q2)) => q1.partial_cmp(&q2),
             (_, _) => panic!("Comparing types of unequal size"),
         }
+    }
+}
+
+impl From<bool> for ILVal {
+    fn from(value: bool) -> Self {
+        Self::Flag(value)
     }
 }
 
@@ -356,6 +403,7 @@ impl BitAnd for ILVal {
 
     fn bitand(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
+            (Self::Flag(a), Self::Flag(b)) => Self::Flag(a & b),
             (Self::Byte(a), Self::Byte(b)) => Self::Byte(a & b),
             (Self::Short(a), Self::Short(b)) => Self::Short(a & b),
             (Self::Word(a), Self::Word(b)) => Self::Word(a & b),
@@ -370,6 +418,7 @@ impl BitOr for ILVal {
 
     fn bitor(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
+            (Self::Flag(a), Self::Flag(b)) => Self::Flag(a | b),
             (Self::Byte(a), Self::Byte(b)) => Self::Byte(a | b),
             (Self::Short(a), Self::Short(b)) => Self::Short(a | b),
             (Self::Word(a), Self::Word(b)) => Self::Word(a | b),
@@ -398,6 +447,7 @@ impl Neg for ILVal {
 
     fn neg(self) -> Self::Output {
         match self {
+            Self::Flag(b) => Self::Flag(!b),
             Self::Byte(b) => Self::Byte(-(b as i8) as u8),
             Self::Short(b) => Self::Short(-(b as i16) as u16),
             Self::Word(b) => Self::Word(-(b as i32) as u32),
@@ -411,6 +461,7 @@ impl Not for ILVal {
 
     fn not(self) -> Self::Output {
         match self {
+            Self::Flag(b) => Self::Flag(!b),
             Self::Byte(b) => Self::Byte(!b),
             Self::Short(b) => Self::Short(!b),
             Self::Word(b) => Self::Word(!b),
@@ -439,10 +490,16 @@ impl Shl for ILVal {
     fn shl(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.overflowing_shl(r as u32).0),
+            (Self::Short(l), Self::Byte(r)) => Self::Short(l.overflowing_shl(r as u32).0),
             (Self::Short(l), Self::Short(r)) => Self::Short(l.overflowing_shl(r as u32).0),
+            (Self::Word(l), Self::Byte(r)) => Self::Word(l.overflowing_shl(r as u32).0),
+            (Self::Word(l), Self::Short(r)) => Self::Word(l.overflowing_shl(r as u32).0),
             (Self::Word(l), Self::Word(r)) => Self::Word(l.overflowing_shl(r as u32).0),
+            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.overflowing_shl(r as u32).0),
+            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.overflowing_shl(r as u32).0),
+            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.overflowing_shl(r as u32).0),
             (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.overflowing_shl(r as u32).0),
-            _ => panic!("Incompatible sizes for remainder operation"),
+            _ => panic!("Incompatible sizes for shift left operation"),
         }
     }
 }
@@ -453,17 +510,23 @@ impl Shr for ILVal {
     fn shr(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Self::Byte(l), Self::Byte(r)) => Self::Byte(l >> r),
+            (Self::Short(l), Self::Byte(r)) => Self::Short(l >> r),
             (Self::Short(l), Self::Short(r)) => Self::Short(l >> r),
+            (Self::Word(l), Self::Byte(r)) => Self::Word(l >> r),
+            (Self::Word(l), Self::Short(r)) => Self::Word(l >> r),
             (Self::Word(l), Self::Word(r)) => Self::Word(l >> r),
+            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l >> r),
+            (Self::Quad(l), Self::Short(r)) => Self::Quad(l >> r),
+            (Self::Quad(l), Self::Word(r)) => Self::Quad(l >> r),
             (Self::Quad(l), Self::Quad(r)) => Self::Quad(l >> r),
-            _ => panic!("Incompatible sizes for remainder operation"),
+            _ => panic!("Incompatible sizes for shift right operation"),
         }
     }
 }
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum Emil<R: Reg, E: Endian> {
+pub enum Emil<R: Reg, E: Endian, I: Intrinsic> {
     /// No operation instruction.
     Nop,
     /// No return.
@@ -485,9 +548,9 @@ pub enum Emil<R: Reg, E: Endian> {
     /// Load a temporary register into an IL register.
     LoadTemp { ilr: ILRef, t: u8 },
     /// Set the flag register or context bits to specific value.
-    SetFlag(ILRef),
+    SetFlag(ILRef, u32),
     /// Read the flag register or context bits into an IL register.
-    Flag(ILRef),
+    Flag(ILRef, u32),
     /// Store a value to memory
     Store { value: ILRef, addr: ILRef },
     /// Load a value from memory into an ILVal
@@ -514,7 +577,7 @@ pub enum Emil<R: Reg, E: Endian> {
         false_target: usize,
     },
     /// Perform an intrinsic operation.
-    Intrinsic(u32),
+    Intrinsic(I),
     /// Load a constant into an IL register.
     Constant { reg: ILRef, value: u64, size: u8 },
     /// Add two values together.
@@ -750,7 +813,7 @@ pub enum Emil<R: Reg, E: Endian> {
     /// on the current state.
     #[cfg_attr(feature = "serde", serde(skip))]
     Hook(
-        fn(&mut dyn State<Reg = R, Endianness = E>) -> HookStatus,
+        fn(&mut dyn State<Reg = R, Endianness = E, Intrin = I>) -> HookStatus,
         usize,
     ),
     /// Breakpoint added by a user.

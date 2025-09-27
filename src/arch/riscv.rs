@@ -1,19 +1,41 @@
-use crate::arch::{RegState, State};
+use crate::arch::{FileDescriptor, Intrinsic, RegState, State};
 use crate::arch::{Register, SyscallResult};
 use crate::emil::ILVal;
 use crate::emulate::Little;
 use crate::os::linux::LinuxSyscalls;
 use from_id::FromId;
-use softmew::{MMU, fault::Fault, page::SimplePage};
+use softmew::{MMU, Perm, fault::Fault, page::Page, page::SimplePage};
+use std::collections::{HashMap, VecDeque};
+use std::ops::{Index, IndexMut, Range};
 
-use std::ops::{Index, IndexMut};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug)]
+pub struct RVIntrinsic(u32);
+
+impl Intrinsic for RVIntrinsic {
+    fn parse(
+        operation: &binaryninja::low_level_il::operation::Operation<
+            '_,
+            binaryninja::low_level_il::function::Finalized,
+            binaryninja::low_level_il::function::NonSSA,
+            binaryninja::low_level_il::operation::Intrinsic,
+        >,
+    ) -> Result<Self, String> {
+        let id = operation.intrinsic();
+        match id {
+            Some(i) => Ok(Self(i.id.0)),
+            None => Err(format!("Intrinsic has invalid id")),
+        }
+    }
+}
 
 pub struct LinuxRV64<S> {
     pub regs: Rv64State,
     pub mem: MMU<SimplePage>,
     pub flag: u64,
+    pub conds: [u8; 32],
     pub syscalls: S,
 }
 
@@ -27,6 +49,7 @@ impl<S> LinuxRV64<S> {
             regs,
             mem: mmu,
             flag: 0,
+            conds: [0; 32],
             syscalls,
         }
     }
@@ -55,6 +78,7 @@ impl<S> LinuxRV64<S> {
 impl<S: LinuxSyscalls<Rv64State, MMU<SimplePage>>> State for LinuxRV64<S> {
     type Reg = Rv64Reg;
     type Endianness = Little;
+    type Intrin = RVIntrinsic;
 
     #[inline(always)]
     fn read_reg(&self, id: Rv64Reg) -> ILVal {
@@ -74,19 +98,29 @@ impl<S: LinuxSyscalls<Rv64State, MMU<SimplePage>>> State for LinuxRV64<S> {
         self.mem.write_perm(addr as usize, data)
     }
 
-    fn get_flags(&self) -> u64 {
-        self.flag
+    fn get_flag(&self, id: u32) -> bool {
+        if id < 32 {
+            ((self.flag >> id) & 0b1) != 0
+        } else {
+            (self.conds[(id - 0x80000000) as usize]) != 0
+        }
     }
 
-    fn set_flags(&mut self, val: ILVal) {
-        self.flag = val.extend_64();
+    fn set_flag(&mut self, val: bool, id: u32) {
+        if id < 32 {
+            self.flag &= !((val as u64) << id);
+            self.flag |= (val as u64) << id;
+        } else {
+            self.conds[(id - 0x80000000) as usize] = val as u8;
+        }
     }
 
-    fn syscall(&mut self) -> SyscallResult {
+    fn syscall(&mut self, _addr: u64) -> SyscallResult {
         match self.regs[Rv64Reg::a7] {
             0x30 => self.syscalls.faccessat(&mut self.regs, &mut self.mem),
             0x3f => self.syscalls.read(&mut self.regs, &mut self.mem),
             0x40 => self.syscalls.write(&mut self.regs, &mut self.mem),
+            0x42 => self.syscalls.writev(&mut self.regs, &mut self.mem),
             0x4e => self.syscalls.readlinkat(&mut self.regs, &mut self.mem),
             0x5d => self.syscalls.exit(&mut self.regs, &mut self.mem),
             0x60 => self.syscalls.set_tid_address(&mut self.regs, &mut self.mem),
@@ -126,13 +160,13 @@ impl<S: LinuxSyscalls<Rv64State, MMU<SimplePage>>> State for LinuxRV64<S> {
         Ok(())
     }
 
-    fn intrinsic(&mut self, id: u32) -> Result<(), Fault> {
-        match id {
+    fn intrinsic(&mut self, i: &RVIntrinsic) -> Result<(), Fault> {
+        match i.0 {
             26214400 => {
                 // This is a memory fence. Just ignore it.
                 Ok(())
             }
-            _ => unimplemented!("Intrinsic {id}"),
+            _ => unimplemented!("Intrinsic {}", i.0),
         }
     }
 }
@@ -318,5 +352,234 @@ impl std::fmt::Display for Rv64Reg {
 impl Register for Rv64Reg {
     fn syscall_ret() -> Self {
         Self::a0
+    }
+}
+
+/// Basic linux state for a RV64 machine.
+///
+/// Implements the basic system calls and will keep track of stdin, stdout, and stderr state.
+pub struct RvMachine {
+    fds: HashMap<u32, Box<dyn FileDescriptor>>,
+    heap: Range<u64>,
+}
+
+impl RvMachine {
+    /// Create a new machine with initially empty stdin, stdout, and stderr.
+    ///
+    /// `heap` is the range of addresses that should be used for the heap. Those addresses are used to set return values for
+    /// the brk syscall.
+    pub fn new(heap: Range<u64>) -> Self {
+        let mut map = HashMap::new();
+        let stdin: Box<dyn FileDescriptor> = Box::new(VecDeque::<u8>::new());
+        let stdout: Box<dyn FileDescriptor> = Box::new(VecDeque::<u8>::new());
+        let stderr: Box<dyn FileDescriptor> = Box::new(VecDeque::<u8>::new());
+        map.insert(0, stdin);
+        map.insert(1, stdout);
+        map.insert(2, stderr);
+        Self { fds: map, heap }
+    }
+
+    pub fn take_fd(&mut self, fd: u32) -> Option<Box<dyn FileDescriptor>> {
+        self.fds.remove(&fd)
+    }
+
+    pub fn set_stdin<T: FileDescriptor>(&mut self, data: T) -> Option<Box<dyn FileDescriptor>> {
+        let stdin = Box::new(data);
+        self.fds.insert(0, stdin)
+    }
+
+    pub fn get_fd(&self, fd: u32) -> Option<&dyn FileDescriptor> {
+        self.fds.get(&fd).map(|f| f.as_ref())
+    }
+
+    pub fn get_fd_mut(&mut self, fd: u32) -> Option<&mut dyn FileDescriptor> {
+        self.fds.get_mut(&fd).map(|f| f.as_mut())
+    }
+}
+
+impl LinuxSyscalls<Rv64State, MMU<SimplePage>> for RvMachine {
+    fn faccessat(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = (-2_i64) as u64;
+        SyscallResult::Continue
+    }
+
+    fn read(&mut self, regs: &mut Rv64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let fd = regs[Rv64Reg::a0];
+        let ptr = regs[Rv64Reg::a1] as usize;
+        let len = regs[Rv64Reg::a2] as usize;
+        match self.fds.get_mut(&(fd as u32)) {
+            Some(file) => {
+                let page = mem.get_mapping_mut(ptr).unwrap();
+                let start = page.start();
+                let buf = &mut page.as_mut()[ptr - start..][..len];
+                let res = file.read(buf);
+                match res {
+                    Ok(b) => regs[Rv64Reg::a0] = b as u64,
+                    Err(e) => {
+                        regs[Rv64Reg::a0] = e.raw_os_error().unwrap_or(-9) as u64;
+                    }
+                }
+            }
+            None => regs[Rv64Reg::a0] = (-9_i64) as u64,
+        };
+        SyscallResult::Continue
+    }
+
+    fn write(&mut self, regs: &mut Rv64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let fd = regs[Rv64Reg::a0];
+        let ptr = regs[Rv64Reg::a1];
+        let len = regs[Rv64Reg::a2];
+        let mut data = vec![0; len as usize];
+        mem.read_perm(ptr as usize, &mut data)
+            .expect("Failed to read message");
+        match self.fds.get_mut(&(fd as u32)) {
+            Some(file) => {
+                let res = file.write(&data);
+                match res {
+                    Ok(b) => regs[Rv64Reg::a0] = b as u64,
+                    Err(e) => {
+                        regs[Rv64Reg::a0] = e.raw_os_error().unwrap_or(-9) as u64;
+                    }
+                }
+            }
+            None => regs[Rv64Reg::a0] = len,
+        }
+        SyscallResult::Continue
+    }
+
+    fn set_tid_address(
+        &mut self,
+        regs: &mut Rv64State,
+        _mem: &mut MMU<SimplePage>,
+    ) -> SyscallResult {
+        regs[Rv64Reg::a0] = 100;
+        SyscallResult::Continue
+    }
+
+    fn set_robust_list(
+        &mut self,
+        regs: &mut Rv64State,
+        _mem: &mut MMU<SimplePage>,
+    ) -> SyscallResult {
+        regs[Rv64Reg::a0] = 0;
+        SyscallResult::Continue
+    }
+
+    fn uname(&mut self, regs: &mut Rv64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let addr = regs[Rv64Reg::a0];
+        regs[Rv64Reg::a0] = (-14_i64) as u64;
+        if mem.write_perm(addr as usize, b"Linux\x00").is_err() {
+            return SyscallResult::Continue;
+        }
+        if mem
+            .write_perm((addr + 65) as usize, b"binja.emu\x00")
+            .is_err()
+        {
+            return SyscallResult::Continue;
+        }
+        if mem
+            .write_perm((addr + 65 * 2) as usize, b"6.0\x00")
+            .is_err()
+        {
+            return SyscallResult::Continue;
+        }
+        if mem
+            .write_perm((addr + 65 * 3) as usize, b"6.0\x00")
+            .is_err()
+        {
+            return SyscallResult::Continue;
+        }
+        if mem
+            .write_perm((addr + 65 * 4) as usize, b"rv64gc\x00")
+            .is_err()
+        {
+            return SyscallResult::Continue;
+        }
+        if mem
+            .write_perm((addr + 65 * 5) as usize, b"binja.emu\x00")
+            .is_err()
+        {
+            return SyscallResult::Continue;
+        }
+        regs[Rv64Reg::a0] = 0;
+        SyscallResult::Continue
+    }
+
+    fn getrandom(&mut self, regs: &mut Rv64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let addr = regs[Rv64Reg::a0];
+        let size = regs[Rv64Reg::a1];
+        regs[Rv64Reg::a0] = (-14_i64) as u64;
+        for i in addr..(addr + size) {
+            if mem.write_perm(i as usize, &[0xee]).is_err() {
+                return SyscallResult::Continue;
+            }
+        }
+
+        regs[Rv64Reg::a0] = 0;
+        SyscallResult::Continue
+    }
+
+    fn getuid(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = 1000;
+        SyscallResult::Continue
+    }
+
+    fn geteuid(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = 1000;
+        SyscallResult::Continue
+    }
+
+    fn getgid(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = 1000;
+        SyscallResult::Continue
+    }
+
+    fn getegid(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Rv64Reg::a0] = 1000;
+        SyscallResult::Continue
+    }
+
+    fn brk(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let addr = regs[Rv64Reg::a0];
+        if addr < self.heap.start {
+            regs[Rv64Reg::a0] = self.heap.start;
+        } else if addr > self.heap.end {
+            regs[Rv64Reg::a0] = self.heap.end;
+        }
+        SyscallResult::Continue
+    }
+
+    fn mmap(&mut self, regs: &mut Rv64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let addr = regs[Rv64Reg::a0];
+        let len = regs[Rv64Reg::a1];
+
+        if addr != 0 {
+            // Just map at any address that has the required size
+            let range = mem.gaps().find(|r| r.size() >= len as usize);
+            if let Some(addrs) = range {
+                let page = mem.map_memory(addrs.start, len as usize, Perm::READ | Perm::WRITE);
+                if page.is_ok() {
+                    regs[Rv64Reg::a0] = addrs.start as u64;
+                    return SyscallResult::Continue;
+                }
+            }
+            regs[Rv64Reg::a0] = u64::MAX;
+            return SyscallResult::Continue;
+        } else {
+            let page = mem.map_memory(addr as usize, len as usize, Perm::READ | Perm::WRITE);
+            if page.is_ok() {
+                regs[Rv64Reg::a0] = addr;
+                return SyscallResult::Continue;
+            }
+            regs[Rv64Reg::a0] = u64::MAX;
+            return SyscallResult::Continue;
+        }
+    }
+
+    fn writev(&mut self, regs: &mut Rv64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let _fd = regs[Rv64Reg::a0];
+        let _iov = regs[Rv64Reg::a1];
+        let _iocnt = regs[Rv64Reg::a2];
+        SyscallResult::Continue
     }
 }

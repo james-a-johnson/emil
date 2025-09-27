@@ -20,4 +20,4 @@ hello-riscv: hello-riscv.asm
 # the sum to standard out. This is a full C program that statically links libc
 # so it requires a lot of emulation support to be able to run the entire thing.
 sum-stdin: sum-stdin.c
-	riscv64-linux-gnu-gcc-12 -march=rv64gc -mlittle-endian -static -Og -o sum-stdin sum-stdin.c
+	riscv64-linux-gnu-gcc-12 -march=rv64imdc -mlittle-endian -static -Og -o sum-stdin sum-stdin.c

@@ -5,13 +5,16 @@
 // ```
 
 pub use softmew::fault::Fault;
-use softmew::MMU;
+
+use binaryninja::low_level_il::function::{Finalized, NonSSA};
+use binaryninja::low_level_il::operation::{Intrinsic as LLILIntrinsic, Operation};
 
 use std::{
     any::Any,
     io::{Read, Write},
 };
 
+pub mod arm64;
 pub mod riscv;
 
 use std::fmt::{Debug, Display};
@@ -33,9 +36,14 @@ pub trait RegState {
     fn set_syscall_return(&mut self, val: ILVal);
 }
 
+pub trait Intrinsic: Sized + Clone + Copy + Debug {
+    fn parse(intrinsic: &Operation<'_, Finalized, NonSSA, LLILIntrinsic>) -> Result<Self, String>;
+}
+
 pub trait State {
     type Reg: Register;
     type Endianness: Endian;
+    type Intrin: Intrinsic;
 
     /// Read a register
     fn read_reg(&self, id: Self::Reg) -> ILVal;
@@ -47,19 +55,20 @@ pub trait State {
     /// Write to system memory
     fn write_mem(&mut self, addr: u64, data: &[u8]) -> Result<(), Fault>;
 
-    fn get_flags(&self) -> u64;
-    fn set_flags(&mut self, val: ILVal);
+    fn get_flag(&self, id: u32) -> bool;
+    fn set_flag(&mut self, val: bool, id: u32);
 
-    fn syscall(&mut self) -> SyscallResult;
+    fn syscall(&mut self, addr: u64) -> SyscallResult;
+    fn intrinsic(&mut self, intrin: &Self::Intrin) -> Result<(), Fault>;
 
     fn save_ret_addr(&mut self, addr: u64) -> Result<(), Fault>;
     fn push(&mut self, val: &[u8]) -> Result<(), Fault>;
     fn pop(&mut self, data: &mut [u8]) -> Result<(), Fault>;
-    fn intrinsic(&mut self, id: u32) -> Result<(), Fault>;
 }
 
-pub trait Saveable<R, P>: State {
-    fn state(self) -> (R, MMU<P>);
+pub trait Saveable: State + Sized {
+    fn save<W: Write>(&self, file: W) -> std::io::Result<()>;
+    fn load<R: Read>(file: R) -> std::io::Result<Self>;
 }
 
 /// Helper trait that can be used as a trait for adding a file descriptor to some target's state.

@@ -1,12 +1,12 @@
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
-use emil::arch::{riscv::*, SyscallResult};
+use emil::arch::{SyscallResult, riscv::*};
 use emil::emulate::{Emulator, Little};
 use emil::os::linux::LinuxSyscalls;
 use emil::prog::Program;
 use softmew::page::SimplePage;
-use softmew::{Perm, MMU};
+use softmew::{MMU, Perm};
 
 #[derive(Default)]
 pub struct RvMachine {
@@ -19,7 +19,7 @@ impl LinuxSyscalls<Rv64State, MMU<SimplePage>> for RvMachine {
         let ptr = regs[Rv64Reg::a1];
         let len = regs[Rv64Reg::a2];
         let mut data = vec![0; len as usize];
-        mem .read_perm(ptr as usize, &mut data)
+        mem.read_perm(ptr as usize, &mut data)
             .expect("Failed to read message");
         match fd {
             1 => {
@@ -38,7 +38,7 @@ fn main() {
         .load("./test-bins/hello-riscv")
         .expect("Couldn't load test binary");
 
-    let mut prog = Program::<Rv64Reg, Little>::default();
+    let mut prog = Program::<Rv64Reg, Little, RVIntrinsic>::default();
     for func in &bv.functions() {
         prog.add_function(func.low_level_il().as_ref().unwrap());
     }
