@@ -1,4 +1,4 @@
-use crate::arch::{Saveable, State, SyscallResult};
+use crate::arch::{State, SyscallResult};
 use crate::emil::{Emil, ILRef, ILVal};
 use crate::prog::Program;
 use std::cmp::Ordering;
@@ -8,6 +8,8 @@ use std::ops::*;
 use softmew::MMU;
 use softmew::fault::Fault;
 
+#[cfg(feature = "serde")]
+use crate::arch::Saveable;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
@@ -672,7 +674,7 @@ pub struct SaveState<S: State> {
     pc: usize,
 }
 
-impl<S: Saveable> From<Emulator<S>> for SaveState<S> {
+impl<S: State> From<Emulator<S>> for SaveState<S> {
     fn from(value: Emulator<S>) -> Self {
         let Emulator {
             prog,
@@ -691,11 +693,11 @@ impl<S: Saveable> From<Emulator<S>> for SaveState<S> {
 }
 
 #[cfg(feature = "serde")]
-impl<S: Saveable> SaveState<S>
+impl<'de, S: Saveable<'de>> SaveState<S>
 where
-    S::Reg: Serialize,
     S::Endianness: Serialize,
     S::Intrin: Serialize,
+    S::Reg: Serialize,
 {
     pub fn save<W: Write>(&self, file: &mut W) -> Result<(), Box<dyn std::error::Error>> {
         use rmp_serde::encode::Serializer;
@@ -708,19 +710,19 @@ where
 }
 
 #[cfg(feature = "serde")]
-impl<'de, S: Saveable> SaveState<S>
+impl<'de, S: Saveable<'de>> SaveState<S>
 where
     S::Reg: Deserialize<'de>,
     S::Endianness: Deserialize<'de>,
     S::Intrin: Deserialize<'de>,
 {
-    pub fn load<F: Read>(file: &mut F) -> Result<SaveState<S>, Box<dyn std::error::Error>> {
+    pub fn load<F: Read>(file: &'de mut F) -> Result<SaveState<S>, Box<dyn std::error::Error>> {
         use rmp_serde::decode::Deserializer;
         let mut deserializer = Deserializer::new(file);
         let pc = usize::deserialize(&mut deserializer)?;
         let temps = <[ILVal; 16]>::deserialize(&mut deserializer)?;
         let prog = Program::deserialize(&mut deserializer)?;
-        let state = todo!();
+        let state = S::deserialize(&mut deserializer)?;
         Ok(Self {
             prog,
             temps,

@@ -8,8 +8,12 @@ use binaryninja::low_level_il::expression::LowLevelILExpressionKind as ExprKind;
 use binaryninja::low_level_il::operation::RegOrFlag;
 use from_id::FromId;
 use softmew::page::{Page, SimplePage};
-use softmew::{MMU, Perm};
+use softmew::{Perm, MMU};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use crate::arch::Saveable;
 use std::collections::{HashMap, VecDeque};
 use std::ops::{Index, IndexMut, Range};
 
@@ -90,6 +94,7 @@ impl Intrinsic for ArmIntrinsic {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LinuxArm64<S> {
     pub regs: Arm64State,
     pub mem: MMU<SimplePage>,
@@ -144,6 +149,9 @@ macro_rules! syscalls {
         }
     };
 }
+
+#[cfg(feature = "serde")]
+impl<'de, S: Serialize + Deserialize<'de> + LinuxSyscalls<Arm64State, MMU<SimplePage>>> Saveable<'de> for LinuxArm64<S> {}
 
 impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
     type Reg = Arm64Reg;
@@ -327,6 +335,7 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
 }
 
 #[derive(Default, Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Arm64State {
     gregs: [u64; 32],
     syscall_info: u64,
@@ -580,7 +589,9 @@ impl std::fmt::Display for Arm64Reg {
 /// Basic linux state for an Arm64 machine.
 ///
 /// Implements the basic system calls and will keep track of stdin, stdout, and stderr state.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ArmMachine {
+    #[cfg_attr(feature = "serde", serde(skip))]
     fds: HashMap<u32, Box<dyn FileDescriptor>>,
     heap: Range<u64>,
 }

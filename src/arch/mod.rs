@@ -15,7 +15,7 @@ use std::{
 };
 
 #[cfg(feature = "serde")]
-use serde::{ser::Serializer, de::Deserializer};
+use serde::{Serialize, de::Deserialize};
 
 pub mod arm64;
 pub mod riscv;
@@ -76,10 +76,8 @@ pub trait State {
     fn pop(&mut self, data: &mut [u8]) -> Result<(), Fault>;
 }
 
-pub trait Saveable: State + Sized {
-    fn save<W: Write>(&self, file: &mut W) -> Result<(), Box<dyn std::error::Error>>;
-    fn load<R: Read>(file: &mut R) -> Result<Self, Box<dyn std::error::Error>>;
-}
+#[cfg(feature = "serde")]
+pub trait Saveable<'de>: State + Serialize + Deserialize<'de> {}
 
 /// Helper trait that can be used as a trait for adding a file descriptor to some target's state.
 ///
