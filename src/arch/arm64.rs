@@ -681,39 +681,49 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
     }
 
     fn uname(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        println!("uname syscall");
         let addr = regs[Arm64Reg::x0];
         regs[Arm64Reg::x0] = (-14_i64) as u64;
         if mem.write_perm(addr as usize, b"Linux\x00").is_err() {
+            println!("linux failed");
             return SyscallResult::Continue;
         }
         if mem
-            .write_perm((addr + 65) as usize, b"binja.emu\x00")
+            .write_perm((addr + 65) as usize, b"binja-emu\x00")
             .is_err()
         {
+            println!("binja-emu failed");
             return SyscallResult::Continue;
         }
         if mem
-            .write_perm((addr + 65 * 2) as usize, b"6.0\x00")
+            .write_perm((addr + 65 * 2) as usize, b"6.16.3-76061603-generic\x00")
             .is_err()
         {
+            println!("release failed");
             return SyscallResult::Continue;
         }
         if mem
-            .write_perm((addr + 65 * 3) as usize, b"6.0\x00")
+            .write_perm(
+                (addr + 65 * 3) as usize,
+                b"#202508231538~1758561135~22.04~171c8de\x00",
+            )
             .is_err()
         {
+            println!("version failed");
             return SyscallResult::Continue;
         }
         if mem
             .write_perm((addr + 65 * 4) as usize, b"aarch64\x00")
             .is_err()
         {
+            println!("arch failed");
             return SyscallResult::Continue;
         }
         if mem
             .write_perm((addr + 65 * 5) as usize, b"binja.emu\x00")
             .is_err()
         {
+            println!("domain failed");
             return SyscallResult::Continue;
         }
         regs[Arm64Reg::x0] = 0;

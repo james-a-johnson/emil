@@ -16,7 +16,7 @@ const STACK_BASE: usize = 0xfffffffffff00000;
 const STACK_SIZE: usize = 0x000000000007f000;
 
 fn main() {
-    let functions_to_load: &[u64] = &[0x423a10, 0x40fa10];
+    let functions_to_load: &[u64] = &[0x423a10, 0x40fa10, 0x400850, 0x425160, 0x449440];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
         .load("./test-bins/sum-stdin-arm.bndb")
@@ -92,6 +92,8 @@ fn main() {
 
     let mut emu = Emulator::new(prog, state);
     emu.add_hook(0x40fa10, libc_fatal_hook).unwrap();
+    emu.add_hook(0x400a54, version_result_hook).unwrap();
+    emu.add_hook(0x44944c, uname_return).unwrap();
     // emu.add_breakpoint(0x423aac).unwrap();
     // emu.add_breakpoint(0x423ab8).unwrap();
     // emu.add_breakpoint(0x423abc).unwrap();
@@ -163,4 +165,20 @@ fn libc_fatal_hook(
     let message = String::from_utf8(message).unwrap();
     println!("Fatal message: {}", message);
     HookStatus::Exit
+}
+
+fn version_result_hook(
+    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
+) -> HookStatus {
+    let version = state.read_reg(Arm64Reg::x0).extend_64();
+    println!("Version is: {:#x}", version);
+    HookStatus::Continue
+}
+
+fn uname_return(
+    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
+) -> HookStatus {
+    let ret = state.read_reg(Arm64Reg::w0).extend_64();
+    println!("Uname ret is: {:#x}", ret);
+    HookStatus::Continue
 }
