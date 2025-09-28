@@ -30,6 +30,8 @@ fn main() {
     prog.add_function(llil_entry.as_ref());
     // __strlen_asimd
     prog.add_empty(0x41e940);
+    // memset generic
+    prog.add_empty(0x41e1c0);
     prog.add_empty(0x4240e0);
     for addr in functions_to_load {
         let func = bv
@@ -97,6 +99,7 @@ fn main() {
     emu.add_hook(0x40fa10, libc_fatal_hook).unwrap();
     emu.add_hook(0x41e940, strlen_hook).unwrap();
     emu.add_hook(0x4240e0, fatal_hook).unwrap();
+    emu.add_hook(0x41e1c0, memset_hook).unwrap();
     let mut stop_reason: Exit;
     emu.set_pc(bv.entry_point());
     loop {
@@ -105,7 +108,7 @@ fn main() {
             let func = bv.function_at(bv.default_platform().unwrap().as_ref(), addr);
             match func {
                 Some(f) => {
-                    println!("Adding: {:?}", f.symbol().full_name());
+                    println!("Adding: {:?} @ {:#x}", f.symbol().full_name(), addr);
                     emu.get_prog_mut()
                         .add_function(f.low_level_il().unwrap().as_ref());
                 }
@@ -183,5 +186,26 @@ fn strlen_hook(
         len += 1;
     }
     state.write_reg(Arm64Reg::x0, emil::emil::ILVal::Quad(len));
+    HookStatus::Goto(ret)
+}
+
+fn memset_hook(
+    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
+) -> HookStatus {
+    let mut src = state.read_reg(Arm64Reg::x0).extend_64();
+    let mut dst = state.read_reg(Arm64Reg::x1).extend_64();
+    let size = state.read_reg(Arm64Reg::x2).extend_64() as usize;
+    let ret = state.read_reg(Arm64Reg::lr).extend_64();
+    let mut buf = [0u8];
+    for _ in 0..size {
+        if state.read_mem(src, &mut buf).is_err() {
+            return HookStatus::Continue;
+        }
+        if state.write_mem(dst, &buf).is_err() {
+            return HookStatus::Continue;
+        }
+        src += 1;
+        dst += 1;
+    }
     HookStatus::Goto(ret)
 }

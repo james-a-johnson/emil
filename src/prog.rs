@@ -335,6 +335,7 @@ impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
             ExprKind::Lsr(shift) => bin_op!(shift, Lsr, self, ilr),
             ExprKind::Sub(s) => bin_op!(s, Sub, self, ilr),
             ExprKind::Mul(m) => bin_op!(m, Mul, self, ilr),
+            ExprKind::MuluDp(m) => bin_op!(m, Mul, self, ilr),
             ExprKind::Modu(mu) => bin_op!(mu, Modu, self, ilr),
             ExprKind::Divu(du) => bin_op!(du, Divu, self, ilr),
             ExprKind::Divs(ds) => bin_op!(ds, Divs, self, ilr),
