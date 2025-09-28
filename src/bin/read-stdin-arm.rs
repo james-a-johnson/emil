@@ -28,6 +28,8 @@ fn main() {
         .unwrap();
     let llil_entry = entry.low_level_il().unwrap();
     prog.add_function(llil_entry.as_ref());
+    // __strlen_asimd
+    prog.add_empty(0x41e940);
     for addr in functions_to_load {
         let func = bv
             .function_at(bv.default_platform().unwrap().as_ref(), *addr)
@@ -94,6 +96,7 @@ fn main() {
     emu.add_hook(0x40fa10, libc_fatal_hook).unwrap();
     emu.add_hook(0x400a54, version_result_hook).unwrap();
     emu.add_hook(0x44944c, uname_return).unwrap();
+    emu.add_hook(0x41e940, strlen_hook).unwrap();
     // emu.add_breakpoint(0x423aac).unwrap();
     // emu.add_breakpoint(0x423ab8).unwrap();
     // emu.add_breakpoint(0x423abc).unwrap();
@@ -181,4 +184,23 @@ fn uname_return(
     let ret = state.read_reg(Arm64Reg::w0).extend_64();
     println!("Uname ret is: {:#x}", ret);
     HookStatus::Continue
+}
+
+fn strlen_hook(
+    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
+) -> HookStatus {
+    let mut addr = state.read_reg(Arm64Reg::x0).extend_64();
+    let ret = state.read_reg(Arm64Reg::lr).extend_64();
+    let mut buf = [0u8];
+    let mut len = 0u64;
+    loop {
+        let _ = state.read_mem(addr, &mut buf);
+        if buf[0] == 0 {
+            break;
+        }
+        addr += 1;
+        len += 1;
+    }
+    state.write_reg(Arm64Reg::x0, emil::emil::ILVal::Quad(len));
+    HookStatus::Goto(ret)
 }

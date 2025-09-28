@@ -58,6 +58,16 @@ macro_rules! bin_op {
 }
 
 impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
+    /// Add empty function at an address.
+    ///
+    /// This is useful for when you want a function to always be hooked. This will just add an undefined instruction at
+    /// the address. So if it is not hooked and skipped over it will cause execution to halt.
+    pub fn add_empty(&mut self, addr: u64) {
+        self.insn_map.insert(addr, self.il.len());
+        self.il.push(Emil::Undef);
+        self.addr_map.push(addr);
+    }
+
     pub fn add_function(&mut self, func: &LLILFunc) {
         // The jump instructions will need to be fixed up after they are added. LLIL encodes those
         // as jumping to an address or going to a specific LLIL index. The instructions here will
