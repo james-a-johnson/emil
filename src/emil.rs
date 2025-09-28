@@ -117,10 +117,16 @@ impl ILVal {
     /// Two values must be of the same size.
     pub fn signed_div(self, other: Self) -> Self {
         match (self, other) {
-            (Self::Byte(v1), Self::Byte(v2)) => Self::Byte(((v1 as i8) / (v2 as i8)) as u8),
-            (Self::Short(v1), Self::Short(v2)) => Self::Short(((v1 as i16) / (v2 as i16)) as u16),
-            (Self::Word(v1), Self::Word(v2)) => Self::Word(((v1 as i32) / (v2 as i32)) as u32),
-            (Self::Quad(v1), Self::Quad(v2)) => Self::Quad(((v1 as i64) / (v2 as i64)) as u64),
+            (Self::Byte(v1), Self::Byte(v2)) => Self::Byte((v1 as i8).wrapping_div(v2 as i8) as u8),
+            (Self::Short(v1), Self::Short(v2)) => {
+                Self::Short((v1 as i16).wrapping_div(v2 as i16) as u16)
+            }
+            (Self::Word(v1), Self::Word(v2)) => {
+                Self::Word((v1 as i32).wrapping_div(v2 as i32) as u32)
+            }
+            (Self::Quad(v1), Self::Quad(v2)) => {
+                Self::Quad((v1 as i64).wrapping_div(v2 as i64) as u64)
+            }
             (_, _) => unreachable!("Invalid combination for signed division"),
         }
     }
@@ -475,10 +481,10 @@ impl Rem for ILVal {
 
     fn rem(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l % r),
-            (Self::Short(l), Self::Short(r)) => Self::Short(l % r),
-            (Self::Word(l), Self::Word(r)) => Self::Word(l % r),
-            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l % r),
+            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.wrapping_rem(r)),
+            (Self::Short(l), Self::Short(r)) => Self::Short(l.wrapping_rem(r)),
+            (Self::Word(l), Self::Word(r)) => Self::Word(l.wrapping_rem(r)),
+            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.wrapping_rem(r)),
             _ => panic!("Incompatible sizes for remainder operation"),
         }
     }
@@ -489,16 +495,16 @@ impl Shl for ILVal {
 
     fn shl(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.overflowing_shl(r as u32).0),
-            (Self::Short(l), Self::Byte(r)) => Self::Short(l.overflowing_shl(r as u32).0),
-            (Self::Short(l), Self::Short(r)) => Self::Short(l.overflowing_shl(r as u32).0),
-            (Self::Word(l), Self::Byte(r)) => Self::Word(l.overflowing_shl(r as u32).0),
-            (Self::Word(l), Self::Short(r)) => Self::Word(l.overflowing_shl(r as u32).0),
-            (Self::Word(l), Self::Word(r)) => Self::Word(l.overflowing_shl(r as u32).0),
-            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.overflowing_shl(r as u32).0),
-            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.overflowing_shl(r as u32).0),
-            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.overflowing_shl(r as u32).0),
-            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.overflowing_shl(r as u32).0),
+            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.wrapping_shl(r as u32)),
+            (Self::Short(l), Self::Byte(r)) => Self::Short(l.wrapping_shl(r as u32)),
+            (Self::Short(l), Self::Short(r)) => Self::Short(l.wrapping_shl(r as u32)),
+            (Self::Word(l), Self::Byte(r)) => Self::Word(l.wrapping_shl(r as u32)),
+            (Self::Word(l), Self::Short(r)) => Self::Word(l.wrapping_shl(r as u32)),
+            (Self::Word(l), Self::Word(r)) => Self::Word(l.wrapping_shl(r as u32)),
+            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.wrapping_shl(r as u32)),
+            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.wrapping_shl(r as u32)),
+            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.wrapping_shl(r as u32)),
+            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.wrapping_shl(r as u32)),
             _ => panic!("Incompatible sizes for shift left operation"),
         }
     }
@@ -509,16 +515,16 @@ impl Shr for ILVal {
 
     fn shr(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l >> r),
-            (Self::Short(l), Self::Byte(r)) => Self::Short(l >> r),
-            (Self::Short(l), Self::Short(r)) => Self::Short(l >> r),
-            (Self::Word(l), Self::Byte(r)) => Self::Word(l >> r),
-            (Self::Word(l), Self::Short(r)) => Self::Word(l >> r),
-            (Self::Word(l), Self::Word(r)) => Self::Word(l >> r),
-            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l >> r),
-            (Self::Quad(l), Self::Short(r)) => Self::Quad(l >> r),
-            (Self::Quad(l), Self::Word(r)) => Self::Quad(l >> r),
-            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l >> r),
+            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.wrapping_shr(r as u32)),
+            (Self::Short(l), Self::Byte(r)) => Self::Short(l.wrapping_shr(r as u32)),
+            (Self::Short(l), Self::Short(r)) => Self::Short(l.wrapping_shr(r as u32)),
+            (Self::Word(l), Self::Byte(r)) => Self::Word(l.wrapping_shr(r as u32)),
+            (Self::Word(l), Self::Short(r)) => Self::Word(l.wrapping_shr(r as u32)),
+            (Self::Word(l), Self::Word(r)) => Self::Word(l.wrapping_shr(r as u32)),
+            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.wrapping_shr(r as u32)),
+            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.wrapping_shr(r as u32)),
+            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.wrapping_shr(r as u32)),
+            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.wrapping_shr(r as u32)),
             _ => panic!("Incompatible sizes for shift right operation"),
         }
     }
