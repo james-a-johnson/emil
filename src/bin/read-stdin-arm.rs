@@ -16,7 +16,7 @@ const STACK_BASE: usize = 0xfffffffffff00000;
 const STACK_SIZE: usize = 0x000000000007f000;
 
 fn main() {
-    let functions_to_load: &[u64] = &[0x449440, 0x423a10, 0x40fa10, 0x400850, 0x425160];
+    let functions_to_load: &[u64] = &[0x449440, 0x423a10, 0x40fa10, 0x400850, 0x425160, 0x44b910];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
         .load("./test-bins/sum-stdin-arm.bndb")
@@ -30,6 +30,7 @@ fn main() {
     prog.add_function(llil_entry.as_ref());
     // __strlen_asimd
     prog.add_empty(0x41e940);
+    prog.add_empty(0x4240e0);
     for addr in functions_to_load {
         let func = bv
             .function_at(bv.default_platform().unwrap().as_ref(), *addr)
@@ -94,13 +95,8 @@ fn main() {
 
     let mut emu = Emulator::new(prog, state);
     emu.add_hook(0x40fa10, libc_fatal_hook).unwrap();
-    emu.add_hook(0x400a54, version_result_hook).unwrap();
-    emu.add_hook(0x44944c, uname_return).unwrap();
     emu.add_hook(0x41e940, strlen_hook).unwrap();
-    // emu.add_breakpoint(0x423aac).unwrap();
-    // emu.add_breakpoint(0x423ab8).unwrap();
-    // emu.add_breakpoint(0x423abc).unwrap();
-    // emu.add_breakpoint(0x423a70);
+    emu.add_hook(0x4240e0, fatal_hook).unwrap();
     let mut stop_reason: Exit;
     emu.set_pc(bv.entry_point());
     loop {
@@ -118,25 +114,6 @@ fn main() {
                     break;
                 }
             }
-        } else if let Exit::UserBreakpoint = stop_reason
-            && emu.curr_pc() == 0x423aac
-        {
-            let x20 = emu.get_state().regs[Arm64Reg::x20];
-            let x1 = emu.get_state().regs[Arm64Reg::x1];
-            let sum = x20 + x1;
-            println!("sum: {sum:#x}");
-        } else if let Exit::UserBreakpoint = stop_reason
-            && emu.curr_pc() == 0x423ab8
-        {
-            let x2 = emu.get_state().regs[Arm64Reg::x2];
-            println!("x2: {x2:#x}");
-        } else if let Exit::UserBreakpoint = stop_reason
-            && emu.curr_pc() == 0x423a70
-        {
-            let x20 = emu.get_state().regs[Arm64Reg::x20];
-            let x1 = emu.get_state().regs[Arm64Reg::x1];
-            println!("arg0: {x20:#x}");
-            println!("arg1: {x1:#x}");
         } else {
             break;
         }
@@ -170,20 +147,24 @@ fn libc_fatal_hook(
     HookStatus::Exit
 }
 
-fn version_result_hook(
+fn fatal_hook(
     state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
 ) -> HookStatus {
-    let version = state.read_reg(Arm64Reg::x0).extend_64();
-    println!("Version is: {:#x}", version);
-    HookStatus::Continue
-}
-
-fn uname_return(
-    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
-) -> HookStatus {
-    let ret = state.read_reg(Arm64Reg::w0).extend_64();
-    println!("Uname ret is: {:#x}", ret);
-    HookStatus::Continue
+    println!("fatal_error called");
+    let mut msg_ptr = state.read_reg(Arm64Reg::x3).extend_64();
+    let mut message = Vec::new();
+    let mut buf = [0u8];
+    loop {
+        state.read_mem(msg_ptr, &mut buf).unwrap();
+        if buf[0] == 0 {
+            break;
+        }
+        message.push(buf[0]);
+        msg_ptr += 1;
+    }
+    let message = String::from_utf8(message).unwrap();
+    println!("Fatal message: {}", message);
+    HookStatus::Exit
 }
 
 fn strlen_hook(

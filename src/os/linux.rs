@@ -227,9 +227,9 @@ macro_rules! define_syscall {
 /// all of them is still a work in progress.
 ///
 /// This trait provides a default implementation for each system call that just
-/// returns an error saying the operation is not supported. The only exception
-/// is the exit system call which will cause the program to terminate
-/// execution.
+/// returns an error saying the operation is not supported. Some syscalls have
+/// different default returns. Those will have their default implementation
+/// defined in a doc comment.
 pub trait LinuxSyscalls<R: RegState, M> {
     define_syscall!(faccessat);
     define_syscall!(read);
@@ -247,14 +247,17 @@ pub trait LinuxSyscalls<R: RegState, M> {
     define_syscall!(getrandom);
     define_syscall!(clock_gettime);
     define_syscall!(mmap);
+    define_syscall!(munmap);
     define_syscall!(writev);
     define_syscall!(rseq);
 
+    /// Returns that the path could not be found on the system.
     fn openat(&mut self, regs: &mut R, _mem: &mut M) -> SyscallResult {
         regs.set_syscall_return(ILVal::Quad((-2_i64) as u64));
         SyscallResult::Continue
     }
 
+    /// Causes the emulator to stop execution.
     fn exit(&mut self, _regs: &mut R, _mem: &mut M) -> SyscallResult {
         SyscallResult::Exit
     }

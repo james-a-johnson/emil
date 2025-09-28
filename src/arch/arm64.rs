@@ -416,6 +416,7 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
             (0xb0, getgid),
             (0xb1, getegid),
             (0xd6, brk),
+            (0xd7, munmap),
             (0xde, mmap),
             (0x105, prlimit64),
             (0x116, getrandom),
@@ -955,7 +956,7 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
         let addr = regs[Arm64Reg::x0];
         let len = regs[Arm64Reg::x1];
 
-        if addr != 0 {
+        if addr == 0 {
             // Just map at any address that has the required size
             let range = mem.gaps().find(|r| r.size() >= len as usize);
             if let Some(addrs) = range {
