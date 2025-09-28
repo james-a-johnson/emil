@@ -8,12 +8,12 @@ use binaryninja::low_level_il::expression::LowLevelILExpressionKind as ExprKind;
 use binaryninja::low_level_il::operation::RegOrFlag;
 use from_id::FromId;
 use softmew::page::{Page, SimplePage};
-use softmew::{Perm, MMU};
+use softmew::{MMU, Perm};
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
 use crate::arch::Saveable;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::ops::{Index, IndexMut, Range};
 
@@ -152,7 +152,10 @@ macro_rules! syscalls {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, S: Serialize + Deserialize<'de> + LinuxSyscalls<Arm64State, MMU<SimplePage>>> Saveable<'de> for LinuxArm64<S> {}
+impl<'de, S: Serialize + Deserialize<'de> + LinuxSyscalls<Arm64State, MMU<SimplePage>>>
+    Saveable<'de> for LinuxArm64<S>
+{
+}
 
 impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
     type Reg = Arm64Reg;
@@ -330,6 +333,7 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
             (0xb1, getegid),
             (0xd6, brk),
             (0x105, prlimit64),
+            (0x116, getrandom),
             (0x125, rseq)
         )
     }
@@ -695,6 +699,21 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
         SyscallResult::Continue
     }
 
+    fn getrandom(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let buf = regs[Arm64Reg::x0] as usize;
+        let len = regs[Arm64Reg::x1] as usize;
+        let buffer = match mem.get_slice_mut(buf..buf + len) {
+            Ok(s) => s,
+            Err(_) => {
+                regs[Arm64Reg::x0] = (-14_i64) as u64;
+                return SyscallResult::Continue;
+            }
+        };
+        buffer.fill(0xaa);
+        regs[Arm64Reg::x0] = len as u64;
+        SyscallResult::Continue
+    }
+
     fn uname(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
         let addr = regs[Arm64Reg::x0];
         regs[Arm64Reg::x0] = (-14_i64) as u64;
@@ -740,20 +759,6 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
             println!("domain failed");
             return SyscallResult::Continue;
         }
-        regs[Arm64Reg::x0] = 0;
-        SyscallResult::Continue
-    }
-
-    fn getrandom(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
-        let addr = regs[Arm64Reg::x0];
-        let size = regs[Arm64Reg::x1];
-        regs[Arm64Reg::x0] = (-14_i64) as u64;
-        for i in addr..(addr + size) {
-            if mem.write_perm(i as usize, &[0xee]).is_err() {
-                return SyscallResult::Continue;
-            }
-        }
-
         regs[Arm64Reg::x0] = 0;
         SyscallResult::Continue
     }
