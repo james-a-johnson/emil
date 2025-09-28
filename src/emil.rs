@@ -58,6 +58,17 @@ pub enum ILVal {
 }
 
 impl ILVal {
+    /// Size of the ILVal in bytes.
+    pub fn size(&self) -> usize {
+        match self {
+            Self::Flag(_) => 0,
+            Self::Byte(_) => 1,
+            Self::Short(_) => 2,
+            Self::Word(_) => 4,
+            Self::Quad(_) => 8,
+        }
+    }
+
     /// Convert the value to a u32.
     ///
     /// Will either truncate or zero extend to get a 32 bit value.

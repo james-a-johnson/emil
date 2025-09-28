@@ -1,6 +1,6 @@
 use crate::arch::{FileDescriptor, Intrinsic, RegState, Register, State, SyscallResult};
 use crate::emil::ILVal;
-use crate::emulate::Little;
+use crate::emulate::{Endian, Little};
 use crate::os::linux::LinuxSyscalls;
 use binaryninja::architecture::Register as BNReg;
 use binaryninja::low_level_il::expression::ExpressionHandler;
@@ -22,7 +22,12 @@ use std::ops::{Index, IndexMut, Range};
 pub enum ArmIntrinsic {
     WriteMSR(Arm64Reg, u32),
     ReadMSR(Arm64Reg, u32),
+    /// (Destnation register, Address register).
+    Ldxr(Arm64Reg, Arm64Reg),
+    /// (Destination register, Value Register, Address register).
+    Stxr(Arm64Reg, Arm64Reg, Arm64Reg),
     Dmb,
+    BtiHint,
 }
 
 impl Intrinsic for ArmIntrinsic {
@@ -36,7 +41,26 @@ impl Intrinsic for ArmIntrinsic {
     ) -> Result<Self, String> {
         let id = intrinsic.intrinsic().expect("Invalid intrinsic").id.0;
         match id {
-            5 => Ok(ArmIntrinsic::Dmb),
+            5 => Ok(Self::Dmb),
+            8 => Ok(Self::BtiHint),
+            38 | 41 => {
+                // ldaxr, load acquire exclusive
+                let dest_reg = get_reg_from_outputs(intrinsic, 0)
+                    .map_err(|e| format!("Couldn't get register to load into for ldaxr: {e}"))?;
+                let source_reg = get_reg_from_inputs(intrinsic, 0)
+                    .map_err(|e| format!("Couldn't get source register for ldaxr: {e}"))?;
+                Ok(Self::Ldxr(dest_reg, source_reg))
+            }
+            47 | 44 => {
+                // stxr store exclusive
+                let dest_reg = get_reg_from_outputs(intrinsic, 0)
+                    .map_err(|e| format!("Bad output reg for stxr: {e}"))?;
+                let value_reg = get_reg_from_inputs(intrinsic, 0)
+                    .map_err(|e| format!("Failed to get value register to use: {e}"))?;
+                let addr_reg = get_reg_from_inputs(intrinsic, 1)
+                    .map_err(|e| format!("Failed to get value register to use: {e}"))?;
+                Ok(Self::Stxr(dest_reg, value_reg, addr_reg))
+            }
             13 => {
                 // Read msr into an architecture register.
                 // First element of output array should be a register.
@@ -49,50 +73,93 @@ impl Intrinsic for ArmIntrinsic {
                 } else {
                     return Err(format!("Can't write msr to a flag"));
                 };
-                let msr = match intrinsic.inputs().kind() {
-                    ExprKind::CallParamSsa(p) => {
-                        if let Some(ExprKind::Const(c)) = p.param_exprs().get(0).map(|e| e.kind()) {
-                            c.value() as u32
-                        } else {
-                            return Err(format!("Read MSR param not a constant"));
-                        }
-                    }
-                    _ => return Err(format!("Inputs to read msr were not a parameter list")),
-                };
-                Ok(Self::ReadMSR(reg, msr))
+                let msr = get_const_from_inputs(intrinsic, 0)
+                    .map_err(|e| format!("Failed to get msr for msr read: {e}"))?;
+                Ok(Self::ReadMSR(reg, msr as u32))
             }
             14 => {
                 // Write architecture register into system register.
                 // All information is in the inputs array. That will have the system register number and then the
                 // architecture register ID.
-                let inputs = intrinsic.inputs().kind();
-                let sys_id = match inputs {
-                    ExprKind::CallParamSsa(ref p) => {
-                        if let Some(ExprKind::Const(c)) = p.param_exprs().get(0).map(|e| e.kind()) {
-                            c.value() as u32
-                        } else {
-                            return Err(format!("First param of write MSR is not a constant"));
-                        }
-                    }
-                    _ => return Err(format!("Inputs to write MSR were not a parameter list")),
-                };
-                let reg = match inputs {
-                    ExprKind::CallParamSsa(ref p) => {
-                        if let Some(ExprKind::Reg(r)) = p.param_exprs().get(1).map(|e| e.kind()) {
-                            r.source_reg().id().0
-                        } else {
-                            return Err(format!("Second param of write MSR is not a register"));
-                        }
-                    }
-                    _ => return Err(format!("Inputs to write MSR were not a parameter list")),
-                };
-                let reg = Arm64Reg::try_from(reg)
-                    .map_err(|e| format!("{e} is an invalid arm64 register id for write MSR"))?;
+                let sys_id = get_const_from_inputs(intrinsic, 0)
+                    .map(|c| c as u32)
+                    .map_err(|e| format!("Could not get id of msr to read: {e}"))?;
+                let reg = get_reg_from_inputs(intrinsic, 1).map_err(|e| {
+                    format!("Failed to get register to write from MSR intrinsic: {e}")
+                })?;
                 Ok(Self::WriteMSR(reg, sys_id))
             }
             _ => Err(format!("Don't support {id} yet")),
         }
     }
+}
+
+fn get_reg_from_outputs(
+    op: &binaryninja::low_level_il::operation::Operation<
+        '_,
+        binaryninja::low_level_il::function::Finalized,
+        binaryninja::low_level_il::function::NonSSA,
+        binaryninja::low_level_il::operation::Intrinsic,
+    >,
+    idx: usize,
+) -> Result<Arm64Reg, String> {
+    let outputs = op.outputs();
+    let reg = outputs
+        .get(idx)
+        .ok_or(format!("Fewer than {idx} outputs"))?;
+    let reg = if let RegOrFlag::Reg(r) = reg {
+        Arm64Reg::try_from(r.id().0).unwrap()
+    } else {
+        return Err(format!("Output {idx} is a flag"));
+    };
+    Ok(reg)
+}
+
+fn get_reg_from_inputs(
+    op: &binaryninja::low_level_il::operation::Operation<
+        '_,
+        binaryninja::low_level_il::function::Finalized,
+        binaryninja::low_level_il::function::NonSSA,
+        binaryninja::low_level_il::operation::Intrinsic,
+    >,
+    idx: usize,
+) -> Result<Arm64Reg, String> {
+    let inputs = op.inputs().kind();
+    let reg = match inputs {
+        ExprKind::CallParamSsa(ref p) => {
+            if let Some(ExprKind::Reg(r)) = p.param_exprs().get(idx).map(|e| e.kind()) {
+                r.source_reg().id().0
+            } else {
+                return Err(format!("Param {idx} of intrinsic is not a register"));
+            }
+        }
+        _ => return Err(format!("Inputs to intrinsic is not a parameter list")),
+    };
+    let reg = Arm64Reg::try_from(reg).map_err(|i| format!("{i} is an invalid register id"))?;
+    Ok(reg)
+}
+
+fn get_const_from_inputs(
+    op: &binaryninja::low_level_il::operation::Operation<
+        '_,
+        binaryninja::low_level_il::function::Finalized,
+        binaryninja::low_level_il::function::NonSSA,
+        binaryninja::low_level_il::operation::Intrinsic,
+    >,
+    idx: usize,
+) -> Result<u64, String> {
+    let inputs = op.inputs().kind();
+    let value = match inputs {
+        ExprKind::CallParamSsa(ref p) => {
+            if let Some(ExprKind::Const(c)) = p.param_exprs().get(idx).map(|e| e.kind()) {
+                c.value()
+            } else {
+                return Err(format!("Param {idx} of intrinsic is not a constant"));
+            }
+        }
+        _ => return Err(format!("Inputs to intrinsic is not a parameter list")),
+    };
+    Ok(value)
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -282,6 +349,23 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
     fn intrinsic(&mut self, intrin: &ArmIntrinsic) -> Result<(), softmew::fault::Fault> {
         match intrin {
             ArmIntrinsic::Dmb => Ok(()),
+            ArmIntrinsic::BtiHint => Ok(()),
+            ArmIntrinsic::Ldxr(dest, addr) => {
+                let addr = self.read_reg(*addr).extend_64();
+                let mut buf = [0u8; 8];
+                self.read_mem(addr, &mut buf[0..dest.size()])?;
+                let val = Little::read(&buf[0..dest.size()]);
+                self.write_reg(*dest, val);
+                Ok(())
+            }
+            ArmIntrinsic::Stxr(dest, value, addr) => {
+                let addr = self.read_reg(*addr).extend_64() as usize;
+                let value = self.read_reg(*value);
+                let buf = self.mem.get_slice_mut(addr..addr + value.size())?;
+                Little::write(value, buf);
+                self.write_reg(*dest, ILVal::Word(0));
+                Ok(())
+            }
             ArmIntrinsic::ReadMSR(reg, msr) => {
                 match msr {
                     0xd807 => {
@@ -332,6 +416,7 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
             (0xb0, getgid),
             (0xb1, getegid),
             (0xd6, brk),
+            (0xde, mmap),
             (0x105, prlimit64),
             (0x116, getrandom),
             (0x125, rseq)
@@ -578,6 +663,79 @@ pub enum Arm64Reg {
     lr = 64,
     sp = 66,
     syscall_info = 65534,
+}
+
+impl Arm64Reg {
+    /// Size of the register in bytes.
+    pub fn size(&self) -> usize {
+        match self {
+            Arm64Reg::w0 => 4,
+            Arm64Reg::w1 => 4,
+            Arm64Reg::w2 => 4,
+            Arm64Reg::w3 => 4,
+            Arm64Reg::w4 => 4,
+            Arm64Reg::w5 => 4,
+            Arm64Reg::w6 => 4,
+            Arm64Reg::w7 => 4,
+            Arm64Reg::w8 => 4,
+            Arm64Reg::w9 => 4,
+            Arm64Reg::w10 => 4,
+            Arm64Reg::w11 => 4,
+            Arm64Reg::w12 => 4,
+            Arm64Reg::w13 => 4,
+            Arm64Reg::w14 => 4,
+            Arm64Reg::w15 => 4,
+            Arm64Reg::w16 => 4,
+            Arm64Reg::w17 => 4,
+            Arm64Reg::w18 => 4,
+            Arm64Reg::w19 => 4,
+            Arm64Reg::w20 => 4,
+            Arm64Reg::w21 => 4,
+            Arm64Reg::w22 => 4,
+            Arm64Reg::w23 => 4,
+            Arm64Reg::w24 => 4,
+            Arm64Reg::w25 => 4,
+            Arm64Reg::w26 => 4,
+            Arm64Reg::w27 => 4,
+            Arm64Reg::w28 => 4,
+            Arm64Reg::w29 => 4,
+            Arm64Reg::w30 => 4,
+            Arm64Reg::wsp => 4,
+            Arm64Reg::x0 => 8,
+            Arm64Reg::x1 => 8,
+            Arm64Reg::x2 => 8,
+            Arm64Reg::x3 => 8,
+            Arm64Reg::x4 => 8,
+            Arm64Reg::x5 => 8,
+            Arm64Reg::x6 => 8,
+            Arm64Reg::x7 => 8,
+            Arm64Reg::x8 => 8,
+            Arm64Reg::x9 => 8,
+            Arm64Reg::x10 => 8,
+            Arm64Reg::x11 => 8,
+            Arm64Reg::x12 => 8,
+            Arm64Reg::x13 => 8,
+            Arm64Reg::x14 => 8,
+            Arm64Reg::x15 => 8,
+            Arm64Reg::x16 => 8,
+            Arm64Reg::x17 => 8,
+            Arm64Reg::x18 => 8,
+            Arm64Reg::x19 => 8,
+            Arm64Reg::x20 => 8,
+            Arm64Reg::x21 => 8,
+            Arm64Reg::x22 => 8,
+            Arm64Reg::x23 => 8,
+            Arm64Reg::x24 => 8,
+            Arm64Reg::x25 => 8,
+            Arm64Reg::x26 => 8,
+            Arm64Reg::x27 => 8,
+            Arm64Reg::x28 => 8,
+            Arm64Reg::fp => 8,
+            Arm64Reg::lr => 8,
+            Arm64Reg::sp => 8,
+            Arm64Reg::syscall_info => 8,
+        }
+    }
 }
 
 impl Register for Arm64Reg {

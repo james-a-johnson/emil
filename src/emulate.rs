@@ -58,7 +58,7 @@ impl From<Fault> for Exit {
 
 pub trait Endian: Debug + Clone + Copy {
     fn read(data: &[u8]) -> ILVal;
-    fn write(value: ILVal, data: &mut [u8; 8]) -> usize;
+    fn write(value: ILVal, data: &mut [u8]) -> usize;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -81,7 +81,7 @@ impl Endian for Little {
         }
     }
 
-    fn write(value: ILVal, data: &mut [u8; 8]) -> usize {
+    fn write(value: ILVal, data: &mut [u8]) -> usize {
         match value {
             ILVal::Flag(_) => unreachable!("Can't write a byte"),
             ILVal::Byte(b) => {
