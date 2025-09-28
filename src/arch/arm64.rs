@@ -18,6 +18,7 @@ use std::collections::{HashMap, VecDeque};
 use std::ops::{Index, IndexMut, Range};
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ArmIntrinsic {
     WriteMSR(Arm64Reg, u32),
     ReadMSR(Arm64Reg, u32),
@@ -506,6 +507,7 @@ impl IndexMut<Arm64Reg> for Arm64State {
 #[allow(non_camel_case_types)]
 #[repr(u32)]
 #[derive(FromId, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Arm64Reg {
     w0 = 1,
     w1 = 2,

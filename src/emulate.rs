@@ -62,6 +62,7 @@ pub trait Endian: Debug + Clone + Copy {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Little;
 impl Endian for Little {
     fn read(data: &[u8]) -> ILVal {
@@ -704,6 +705,7 @@ where
         self.pc.serialize(&mut serializer)?;
         self.temps.serialize(&mut serializer)?;
         self.prog.serialize(&mut serializer)?;
+        self.state.serialize(&mut serializer)?;
         Ok(())
     }
 }
