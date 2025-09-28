@@ -84,6 +84,23 @@ impl ILVal {
         }
     }
 
+    /// Rotate right operation.
+    pub fn rotate_right(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.rotate_right(r as u32)),
+            (Self::Short(l), Self::Byte(r)) => Self::Short(l.rotate_right(r as u32)),
+            (Self::Short(l), Self::Short(r)) => Self::Short(l.rotate_right(r as u32)),
+            (Self::Word(l), Self::Byte(r)) => Self::Word(l.rotate_right(r as u32)),
+            (Self::Word(l), Self::Short(r)) => Self::Word(l.rotate_right(r as u32)),
+            (Self::Word(l), Self::Word(r)) => Self::Word(l.rotate_right(r as u32)),
+            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.rotate_right(r as u32)),
+            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.rotate_right(r as u32)),
+            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.rotate_right(r as u32)),
+            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.rotate_right(r as u32)),
+            (_, _) => unreachable!("Invalid combination for rotate right"),
+        }
+    }
+
     /// Treat the values as signed and compare them.
     pub fn signed_cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
@@ -636,6 +653,12 @@ pub enum Emil<R: Reg, E: Endian, I: Intrinsic> {
     },
     /// Logical shift left.
     Lsl {
+        out: ILRef,
+        left: ILRef,
+        right: ILRef,
+    },
+    /// Rotate right.
+    Ror {
         out: ILRef,
         left: ILRef,
         right: ILRef,

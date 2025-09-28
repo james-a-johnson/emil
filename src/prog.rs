@@ -1,10 +1,10 @@
 use crate::arch::{Intrinsic, Register as Reg};
 use crate::emil::{Emil, ILRef};
 use crate::emulate::Endian;
-use binaryninja::architecture::{Flag, Intrinsic as _, Register as _};
+use binaryninja::architecture::{Flag, Register as _};
 use binaryninja::low_level_il::expression::{
-    ExpressionHandler, LowLevelExpressionIndex, LowLevelILExpression as Expr,
-    LowLevelILExpressionKind as ExprKind, ValueExpr,
+    ExpressionHandler, LowLevelILExpression as Expr, LowLevelILExpressionKind as ExprKind,
+    ValueExpr,
 };
 use binaryninja::low_level_il::function::{Finalized, LowLevelILFunction, NonSSA};
 use binaryninja::low_level_il::instruction::{
@@ -329,6 +329,7 @@ impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
             ExprKind::Divu(du) => bin_op!(du, Divu, self, ilr),
             ExprKind::Divs(ds) => bin_op!(ds, Divs, self, ilr),
             ExprKind::Or(or) => bin_op!(or, Or, self, ilr),
+            ExprKind::Ror(ror) => bin_op!(ror, Ror, self, ilr),
             ExprKind::Xor(xor) => bin_op!(xor, Xor, self, ilr),
             ExprKind::Mods(ms) => bin_op!(ms, Mods, self, ilr),
             ExprKind::CmpE(c) => bin_op!(c, CmpE, self, ilr),
