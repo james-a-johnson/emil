@@ -76,7 +76,10 @@ impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
         //
         // Jump and call instructions may not be relocatable. So just the goto instructions should
         // be updated here and the call instructions will be updated later.
-        let addr = func.function().start();
+        let addr = func
+            .function()
+            .expect("No function associated with the LLIL function")
+            .start();
         self.insn_map.insert(addr, self.il.len());
         let num_insns = func.instruction_count();
         if num_insns == 0 {

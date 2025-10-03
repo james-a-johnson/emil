@@ -5,7 +5,7 @@ use crate::os::linux::LinuxSyscalls;
 use binaryninja::architecture::Register as BNReg;
 use binaryninja::low_level_il::expression::ExpressionHandler;
 use binaryninja::low_level_il::expression::LowLevelILExpressionKind as ExprKind;
-use binaryninja::low_level_il::operation::RegOrFlag;
+use binaryninja::low_level_il::operation::IntrinsicOutput;
 use from_id::FromId;
 use softmew::page::{Page, SimplePage};
 use softmew::{MMU, Perm};
@@ -68,7 +68,7 @@ impl Intrinsic for ArmIntrinsic {
                 let reg = outputs
                     .get(0)
                     .ok_or(format!("MSR is not writing a register"))?;
-                let reg = if let RegOrFlag::Reg(r) = reg {
+                let reg = if let IntrinsicOutput::Reg(r) = reg {
                     Arm64Reg::try_from(r.id().0).unwrap()
                 } else {
                     return Err(format!("Can't write msr to a flag"));
@@ -107,7 +107,7 @@ fn get_reg_from_outputs(
     let reg = outputs
         .get(idx)
         .ok_or(format!("Fewer than {idx} outputs"))?;
-    let reg = if let RegOrFlag::Reg(r) = reg {
+    let reg = if let IntrinsicOutput::Reg(r) = reg {
         Arm64Reg::try_from(r.id().0).unwrap()
     } else {
         return Err(format!("Output {idx} is a flag"));
