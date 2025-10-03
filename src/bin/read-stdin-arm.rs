@@ -6,6 +6,7 @@ use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
 use emil::arch::{State, arm64::*};
+use emil::emil::ILVal;
 use emil::emulate::{Emulator, Exit, HookStatus, Little};
 use emil::os::linux::{AuxVal, Environment};
 use emil::prog::Program;
@@ -26,13 +27,19 @@ fn main() {
     let entry = bv
         .function_at(bv.default_platform().unwrap().as_ref(), bv.entry_point())
         .unwrap();
+    let main = bv
+        .function_at(bv.default_platform().unwrap().as_ref(), 0x4006d4)
+        .expect("No main function");
     let llil_entry = entry.low_level_il().unwrap();
     prog.add_function(llil_entry.as_ref());
+    prog.add_function(main.low_level_il().unwrap().as_ref());
     // __strlen_asimd
     prog.add_empty(0x41e940);
     // memset generic
     prog.add_empty(0x41e1c0);
     prog.add_empty(0x4240e0);
+    // _dlfo_process_initial
+    prog.add_empty(0x459520);
     for addr in functions_to_load {
         let func = bv
             .function_at(bv.default_platform().unwrap().as_ref(), *addr)
@@ -100,8 +107,9 @@ fn main() {
     emu.add_hook(0x41e940, strlen_hook).unwrap();
     emu.add_hook(0x4240e0, fatal_hook).unwrap();
     emu.add_hook(0x41e1c0, memset_hook).unwrap();
+    emu.add_hook(0x459520, return_zero_hook).unwrap();
     let mut stop_reason: Exit;
-    emu.set_pc(bv.entry_point());
+    emu.set_pc(main.start());
     loop {
         stop_reason = emu.proceed();
         if let Exit::InstructionFault(addr) = stop_reason {
@@ -207,5 +215,13 @@ fn memset_hook(
         src += 1;
         dst += 1;
     }
+    HookStatus::Goto(ret)
+}
+
+fn return_zero_hook(
+    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
+) -> HookStatus {
+    state.write_reg(Arm64Reg::x0, ILVal::Quad(0));
+    let ret = state.read_reg(Arm64Reg::lr).extend_64();
     HookStatus::Goto(ret)
 }
