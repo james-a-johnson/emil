@@ -134,7 +134,13 @@ impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
                 match sr.dest_reg() {
                     binaryninja::low_level_il::LowLevelILRegisterKind::Arch(a) => {
                         let arch_reg = R::try_from(a.id().0)
-                            .map_err(|_| format!("Invalid id {}", sr.dest_reg().id().0))
+                            .map_err(|_| {
+                                format!(
+                                    "Invalid id {} at {:#x}",
+                                    sr.dest_reg().id().0,
+                                    insn.address()
+                                )
+                            })
                             .expect("Invalid architecture register in program");
                         self.il.push(Emil::SetReg { reg: arch_reg, ilr });
                     }
@@ -201,6 +207,10 @@ impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
                         addr: dest,
                     }),
                     8 => self.il.push(Emil::Store {
+                        value: source,
+                        addr: dest,
+                    }),
+                    16 => self.il.push(Emil::Store {
                         value: source,
                         addr: dest,
                     }),
@@ -309,6 +319,14 @@ impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
                             dest,
                             addr,
                             size: 8,
+                        });
+                        dest
+                    }
+                    16 => {
+                        self.il.push(Emil::Load {
+                            dest,
+                            addr,
+                            size: 16,
                         });
                         dest
                     }

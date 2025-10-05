@@ -77,6 +77,9 @@ impl Endian for Little {
             8 => ILVal::Quad(u64::from_le_bytes(
                 data.try_into().expect("Length is valid"),
             )),
+            16 => ILVal::Simd(u128::from_le_bytes(
+                data.try_into().expect("Length is valid"),
+            )),
             _ => unreachable!("Invalid length"),
         }
     }
@@ -96,9 +99,21 @@ impl Endian for Little {
                 data[0..4].copy_from_slice(&w.to_le_bytes());
                 4
             }
+            ILVal::Float(f) => {
+                data[0..4].copy_from_slice(&f.to_le_bytes());
+                4
+            }
             ILVal::Quad(q) => {
-                data.copy_from_slice(&q.to_le_bytes());
+                data[0..8].copy_from_slice(&q.to_le_bytes());
                 8
+            }
+            ILVal::Double(d) => {
+                data[0..8].copy_from_slice(&d.to_le_bytes());
+                8
+            }
+            ILVal::Simd(s) => {
+                data.copy_from_slice(&s.to_le_bytes());
+                16
             }
         }
     }
@@ -431,7 +446,7 @@ impl<S: State> Emulator<S> {
                 *self.get_ilr_mut(ilr) = val;
             }
             Emil::Store { value, addr } => {
-                let mut buf = [0u8; 8];
+                let mut buf = [0u8; 16];
                 let size = S::Endianness::write(self.get_ilr(value), &mut buf);
                 let addr = self.get_ilr_mut(addr).extend_64();
                 let write = self.state.write_mem(addr, &buf[0..size]);
@@ -441,7 +456,7 @@ impl<S: State> Emulator<S> {
             }
             Emil::Load { size, addr, dest } => {
                 // prog.rs ensures that the load size will be 8 or less
-                let mut buf = [0u8; 8];
+                let mut buf = [0u8; 16];
                 let addr = self.get_ilr(addr).extend_64();
                 let read = self.state.read_mem(addr, &mut buf[0..size as usize]);
                 if let Err(f) = read {

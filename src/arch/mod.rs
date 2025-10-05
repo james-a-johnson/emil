@@ -12,6 +12,7 @@ use binaryninja::low_level_il::operation::{Intrinsic as LLILIntrinsic, Operation
 use std::{
     any::Any,
     io::{Read, Write},
+    ops::Range,
 };
 
 #[cfg(feature = "serde")]
@@ -64,6 +65,11 @@ pub trait State {
     fn read_mem(&self, addr: u64, buf: &mut [u8]) -> Result<(), Fault>;
     /// Write to system memory
     fn write_mem(&mut self, addr: u64, data: &[u8]) -> Result<(), Fault>;
+
+    /// Get a range of addresses as a slice.
+    fn get_mem(&self, addrs: Range<u64>) -> Result<&[u8], Fault>;
+    /// Get a range of addresses as a mutable slice.
+    fn get_mem_mut(&mut self, addrs: Range<u64>) -> Result<&mut [u8], Fault>;
 
     fn get_flag(&self, id: u32) -> bool;
     fn set_flag(&mut self, val: bool, id: u32);
