@@ -79,6 +79,7 @@ fn main() {
     let mut env = Environment::default();
     env.args.push("read-stdin".into());
     env.env.push("EMULATOR=1".into());
+    env.aux.push(AuxVal::Platform("aarch64".into()));
     env.aux.push(AuxVal::Uid(1000));
     env.aux.push(AuxVal::Euid(1000));
     env.aux.push(AuxVal::Gid(1000));
@@ -109,7 +110,7 @@ fn main() {
     emu.add_hook(0x41e1c0, memset_hook).unwrap();
     emu.add_hook(0x459520, return_zero_hook).unwrap();
     let mut stop_reason: Exit;
-    emu.set_pc(main.start());
+    emu.set_pc(entry.start());
     loop {
         stop_reason = emu.proceed();
         if let Exit::InstructionFault(addr) = stop_reason {

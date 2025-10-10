@@ -1,10 +1,12 @@
+use std::ffi::OsString;
+
 use crate::{
     arch::{RegState, SyscallResult},
     emil::ILVal,
 };
 
 /// Auxiliary vector entries.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum AuxVal {
     /// end of vector
     Null,
@@ -37,7 +39,7 @@ pub enum AuxVal {
     /// effective gid
     Egid(u64),
     /// string identifying CPU for optimizations
-    Platform,
+    Platform(OsString),
     /// arch dependent hints at CPU capabilities
     Hwcap(u64),
     /// frequency at which times() increments
@@ -46,7 +48,7 @@ pub enum AuxVal {
     /// secure mode boolean
     Secure,
     /// string identifying real platform, may differ from AT_PLATFORM
-    BasePlatform,
+    BasePlatform(OsString),
     /// address of 16 random bytes
     Random([u8; 16]),
     /// extension of AT_HWCAP
@@ -90,11 +92,11 @@ impl AuxVal {
             Self::Euid(_) => 12,
             Self::Gid(_) => 13,
             Self::Egid(_) => 14,
-            Self::Platform => 15,
+            Self::Platform(_) => 15,
             Self::Hwcap(_) => 16,
             Self::Clktck => 17,
             Self::Secure => 23,
-            Self::BasePlatform => 24,
+            Self::BasePlatform(_) => 24,
             Self::Random(_) => 25,
             Self::Hwcap2 => 26,
             Self::RseqFeatureSize => 27,
@@ -170,6 +172,12 @@ impl Environment {
                     len = len - 16;
                     current = current - 16;
                     data[len..][..16].copy_from_slice(rand);
+                    aux_vals.push((aux.discrim(), current));
+                }
+                AuxVal::Platform(s) | AuxVal::BasePlatform(s) => {
+                    len = len - s.len() - 1;
+                    current = current - (s.len() as u64) - 1;
+                    data[len..][..s.len()].copy_from_slice(s.as_encoded_bytes());
                     aux_vals.push((aux.discrim(), current));
                 }
                 _ => unimplemented!("Haven't done {:?} yet", aux),
