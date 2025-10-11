@@ -7,7 +7,7 @@ use binaryninja::headless::Session;
 
 use emil::arch::{State, arm64::*};
 use emil::emil::ILVal;
-use emil::emulate::{Emulator, Exit, HookStatus, Little};
+use emil::emulate::{AccessType, Emulator, Exit, HookStatus, Little};
 use emil::os::linux::{AuxVal, Environment};
 use emil::prog::Program;
 
@@ -17,7 +17,9 @@ const STACK_BASE: usize = 0xfffffffffff00000;
 const STACK_SIZE: usize = 0x000000000007f000;
 
 fn main() {
-    let functions_to_load: &[u64] = &[0x449440, 0x423a10, 0x40fa10, 0x400850, 0x425160, 0x44b910];
+    let functions_to_load: &[u64] = &[
+        0x449440, 0x423a10, 0x40fa10, 0x400850, 0x425160, 0x44b910, 0x424780,
+    ];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
         .load("./test-bins/sum-stdin-arm.bndb")
@@ -84,6 +86,9 @@ fn main() {
     env.aux.push(AuxVal::Euid(1000));
     env.aux.push(AuxVal::Gid(1000));
     env.aux.push(AuxVal::Egid(1000));
+    env.aux.push(AuxVal::Phnum(6));
+    env.aux.push(AuxVal::Phdr(0x400040));
+    env.aux.push(AuxVal::Phent(0x38));
     env.aux.push(AuxVal::Random([
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
     ]));
@@ -109,6 +114,8 @@ fn main() {
     emu.add_hook(0x4240e0, fatal_hook).unwrap();
     emu.add_hook(0x41e1c0, memset_hook).unwrap();
     emu.add_hook(0x459520, return_zero_hook).unwrap();
+    emu.add_breakpoint(0x424e8c).unwrap();
+    emu.add_watch_addrs(0x4a7f98..0x4a7fa0, dl_platform_watch);
     let mut stop_reason: Exit;
     emu.set_pc(entry.start());
     loop {
@@ -126,6 +133,9 @@ fn main() {
                     break;
                 }
             }
+        } else if let Exit::UserBreakpoint = stop_reason {
+            let x19 = emu.get_state().regs[Arm64Reg::x19];
+            println!("x19: {:#x}", x19);
         } else {
             break;
         }
@@ -225,4 +235,18 @@ fn return_zero_hook(
     state.write_reg(Arm64Reg::x0, ILVal::Quad(0));
     let ret = state.read_reg(Arm64Reg::lr).extend_64();
     HookStatus::Goto(ret)
+}
+
+fn dl_platform_watch(
+    _state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
+    pc: u64,
+    _addr: u64,
+    access: AccessType,
+    _data: &mut [u8],
+) {
+    if access == AccessType::Read {
+        return;
+    }
+
+    println!("dl platform modified by {:#x}", pc);
 }

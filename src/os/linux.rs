@@ -15,11 +15,11 @@ pub enum AuxVal {
     /// file descriptor of program
     Execfd,
     /// program headers for program
-    Phdr,
+    Phdr(u64),
     /// size of program header entry
-    Phent,
+    Phent(u64),
     /// number of program headers
-    Phnum,
+    Phnum(u64),
     /// system page size
     Pagesz,
     /// base address of interpreter
@@ -80,9 +80,9 @@ impl AuxVal {
             Self::Null => 0,
             Self::Ignore => 1,
             Self::Execfd => 2,
-            Self::Phdr => 3,
-            Self::Phent => 4,
-            Self::Phnum => 5,
+            Self::Phdr(_) => 3,
+            Self::Phent(_) => 4,
+            Self::Phnum(_) => 5,
             Self::Pagesz => 6,
             Self::Base => 7,
             Self::Flags => 8,
@@ -165,7 +165,10 @@ impl Environment {
                 | AuxVal::Euid(id)
                 | AuxVal::Gid(id)
                 | AuxVal::Egid(id)
-                | AuxVal::Hwcap(id) => {
+                | AuxVal::Hwcap(id)
+                | AuxVal::Phnum(id)
+                | AuxVal::Phdr(id)
+                | AuxVal::Phent(id) => {
                     aux_vals.push((aux.discrim(), *id));
                 }
                 AuxVal::Random(rand) => {

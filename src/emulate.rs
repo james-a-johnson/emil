@@ -2,6 +2,7 @@ use crate::arch::{State, SyscallResult};
 use crate::emil::{Emil, ILRef, ILVal};
 use crate::prog::Program;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::ops::*;
 
@@ -13,6 +14,25 @@ use crate::arch::Saveable;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use std::io::{Read, Write};
+
+/// Function that can be used to hook specific instructions.
+pub type HookFn<R, E, I> = fn(&mut dyn State<Reg = R, Endianness = E, Intrin = I>) -> HookStatus;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AccessType {
+    Read,
+    Write,
+}
+
+/// Function that can be used to hook reads or writes of specific addresses.
+///
+/// # Parameters
+/// - Current state of the program
+/// - Address of the instruction that is doing the read or write
+/// - Address of the first byte being read or written in the current access
+/// - Data that is being written or the data that was read
+pub type WatchFn<R, E, I> =
+    fn(&mut dyn State<Reg = R, Endianness = E, Intrin = I>, u64, u64, AccessType, &mut [u8]);
 
 /// Reason that the emulator stopped executing.
 #[derive(Clone, Debug)]
@@ -167,6 +187,8 @@ pub struct Emulator<S: State> {
     pc: usize,
     /// List of instructions that have been hooked and what index they came from.
     replaced: Vec<(Emil<S::Reg, S::Endianness, S::Intrin>, usize)>,
+    /// Addresses that
+    watch: HashMap<u64, WatchFn<S::Reg, S::Endianness, S::Intrin>>,
 }
 
 macro_rules! bin_op {
@@ -192,6 +214,7 @@ impl<S: State> Emulator<S> {
             temps: [ILVal::Byte(0); 16],
             pc: 0,
             replaced: Vec::new(),
+            watch: HashMap::new(),
         }
     }
 
@@ -213,9 +236,7 @@ impl<S: State> Emulator<S> {
     pub fn add_hook(
         &mut self,
         addr: u64,
-        hook: fn(
-            &mut dyn State<Reg = S::Reg, Endianness = S::Endianness, Intrin = S::Intrin>,
-        ) -> HookStatus,
+        hook: HookFn<S::Reg, S::Endianness, S::Intrin>,
     ) -> Option<HookID> {
         let replaced_idx = self.replaced.len();
         let mut hook = Emil::Hook(hook, replaced_idx);
@@ -264,6 +285,22 @@ impl<S: State> Emulator<S> {
         std::mem::swap(&mut bp, inst);
         self.replaced.push((bp, idx));
         Some(BpID(replaced_idx))
+    }
+
+    /// Add a single address to the set of addresses to watch.
+    pub fn add_watch_point(&mut self, addr: u64, hook: WatchFn<S::Reg, S::Endianness, S::Intrin>) {
+        self.watch.insert(addr, hook);
+    }
+
+    /// Add a range of addresses to the set of addresses to watch.
+    pub fn add_watch_addrs(
+        &mut self,
+        addrs: Range<u64>,
+        hook: WatchFn<S::Reg, S::Endianness, S::Intrin>,
+    ) {
+        for addr in addrs {
+            self.watch.insert(addr, hook);
+        }
     }
 
     /// Remove the given breakpoint from the program.
@@ -449,6 +486,16 @@ impl<S: State> Emulator<S> {
                 let mut buf = [0u8; 16];
                 let size = S::Endianness::write(self.get_ilr(value), &mut buf);
                 let addr = self.get_ilr_mut(addr).extend_64();
+                if let Some(hook) = self.watch.get(&addr) {
+                    let pc = self.curr_pc();
+                    hook(
+                        &mut self.state,
+                        pc,
+                        addr,
+                        AccessType::Write,
+                        &mut buf[0..size],
+                    );
+                }
                 let write = self.state.write_mem(addr, &buf[0..size]);
                 if let Err(f) = write {
                     return ExecutionState::Exit(f.into());
@@ -461,6 +508,16 @@ impl<S: State> Emulator<S> {
                 let read = self.state.read_mem(addr, &mut buf[0..size as usize]);
                 if let Err(f) = read {
                     return ExecutionState::Exit(f.into());
+                }
+                if let Some(hook) = self.watch.get(&addr) {
+                    let pc = self.curr_pc();
+                    hook(
+                        &mut self.state,
+                        pc,
+                        addr,
+                        AccessType::Read,
+                        &mut buf[0..size as usize],
+                    );
                 }
                 let val = S::Endianness::read(&buf[0..size as usize]);
                 *self.get_ilr_mut(dest) = val;

@@ -8306,8 +8306,8 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
         }
         match <Vec<u8> as AsRef<[u8]>>::as_ref(&path) {
             b"/proc/self/exe" => {
-                mem.write_perm(link_buf as usize, b"/home/project/read-stdin\x00");
-                regs[Arm64Reg::x0] = 24;
+                mem.write_perm(link_buf as usize, b"/home/emulator/exe\x00");
+                regs[Arm64Reg::x0] = 18;
             }
             _ => regs[Arm64Reg::x0] = (-2_i64) as u64,
         }
