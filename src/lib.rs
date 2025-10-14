@@ -1,6 +1,7 @@
 pub mod arch;
 pub mod emil;
 pub mod emulate;
+pub mod load;
 pub mod os;
 pub mod prog;
 

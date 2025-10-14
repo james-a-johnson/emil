@@ -34,6 +34,7 @@ pub enum SyscallResult {
 
 pub trait Register: TryFrom<u32> + Debug + Display + Clone + Copy {
     fn syscall_ret() -> Self;
+    fn id(&self) -> u32;
 }
 
 pub trait RegState {

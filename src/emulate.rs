@@ -1,4 +1,4 @@
-use crate::arch::{State, SyscallResult};
+use crate::arch::{Register, State, SyscallResult};
 use crate::emil::{Emil, ILRef, ILVal};
 use crate::prog::Program;
 use std::cmp::Ordering;
@@ -462,6 +462,9 @@ impl<S: State> Emulator<S> {
             }
             Emil::SetReg { reg, ilr } => {
                 let val = self.get_ilr(ilr);
+                if reg.id() == 54 {
+                    println!("x20 set at {:#x}", self.curr_pc());
+                }
                 self.state.write_reg(reg, val);
             }
             Emil::LoadReg { reg, ilr } => {

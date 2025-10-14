@@ -1,5 +1,7 @@
 use std::ffi::OsString;
 
+use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
+
 use crate::{
     arch::{RegState, SyscallResult},
     emil::ILVal,
@@ -63,6 +65,8 @@ pub enum AuxVal {
     Hwcap4,
     /// filename of program
     Execfn,
+    /// Location of vDSO if present
+    SysinfoEhdr(u64),
     /// Minimum stack size for signal stack
     Minsigstksz,
 }
@@ -104,9 +108,28 @@ impl AuxVal {
             Self::Hwcap3 => 29,
             Self::Hwcap4 => 30,
             Self::Execfn => 31,
+            Self::SysinfoEhdr(_) => 33,
             Self::Minsigstksz => 51,
         }
     }
+}
+
+pub fn add_default_auxv(auxv: &mut Vec<AuxVal>, binary: &binaryninja::binary_view::BinaryView) {
+    auxv.push(AuxVal::Uid(1000));
+    auxv.push(AuxVal::Gid(1000));
+    auxv.push(AuxVal::Euid(1000));
+    auxv.push(AuxVal::Egid(1000));
+    if let Some(arch) = binary.default_arch() {
+        auxv.push(AuxVal::Platform(arch.name().into()));
+    }
+    auxv.push(AuxVal::Hwcap(0));
+    if let Some(entry) = binary.entry_point_function() {
+        auxv.push(AuxVal::Entry(entry.start()));
+    }
+    auxv.push(AuxVal::Random([
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    ]));
+    auxv.push(AuxVal::SysinfoEhdr(0));
 }
 
 /// Environment that a linux process will start with.
@@ -168,7 +191,9 @@ impl Environment {
                 | AuxVal::Hwcap(id)
                 | AuxVal::Phnum(id)
                 | AuxVal::Phdr(id)
-                | AuxVal::Phent(id) => {
+                | AuxVal::Phent(id)
+                | AuxVal::SysinfoEhdr(id)
+                | AuxVal::Entry(id) => {
                     aux_vals.push((aux.discrim(), *id));
                 }
                 AuxVal::Random(rand) => {

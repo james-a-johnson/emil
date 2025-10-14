@@ -43,6 +43,16 @@ fn main() {
         prog.add_function(func.low_level_il().as_ref().unwrap());
     }
 
+    for _ in 0..5 {
+        println!("\n");
+    }
+
+    prog.print_addr(0x1015e);
+
+    for _ in 0..5 {
+        println!("\n");
+    }
+
     let mut state = LinuxRV64::new(RvMachine::default());
     let mem = state.memory_mut();
     for segment in bv.segments().iter() {

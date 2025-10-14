@@ -8045,6 +8045,10 @@ impl Register for Arm64Reg {
     fn syscall_ret() -> Self {
         Self::x0
     }
+
+    fn id(&self) -> u32 {
+        *self as u32
+    }
 }
 
 impl std::fmt::Display for Arm64Reg {

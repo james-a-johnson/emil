@@ -1,6 +1,5 @@
 use std::any::Any;
 use std::collections::VecDeque;
-use std::io::Write;
 
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
@@ -8,7 +7,8 @@ use binaryninja::headless::Session;
 use emil::arch::{State, arm64::*};
 use emil::emil::ILVal;
 use emil::emulate::{AccessType, Emulator, Exit, HookStatus, Little};
-use emil::os::linux::{AuxVal, Environment};
+use emil::load::*;
+use emil::os::linux::{AuxVal, Environment, add_default_auxv};
 use emil::prog::Program;
 
 use softmew::Perm;
@@ -18,7 +18,7 @@ const STACK_SIZE: usize = 0x000000000007f000;
 
 fn main() {
     let functions_to_load: &[u64] = &[
-        0x449440, 0x423a10, 0x40fa10, 0x400850, 0x425160, 0x44b910, 0x424780,
+        0x423a10, 0x40fa10, 0x400850, 0x425160, 0x44b910, 0x424780, 0x4253d0,
     ];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
@@ -43,11 +43,9 @@ fn main() {
     // _dlfo_process_initial
     prog.add_empty(0x459520);
     for addr in functions_to_load {
-        let func = bv
-            .function_at(bv.default_platform().unwrap().as_ref(), *addr)
+        load_function(&mut prog, &bv, *addr)
+            .map_err(|e| format!("Loading {:#x} failed: {}", *addr, e))
             .unwrap();
-        let llil = func.low_level_il().unwrap();
-        prog.add_function(llil.as_ref());
     }
 
     let mut stdin = VecDeque::new();
@@ -55,25 +53,7 @@ fn main() {
     let mut state = LinuxArm64::new(ArmMachine::new(0x80000000..0x80010000));
     state.syscalls.set_stdin(stdin);
     let mem = state.memory_mut();
-    for segment in bv.segments().iter() {
-        let mut perm = Perm::NONE;
-        let range = segment.address_range();
-        println!("Mapping: {:?}", range);
-        if segment.readable() {
-            perm |= Perm::READ;
-        }
-        if segment.writable() {
-            perm |= Perm::WRITE;
-        }
-        let mem_seg = mem
-            .map_memory(
-                range.start as usize,
-                (range.end - range.start) as usize,
-                perm,
-            )
-            .expect("Failed to map segment");
-        bv.read(mem_seg.as_mut(), range.start);
-    }
+    load_sections(mem, &bv).expect("Failed to load a section");
     let stack = mem
         .map_memory(STACK_BASE, STACK_SIZE, Perm::READ | Perm::WRITE)
         .unwrap();
@@ -81,22 +61,13 @@ fn main() {
     let mut env = Environment::default();
     env.args.push("read-stdin".into());
     env.env.push("EMULATOR=1".into());
-    env.aux.push(AuxVal::Platform("aarch64".into()));
-    env.aux.push(AuxVal::Uid(1000));
-    env.aux.push(AuxVal::Euid(1000));
-    env.aux.push(AuxVal::Gid(1000));
-    env.aux.push(AuxVal::Egid(1000));
     env.aux.push(AuxVal::Phnum(6));
     env.aux.push(AuxVal::Phdr(0x400040));
     env.aux.push(AuxVal::Phent(0x38));
-    env.aux.push(AuxVal::Random([
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-    ]));
+    add_default_auxv(&mut env.aux, &bv);
     let sp_val = env
         .encode(stack.as_mut(), (STACK_BASE + STACK_SIZE) as u64)
         .unwrap();
-    let mut stack_file = std::fs::File::create("stack.bin").unwrap();
-    stack_file.write(stack.as_ref()).unwrap();
 
     // println!("Stack pointer is {:X}", sp_val);
     // let mut stack_file = fs::File::create("stack.bin").unwrap();
@@ -114,7 +85,9 @@ fn main() {
     emu.add_hook(0x4240e0, fatal_hook).unwrap();
     emu.add_hook(0x41e1c0, memset_hook).unwrap();
     emu.add_hook(0x459520, return_zero_hook).unwrap();
+    emu.add_hook(0x424780, dl_platform_call).unwrap();
     emu.add_breakpoint(0x424e8c).unwrap();
+    emu.add_breakpoint(0x42540c).unwrap();
     emu.add_watch_addrs(0x4a7f98..0x4a7fa0, dl_platform_watch);
     let mut stop_reason: Exit;
     emu.set_pc(entry.start());
@@ -133,9 +106,11 @@ fn main() {
                     break;
                 }
             }
-        } else if let Exit::UserBreakpoint = stop_reason {
-            let x19 = emu.get_state().regs[Arm64Reg::x19];
-            println!("x19: {:#x}", x19);
+        } else if let Exit::UserBreakpoint = stop_reason
+            && emu.curr_pc() == 0x424e8c
+        {
+            let x20 = emu.get_state().regs[Arm64Reg::x20];
+            println!("x20: {:#x}", x20);
         } else {
             break;
         }
@@ -249,4 +224,12 @@ fn dl_platform_watch(
     }
 
     println!("dl platform modified by {:#x}", pc);
+}
+
+fn dl_platform_call(
+    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
+) -> HookStatus {
+    let caller = state.read_reg(Arm64Reg::lr);
+    println!("called by {:#x}", caller);
+    HookStatus::Continue
 }

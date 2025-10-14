@@ -363,6 +363,10 @@ impl Register for Rv64Reg {
     fn syscall_ret() -> Self {
         Self::a0
     }
+
+    fn id(&self) -> u32 {
+        *self as u32
+    }
 }
 
 /// Basic linux state for a RV64 machine.
