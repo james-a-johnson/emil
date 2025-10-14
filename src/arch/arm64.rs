@@ -4460,6 +4460,7 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
             (0xd6, brk),
             (0xd7, munmap),
             (0xde, mmap),
+            (0xe2, mprotect),
             (0x105, prlimit64),
             (0x116, getrandom),
             (0x125, rseq)
@@ -8283,6 +8284,11 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
             regs[Arm64Reg::x0] = u64::MAX;
             return SyscallResult::Continue;
         }
+    }
+
+    fn mprotect(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Arm64Reg::x0] = 0;
+        SyscallResult::Continue
     }
 
     fn writev(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {

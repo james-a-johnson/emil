@@ -86,12 +86,9 @@ fn main() {
     emu.add_hook(0x415b00, malloc_assert).unwrap();
     // emu.add_hook(0x459520, return_zero_hook).unwrap();
     emu.add_hook(0x424780, dl_platform_call).unwrap();
-    emu.add_breakpoint(0x424e8c).unwrap();
-    emu.add_breakpoint(0x42540c).unwrap();
     emu.add_watch_addrs(0x4a7f98..0x4a7fa0, dl_platform_watch);
     let mut stop_reason: Exit;
     emu.set_pc(entry.start());
-    let mut hits = 0;
     loop {
         stop_reason = emu.proceed();
         if let Exit::InstructionFault(addr) = stop_reason {
@@ -106,15 +103,6 @@ fn main() {
                     println!("Fault hit address that isn't start of a function");
                     break;
                 }
-            }
-        } else if let Exit::UserBreakpoint = stop_reason
-            && emu.curr_pc() == 0x424e8c
-        {
-            let x20 = emu.get_state().regs[Arm64Reg::x20];
-            println!("x20: {:#x}", x20);
-            hits += 1;
-            if hits > 3 {
-                break;
             }
         } else {
             break;

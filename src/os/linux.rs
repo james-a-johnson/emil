@@ -286,6 +286,7 @@ pub trait LinuxSyscalls<R: RegState, M> {
     define_syscall!(munmap);
     define_syscall!(writev);
     define_syscall!(rseq);
+    define_syscall!(mprotect);
 
     /// Returns that the path could not be found on the system.
     fn openat(&mut self, regs: &mut R, _mem: &mut M) -> SyscallResult {
