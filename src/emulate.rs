@@ -156,6 +156,8 @@ pub enum HookStatus {
     Exit,
     /// Jump execution to a specific address.
     Goto(u64),
+    /// Return that a fault occurred during hooking some instruction.
+    Fault(Fault),
 }
 
 /// Handle to a breakpoint that was installed.
@@ -462,9 +464,6 @@ impl<S: State> Emulator<S> {
             }
             Emil::SetReg { reg, ilr } => {
                 let val = self.get_ilr(ilr);
-                if reg.id() == 54 {
-                    println!("x20 set at {:#x}", self.curr_pc());
-                }
                 self.state.write_reg(reg, val);
             }
             Emil::LoadReg { reg, ilr } => {
@@ -549,13 +548,23 @@ impl<S: State> Emulator<S> {
                 // address after a call instruction. So just blindly taking the address of the next
                 // IL index might just create an infinite loop of returning to the call of the
                 // function that needs to be returned from.
-                let curr_addr = self.curr_pc();
-                let ret_addr = self.prog.addr_map[self.pc..]
-                    .iter()
-                    .filter(|x| **x > curr_addr)
-                    .map(|x| *x)
-                    .nth(0)
-                    .unwrap_or(curr_addr + 1);
+                // Apparently this is a bit more complicated. Looking at an Arm64 binary, there is a call
+                // and a goto associated with the same address but different LLIL indices. That goto
+                // does just jump to the next instruction but that is not the next address that would
+                // show up when going through the LLIL indices. So need to increment by actual address
+                // as opposed to going through an LLIL index based order.
+                let ret_addr = if let Emil::Goto(ret_idx) = self.prog.il[self.pc + 1] {
+                    // Need to return to this address instead.
+                    self.prog.addr_map[ret_idx]
+                } else {
+                    let curr_addr = self.curr_pc();
+                    self.prog.addr_map[self.pc..]
+                        .iter()
+                        .filter(|x| **x > curr_addr)
+                        .map(|x| *x)
+                        .nth(0)
+                        .unwrap_or(curr_addr + 1)
+                };
                 if let Err(fault) = self.state.save_ret_addr(ret_addr) {
                     return ExecutionState::Exit(fault.into());
                 }
@@ -697,6 +706,7 @@ impl<S: State> Emulator<S> {
                 match func(&mut self.state) {
                     HookStatus::Continue => return ExecutionState::Hook(idx),
                     HookStatus::Exit => return ExecutionState::Exit(Exit::HookExit),
+                    HookStatus::Fault(f) => return ExecutionState::Exit(f.into()),
                     HookStatus::Goto(addr) => {
                         let idx = self.prog.insn_map.get(&addr);
                         if let Some(idx) = idx {

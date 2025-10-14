@@ -5,7 +5,6 @@ use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
 use emil::arch::{State, arm64::*};
-use emil::emil::ILVal;
 use emil::emulate::{AccessType, Emulator, Exit, HookStatus, Little};
 use emil::load::*;
 use emil::os::linux::{AuxVal, Environment, add_default_auxv};
@@ -18,7 +17,7 @@ const STACK_SIZE: usize = 0x000000000007f000;
 
 fn main() {
     let functions_to_load: &[u64] = &[
-        0x423a10, 0x40fa10, 0x400850, 0x425160, 0x44b910, 0x424780, 0x4253d0,
+        0x423a10, 0x40fa10, 0x400850, 0x425160, 0x44b910, 0x424780, 0x4253d0, 0x415b00, 0x400300,
     ];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
@@ -41,7 +40,7 @@ fn main() {
     prog.add_empty(0x41e1c0);
     prog.add_empty(0x4240e0);
     // _dlfo_process_initial
-    prog.add_empty(0x459520);
+    // prog.add_empty(0x459520);
     for addr in functions_to_load {
         load_function(&mut prog, &bv, *addr)
             .map_err(|e| format!("Loading {:#x} failed: {}", *addr, e))
@@ -81,16 +80,18 @@ fn main() {
 
     let mut emu = Emulator::new(prog, state);
     emu.add_hook(0x40fa10, libc_fatal_hook).unwrap();
-    emu.add_hook(0x41e940, strlen_hook).unwrap();
+    emu.add_hook(0x400300, strlen_hook).unwrap();
     emu.add_hook(0x4240e0, fatal_hook).unwrap();
     emu.add_hook(0x41e1c0, memset_hook).unwrap();
-    emu.add_hook(0x459520, return_zero_hook).unwrap();
+    emu.add_hook(0x415b00, malloc_assert).unwrap();
+    // emu.add_hook(0x459520, return_zero_hook).unwrap();
     emu.add_hook(0x424780, dl_platform_call).unwrap();
     emu.add_breakpoint(0x424e8c).unwrap();
     emu.add_breakpoint(0x42540c).unwrap();
     emu.add_watch_addrs(0x4a7f98..0x4a7fa0, dl_platform_watch);
     let mut stop_reason: Exit;
     emu.set_pc(entry.start());
+    let mut hits = 0;
     loop {
         stop_reason = emu.proceed();
         if let Exit::InstructionFault(addr) = stop_reason {
@@ -111,6 +112,10 @@ fn main() {
         {
             let x20 = emu.get_state().regs[Arm64Reg::x20];
             println!("x20: {:#x}", x20);
+            hits += 1;
+            if hits > 3 {
+                break;
+            }
         } else {
             break;
         }
@@ -186,30 +191,35 @@ fn strlen_hook(
 fn memset_hook(
     state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
 ) -> HookStatus {
-    let mut src = state.read_reg(Arm64Reg::x0).extend_64();
-    let mut dst = state.read_reg(Arm64Reg::x1).extend_64();
-    let size = state.read_reg(Arm64Reg::x2).extend_64() as usize;
-    let ret = state.read_reg(Arm64Reg::lr).extend_64();
-    let mut buf = [0u8];
-    for _ in 0..size {
-        if state.read_mem(src, &mut buf).is_err() {
-            return HookStatus::Continue;
-        }
-        if state.write_mem(dst, &buf).is_err() {
-            return HookStatus::Continue;
-        }
-        src += 1;
-        dst += 1;
-    }
+    let src = state.read_reg(Arm64Reg::x0).get_quad();
+    let val = state.read_reg(Arm64Reg::x1).truncate(1).get_byte();
+    let size = state.read_reg(Arm64Reg::x2).get_quad();
+    let ret = state.read_reg(Arm64Reg::lr).get_quad();
+
+    match state.get_mem_mut(src..src + size) {
+        Ok(mem) => mem.fill(val),
+        Err(e) => return HookStatus::Fault(e),
+    };
     HookStatus::Goto(ret)
 }
 
-fn return_zero_hook(
+fn malloc_assert(
     state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
 ) -> HookStatus {
-    state.write_reg(Arm64Reg::x0, ILVal::Quad(0));
-    let ret = state.read_reg(Arm64Reg::lr).extend_64();
-    HookStatus::Goto(ret)
+    let mut msg_ptr = state.read_reg(Arm64Reg::x0).extend_64();
+    let mut message = Vec::new();
+    let mut buf = [0u8];
+    loop {
+        state.read_mem(msg_ptr, &mut buf).unwrap();
+        if buf[0] == 0 {
+            break;
+        }
+        message.push(buf[0]);
+        msg_ptr += 1;
+    }
+    let message = String::from_utf8(message).unwrap();
+    println!("malloc assert: {}", message);
+    HookStatus::Exit
 }
 
 fn dl_platform_watch(

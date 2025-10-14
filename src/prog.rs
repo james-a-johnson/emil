@@ -58,14 +58,6 @@ macro_rules! bin_op {
 }
 
 impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
-    pub fn print_addr(&self, addr: u64) {
-        let mut start = *self.insn_map.get(&addr).expect("Bad address");
-        while self.addr_map[start] == addr {
-            println!("\t{:#x}:\t{:?}", addr, self.il[start]);
-            start += 1;
-        }
-    }
-
     /// Add empty function at an address.
     ///
     /// This is useful for when you want a function to always be hooked. This will just add an undefined instruction at
@@ -126,9 +118,6 @@ impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
 
     /// Add a single LLIL instruction to the program.
     fn add_instruction(&mut self, &insn: &LLILInsn<'_>) {
-        if insn.address() == 0x418418 {
-            println!("Thinger: {:?}", insn.kind());
-        }
         match insn.kind() {
             Kind::Nop(_) => self.il.push(Emil::Nop),
             Kind::Syscall(_) | Kind::SyscallSsa(_) => self.il.push(Emil::Syscall),

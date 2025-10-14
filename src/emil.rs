@@ -502,8 +502,14 @@ impl Add for ILVal {
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Self::Byte(a), Self::Byte(b)) => Self::Byte(a.wrapping_add(b)),
+            (Self::Short(a), Self::Byte(b)) => Self::Short(a.wrapping_add(b as u16)),
             (Self::Short(a), Self::Short(b)) => Self::Short(a.wrapping_add(b)),
+            (Self::Word(a), Self::Byte(b)) => Self::Word(a.wrapping_add(b as u32)),
+            (Self::Word(a), Self::Short(b)) => Self::Word(a.wrapping_add(b as u32)),
             (Self::Word(a), Self::Word(b)) => Self::Word(a.wrapping_add(b)),
+            (Self::Quad(a), Self::Byte(b)) => Self::Quad(a.wrapping_add(b as u64)),
+            (Self::Quad(a), Self::Short(b)) => Self::Quad(a.wrapping_add(b as u64)),
+            (Self::Quad(a), Self::Word(b)) => Self::Quad(a.wrapping_add(b as u64)),
             (Self::Quad(a), Self::Quad(b)) => Self::Quad(a.wrapping_add(b)),
             (Self::Simd(a), Self::Simd(b)) => Self::Simd(a.wrapping_add(b)),
             (Self::Float(a), Self::Float(b)) => Self::Float(a + b),
