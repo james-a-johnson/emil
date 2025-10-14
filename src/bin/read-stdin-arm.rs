@@ -87,8 +87,6 @@ fn main() {
     emu.add_hook(0x41e1c0, memset_hook).unwrap();
     emu.add_hook(0x415b00, malloc_assert).unwrap();
     emu.add_hook(0x447c80, rindex_hook).unwrap();
-    // emu.add_hook(0x459520, return_zero_hook).unwrap();
-    emu.add_hook(0x424780, dl_platform_call).unwrap();
     emu.add_watch_addrs(0x4a7f98..0x4a7fa0, dl_platform_watch);
     let mut stop_reason: Exit;
     emu.set_pc(entry.start());
@@ -253,12 +251,4 @@ fn dl_platform_watch(
     }
 
     println!("dl platform modified by {:#x}", pc);
-}
-
-fn dl_platform_call(
-    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
-) -> HookStatus {
-    let caller = state.read_reg(Arm64Reg::lr);
-    println!("called by {:#x}", caller);
-    HookStatus::Continue
 }

@@ -622,6 +622,7 @@ impl<S: State> Emulator<S> {
             Emil::Xor { out, left, right } => bin_op!(self, out, left, right, ILVal::bitxor),
             Emil::Lsl { out, left, right } => bin_op!(self, out, left, right, ILVal::shl),
             Emil::Lsr { out, left, right } => bin_op!(self, out, left, right, ILVal::shr),
+            Emil::Asr { out, left, right } => bin_op!(self, out, left, right, ILVal::asr),
             Emil::Ror { out, left, right } => bin_op!(self, out, left, right, ILVal::rotate_right),
             Emil::CmpE { out, left, right } => {
                 let left = self.get_ilr(left);

@@ -213,6 +213,43 @@ impl ILVal {
         }
     }
 
+    /// Arithmetic shift right operation.
+    ///
+    /// Just a right shift but as a signed value.
+    pub fn asr(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Byte(l), Self::Byte(r)) => Self::Byte(((l as i8).unbounded_shr(r as u32)) as u8),
+            (Self::Short(l), Self::Byte(r)) => {
+                Self::Short(((l as i16).unbounded_shr(r as u32)) as u16)
+            }
+            (Self::Short(l), Self::Short(r)) => {
+                Self::Short(((l as i16).unbounded_shr(r as u32)) as u16)
+            }
+            (Self::Word(l), Self::Byte(r)) => {
+                Self::Word(((l as i32).unbounded_shr(r as u32)) as u32)
+            }
+            (Self::Word(l), Self::Short(r)) => {
+                Self::Word(((l as i32).unbounded_shr(r as u32)) as u32)
+            }
+            (Self::Word(l), Self::Word(r)) => {
+                Self::Word(((l as i32).unbounded_shr(r as u32)) as u32)
+            }
+            (Self::Quad(l), Self::Byte(r)) => {
+                Self::Quad(((l as i64).unbounded_shr(r as u32)) as u64)
+            }
+            (Self::Quad(l), Self::Short(r)) => {
+                Self::Quad(((l as i64).unbounded_shr(r as u32)) as u64)
+            }
+            (Self::Quad(l), Self::Word(r)) => {
+                Self::Quad(((l as i64).unbounded_shr(r as u32)) as u64)
+            }
+            (Self::Quad(l), Self::Quad(r)) => {
+                Self::Quad(((l as i64).unbounded_shr(r as u32)) as u64)
+            }
+            (_, _) => unreachable!("Invalid combination for rotate right"),
+        }
+    }
+
     /// Treat the values as signed and compare them.
     pub fn signed_cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
