@@ -39,6 +39,8 @@ fn main() {
     // memset generic
     prog.add_empty(0x41e1c0);
     prog.add_empty(0x4240e0);
+    // rindex
+    prog.add_empty(0x447c80);
     // _dlfo_process_initial
     // prog.add_empty(0x459520);
     for addr in functions_to_load {
@@ -84,6 +86,7 @@ fn main() {
     emu.add_hook(0x4240e0, fatal_hook).unwrap();
     emu.add_hook(0x41e1c0, memset_hook).unwrap();
     emu.add_hook(0x415b00, malloc_assert).unwrap();
+    emu.add_hook(0x447c80, rindex_hook).unwrap();
     // emu.add_hook(0x459520, return_zero_hook).unwrap();
     emu.add_hook(0x424780, dl_platform_call).unwrap();
     emu.add_watch_addrs(0x4a7f98..0x4a7fa0, dl_platform_watch);
@@ -188,6 +191,34 @@ fn memset_hook(
         Ok(mem) => mem.fill(val),
         Err(e) => return HookStatus::Fault(e),
     };
+    HookStatus::Goto(ret)
+}
+
+fn rindex_hook(
+    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
+) -> HookStatus {
+    let mut src = state.read_reg(Arm64Reg::x0).get_quad();
+    let val = state.read_reg(Arm64Reg::x1).truncate(1).get_byte();
+    let ret = state.read_reg(Arm64Reg::lr).get_quad();
+
+    let mut buf = [0u8];
+    let mut last: Option<u64> = None;
+    loop {
+        let _ = state.read_mem(src, &mut buf);
+        if buf[0] == val {
+            last = Some(src);
+        }
+        if buf[0] == 0 {
+            break;
+        }
+        src += 1;
+    }
+
+    match last {
+        Some(addr) => state.write_reg(Arm64Reg::x0, emil::emil::ILVal::Quad(addr)),
+        None => state.write_reg(Arm64Reg::x0, emil::emil::ILVal::Quad(0)),
+    };
+
     HookStatus::Goto(ret)
 }
 
