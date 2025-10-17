@@ -15,6 +15,11 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use std::io::{Read, Write};
 
+/// Number of temporary registers to use.
+///
+/// Currently the most I have seen used in a function is 17.
+const NUM_TEMPS: usize = 32;
+
 /// Function that can be used to hook specific instructions.
 pub type HookFn<R, E, I> = fn(&mut dyn State<Reg = R, Endianness = E, Intrin = I>) -> HookStatus;
 
@@ -106,7 +111,7 @@ impl Endian for Little {
 
     fn write(value: ILVal, data: &mut [u8]) -> usize {
         match value {
-            ILVal::Flag(_) => unreachable!("Can't write a byte"),
+            ILVal::Flag(_) => unreachable!("Can't write a flag"),
             ILVal::Byte(b) => {
                 data[0] = b;
                 1
@@ -184,7 +189,7 @@ pub struct Emulator<S: State> {
     /// Intermediate language registers.
     ilrs: [ILVal; 255],
     /// Temporary registers used by LLIL.
-    temps: [ILVal; 16],
+    temps: [ILVal; NUM_TEMPS],
     /// Address of current instruction.
     pc: usize,
     /// List of instructions that have been hooked and what index they came from.
@@ -213,7 +218,7 @@ impl<S: State> Emulator<S> {
             prog,
             state,
             ilrs: [ILVal::Byte(0); 255],
-            temps: [ILVal::Byte(0); 16],
+            temps: [ILVal::Byte(0); NUM_TEMPS],
             pc: 0,
             replaced: Vec::new(),
             watch: HashMap::new(),
@@ -456,11 +461,7 @@ impl<S: State> Emulator<S> {
             }
             Emil::Constant { reg, value, size } => {
                 let val = ILVal::from(value);
-                if size != 8 {
-                    *self.get_ilr_mut(reg) = val.truncate(size);
-                } else {
-                    *self.get_ilr_mut(reg) = val;
-                }
+                *self.get_ilr_mut(reg) = val.truncate(size);
             }
             Emil::SetReg { reg, ilr } => {
                 let val = self.get_ilr(ilr);
@@ -600,11 +601,11 @@ impl<S: State> Emulator<S> {
                 true_target,
                 false_target,
             } => {
-                let cond = self.get_ilr(condition).extend_64();
-                if cond == 0 {
-                    self.pc = false_target;
-                } else {
+                let cond = self.get_ilr(condition).truth();
+                if cond {
                     self.pc = true_target;
+                } else {
+                    self.pc = false_target;
                 }
                 return ExecutionState::Continue;
             }
@@ -628,57 +629,57 @@ impl<S: State> Emulator<S> {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Byte((left == right) as u8);
+                *out = ILVal::Flag(left == right);
             }
             Emil::CmpNe { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Byte((left != right) as u8);
+                *out = ILVal::Flag(left != right);
             }
             Emil::CmpSlt { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Byte((left.signed_cmp(&right) == Ordering::Less) as u8);
+                *out = ILVal::Flag(left.signed_cmp(&right) == Ordering::Less);
             }
             Emil::CmpUlt { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Byte((left < right) as u8);
+                *out = ILVal::Flag(left < right);
             }
             Emil::CmpSle { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
                 let out = self.get_ilr_mut(out);
                 let ord = left.signed_cmp(&right);
-                *out = ILVal::Byte((ord <= Ordering::Equal) as u8);
+                *out = ILVal::Flag(ord <= Ordering::Equal);
             }
             Emil::CmpUle { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Byte((left <= right) as u8);
+                *out = ILVal::Flag(left <= right);
             }
             Emil::CmpSgt { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Byte((left.signed_cmp(&right) == Ordering::Greater) as u8);
+                *out = ILVal::Flag(left.signed_cmp(&right) == Ordering::Greater);
             }
             Emil::CmpUgt { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Byte((left > right) as u8);
+                *out = ILVal::Flag(left > right);
             }
             Emil::CmpSge { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
                 let out = self.get_ilr_mut(out);
                 let ord = left.signed_cmp(&right);
-                *out = ILVal::Byte((ord >= Ordering::Equal) as u8);
+                *out = ILVal::Flag(ord >= Ordering::Equal);
             }
             Emil::CmpUge { out, left, right } => {
                 let left = self.get_ilr(left);
@@ -756,7 +757,7 @@ pub struct SaveState<S: State> {
     /// State of the target.
     state: S,
     /// Temporary registers used by LLIL.
-    temps: [ILVal; 16],
+    temps: [ILVal; NUM_TEMPS],
     /// Address of current instruction.
     pc: usize,
 }

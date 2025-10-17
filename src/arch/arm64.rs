@@ -162,12 +162,15 @@ fn get_const_from_inputs(
     Ok(value)
 }
 
+/// Number of temporary flags that need to be kept track of.
+const NUM_CONDS: usize = 64;
+
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LinuxArm64<S> {
     pub regs: Arm64State,
     pub mem: MMU<SimplePage>,
     pub flag: u64,
-    pub conds: [u8; 32],
+    pub conds: [u8; NUM_CONDS],
     pub syscalls: S,
     pub tpid: u64,
 }
@@ -182,7 +185,7 @@ impl<S> LinuxArm64<S> {
             regs,
             mem: mmu,
             flag: 0,
-            conds: [0u8; 32],
+            conds: [0u8; NUM_CONDS],
             syscalls,
             tpid: 0,
         }
@@ -4450,6 +4453,9 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
             (0x3f, read),
             (0x40, write),
             (0x4e, readlinkat),
+            (0x4f, newfstatat),
+            (0x5d, exit),
+            (0x5e, exit_group),
             (0x60, set_tid_address),
             (0x63, set_robust_list),
             (0xae, getuid),
@@ -8107,14 +8113,17 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
         let fd = regs[Arm64Reg::x0];
         let ptr = regs[Arm64Reg::x1] as usize;
         let len = regs[Arm64Reg::x2] as usize;
+        let data = mem
+            .get_slice_mut(ptr..ptr + len)
+            .expect("Reading to invalid memory");
         match self.fds.get_mut(&(fd as u32)) {
             Some(file) => {
-                let page = mem.get_mapping_mut(ptr).unwrap();
-                let start = page.start();
-                let buf = &mut page.as_mut()[ptr - start..][..len];
-                let res = file.read(buf);
+                let res = file.read(data);
                 match res {
-                    Ok(b) => regs[Arm64Reg::x0] = b as u64,
+                    Ok(b) => {
+                        println!("read: {:?}", &data[..b]);
+                        regs[Arm64Reg::x0] = b as u64;
+                    }
                     Err(e) => {
                         regs[Arm64Reg::x0] = e.raw_os_error().unwrap_or(-9) as u64;
                     }
@@ -8127,11 +8136,10 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
 
     fn write(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
         let fd = regs[Arm64Reg::x0];
-        let ptr = regs[Arm64Reg::x1];
-        let len = regs[Arm64Reg::x2];
-        let mut data = vec![0; len as usize];
-        mem.read_perm(ptr as usize, &mut data)
-            .expect("Failed to read message");
+        let ptr = regs[Arm64Reg::x1] as usize;
+        let len = regs[Arm64Reg::x2] as usize;
+        let data = mem.get_slice(ptr..ptr + len).expect("Failed to read data");
+        println!("write({fd}, {data:?}");
         match self.fds.get_mut(&(fd as u32)) {
             Some(file) => {
                 let res = file.write(&data);
@@ -8142,7 +8150,7 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
                     }
                 }
             }
-            None => regs[Arm64Reg::x0] = len,
+            None => regs[Arm64Reg::x0] = len as u64,
         }
         SyscallResult::Continue
     }
@@ -8321,6 +8329,11 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
             }
             _ => regs[Arm64Reg::x0] = (-2_i64) as u64,
         }
+        SyscallResult::Continue
+    }
+
+    fn newfstatat(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        regs[Arm64Reg::x0] = (-2_i64) as u64;
         SyscallResult::Continue
     }
 }

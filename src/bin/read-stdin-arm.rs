@@ -5,6 +5,7 @@ use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
 use emil::arch::{State, arm64::*};
+use emil::emil::ILVal;
 use emil::emulate::{AccessType, Emulator, Exit, HookStatus, Little};
 use emil::load::*;
 use emil::os::linux::{AuxVal, Environment, add_default_auxv};
@@ -18,6 +19,7 @@ const STACK_SIZE: usize = 0x000000000007f000;
 fn main() {
     let functions_to_load: &[u64] = &[
         0x423a10, 0x40fa10, 0x400850, 0x425160, 0x44b910, 0x424780, 0x4253d0, 0x415b00, 0x400300,
+        0x406984, 0x406090,
     ];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
@@ -41,6 +43,8 @@ fn main() {
     prog.add_empty(0x4240e0);
     // rindex
     prog.add_empty(0x447c80);
+    // strchrnul
+    prog.add_empty(0x41cc80);
     // _dlfo_process_initial
     // prog.add_empty(0x459520);
     for addr in functions_to_load {
@@ -51,7 +55,7 @@ fn main() {
 
     let mut stdin = VecDeque::new();
     stdin.extend(b"10\n11\n12\n13\n");
-    let mut state = LinuxArm64::new(ArmMachine::new(0x80000000..0x80010000));
+    let mut state = LinuxArm64::new(ArmMachine::new(0x80000000..0x80100000));
     state.syscalls.set_stdin(stdin);
     let mem = state.memory_mut();
     load_sections(mem, &bv).expect("Failed to load a section");
@@ -75,7 +79,7 @@ fn main() {
     // stack_file.write_all(stack.as_ref()).unwrap();
 
     let _heap = mem
-        .map_memory(0x80000000, 0x10000, Perm::READ | Perm::WRITE)
+        .map_memory(0x80000000, 0x100000, Perm::READ | Perm::WRITE)
         .unwrap();
 
     state.regs_mut()[Arm64Reg::sp] = sp_val;
@@ -87,6 +91,10 @@ fn main() {
     emu.add_hook(0x41e1c0, memset_hook).unwrap();
     emu.add_hook(0x415b00, malloc_assert).unwrap();
     emu.add_hook(0x447c80, rindex_hook).unwrap();
+    emu.add_hook(0x41cc80, strchrnul).unwrap();
+    emu.add_hook(0x4061c4, sum_hook).unwrap();
+    emu.add_hook(0x4061d4, sum_hook).unwrap();
+    emu.add_hook(0x406090, strtoul_hook).unwrap();
     emu.add_watch_addrs(0x4a7f98..0x4a7fa0, dl_platform_watch);
     let mut stop_reason: Exit;
     emu.set_pc(entry.start());
@@ -251,4 +259,47 @@ fn dl_platform_watch(
     }
 
     println!("dl platform modified by {:#x}", pc);
+}
+
+fn strchrnul(
+    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
+) -> HookStatus {
+    let ret = state.read_reg(Arm64Reg::lr).get_quad();
+    let mut str_ptr = state.read_reg(Arm64Reg::x0).get_quad();
+    let chr = state.read_reg(Arm64Reg::x1).truncate(1).get_byte();
+    let mut byte = [0u8];
+
+    loop {
+        match state.read_mem(str_ptr, &mut byte) {
+            Ok(_) => {}
+            Err(e) => return HookStatus::Fault(e),
+        };
+        if byte[0] == 0 || byte[0] == chr {
+            state.write_reg(Arm64Reg::x0, ILVal::Quad(str_ptr));
+            break;
+        }
+        str_ptr += 1;
+    }
+
+    HookStatus::Goto(ret)
+}
+
+fn sum_hook(
+    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
+) -> HookStatus {
+    let chr = state.read_reg(Arm64Reg::x19).get_quad();
+    let idx = state.read_reg(Arm64Reg::x5).get_quad();
+    println!("[{idx:#x}] = {chr}");
+    HookStatus::Continue
+}
+
+fn strtoul_hook(
+    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
+) -> HookStatus {
+    let start = state.read_reg(Arm64Reg::x0).get_quad();
+    let base = state.read_reg(Arm64Reg::x2).get_quad();
+
+    let num = state.get_mem(start..start + 3).unwrap();
+    println!("strtoul({:?}, {base})", num);
+    HookStatus::Continue
 }

@@ -287,6 +287,7 @@ pub trait LinuxSyscalls<R: RegState, M> {
     define_syscall!(writev);
     define_syscall!(rseq);
     define_syscall!(mprotect);
+    define_syscall!(newfstatat);
 
     /// Returns that the path could not be found on the system.
     fn openat(&mut self, regs: &mut R, _mem: &mut M) -> SyscallResult {
@@ -296,6 +297,11 @@ pub trait LinuxSyscalls<R: RegState, M> {
 
     /// Causes the emulator to stop execution.
     fn exit(&mut self, _regs: &mut R, _mem: &mut M) -> SyscallResult {
+        SyscallResult::Exit
+    }
+
+    /// Causes the emulator to stop execution.
+    fn exit_group(&mut self, _regs: &mut R, _mem: &mut M) -> SyscallResult {
         SyscallResult::Exit
     }
 }

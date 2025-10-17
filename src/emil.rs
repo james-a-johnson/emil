@@ -218,33 +218,33 @@ impl ILVal {
     /// Just a right shift but as a signed value.
     pub fn asr(self, other: Self) -> Self {
         match (self, other) {
-            (Self::Byte(l), Self::Byte(r)) => Self::Byte(((l as i8).unbounded_shr(r as u32)) as u8),
+            (Self::Byte(l), Self::Byte(r)) => Self::Byte(((l as i8).wrapping_shr(r as u32)) as u8),
             (Self::Short(l), Self::Byte(r)) => {
-                Self::Short(((l as i16).unbounded_shr(r as u32)) as u16)
+                Self::Short(((l as i16).wrapping_shr(r as u32)) as u16)
             }
             (Self::Short(l), Self::Short(r)) => {
-                Self::Short(((l as i16).unbounded_shr(r as u32)) as u16)
+                Self::Short(((l as i16).wrapping_shr(r as u32)) as u16)
             }
             (Self::Word(l), Self::Byte(r)) => {
-                Self::Word(((l as i32).unbounded_shr(r as u32)) as u32)
+                Self::Word(((l as i32).wrapping_shr(r as u32)) as u32)
             }
             (Self::Word(l), Self::Short(r)) => {
-                Self::Word(((l as i32).unbounded_shr(r as u32)) as u32)
+                Self::Word(((l as i32).wrapping_shr(r as u32)) as u32)
             }
             (Self::Word(l), Self::Word(r)) => {
-                Self::Word(((l as i32).unbounded_shr(r as u32)) as u32)
+                Self::Word(((l as i32).wrapping_shr(r as u32)) as u32)
             }
             (Self::Quad(l), Self::Byte(r)) => {
-                Self::Quad(((l as i64).unbounded_shr(r as u32)) as u64)
+                Self::Quad(((l as i64).wrapping_shr(r as u32)) as u64)
             }
             (Self::Quad(l), Self::Short(r)) => {
-                Self::Quad(((l as i64).unbounded_shr(r as u32)) as u64)
+                Self::Quad(((l as i64).wrapping_shr(r as u32)) as u64)
             }
             (Self::Quad(l), Self::Word(r)) => {
-                Self::Quad(((l as i64).unbounded_shr(r as u32)) as u64)
+                Self::Quad(((l as i64).wrapping_shr(r as u32)) as u64)
             }
             (Self::Quad(l), Self::Quad(r)) => {
-                Self::Quad(((l as i64).unbounded_shr(r as u32)) as u64)
+                Self::Quad(((l as i64).wrapping_shr(r as u32)) as u64)
             }
             (_, _) => unreachable!("Invalid combination for rotate right"),
         }
@@ -304,12 +304,16 @@ impl ILVal {
     /// the current size of the value.
     pub fn truncate(&self, size: u8) -> Self {
         match (self, size) {
+            (Self::Byte(v), 1) => Self::Byte(*v),
             (Self::Short(v), 1) => Self::Byte(*v as u8),
+            (Self::Short(v), 2) => Self::Short(*v),
             (Self::Word(w), 1) => Self::Byte(*w as u8),
             (Self::Word(w), 2) => Self::Short(*w as u16),
+            (Self::Word(v), 4) => Self::Word(*v),
             (Self::Quad(q), 1) => Self::Byte(*q as u8),
             (Self::Quad(q), 2) => Self::Short(*q as u16),
             (Self::Quad(q), 4) => Self::Word(*q as u32),
+            (Self::Quad(v), 8) => Self::Quad(*v),
             (_, _) => unreachable!("Invalid truncation combination"),
         }
     }
@@ -446,6 +450,7 @@ impl PartialOrd for ILVal {
             (Self::Quad(q1), Self::Quad(q2)) => q1.partial_cmp(&q2),
             (Self::Simd(s1), Self::Simd(s2)) => s1.partial_cmp(&s2),
             (Self::Float(f1), Self::Float(f2)) => f1.partial_cmp(&f2),
+            (Self::Double(d1), Self::Double(d2)) => d1.partial_cmp(&d2),
             (_, _) => panic!("Comparing types of unequal size"),
         }
     }
