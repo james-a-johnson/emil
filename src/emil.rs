@@ -218,33 +218,35 @@ impl ILVal {
     /// Just a right shift but as a signed value.
     pub fn asr(self, other: Self) -> Self {
         match (self, other) {
-            (Self::Byte(l), Self::Byte(r)) => Self::Byte(((l as i8).wrapping_shr(r as u32)) as u8),
+            (Self::Byte(l), Self::Byte(r)) => {
+                Self::Byte(((l as i8).unbounded_shr((r & 7) as u32)) as u8)
+            }
             (Self::Short(l), Self::Byte(r)) => {
-                Self::Short(((l as i16).wrapping_shr(r as u32)) as u16)
+                Self::Short(((l as i16).unbounded_shr((r & 15) as u32)) as u16)
             }
             (Self::Short(l), Self::Short(r)) => {
-                Self::Short(((l as i16).wrapping_shr(r as u32)) as u16)
+                Self::Short(((l as i16).unbounded_shr((r & 15) as u32)) as u16)
             }
             (Self::Word(l), Self::Byte(r)) => {
-                Self::Word(((l as i32).wrapping_shr(r as u32)) as u32)
+                Self::Word(((l as i32).unbounded_shr((r & 31) as u32)) as u32)
             }
             (Self::Word(l), Self::Short(r)) => {
-                Self::Word(((l as i32).wrapping_shr(r as u32)) as u32)
+                Self::Word(((l as i32).unbounded_shr((r & 31) as u32)) as u32)
             }
             (Self::Word(l), Self::Word(r)) => {
-                Self::Word(((l as i32).wrapping_shr(r as u32)) as u32)
+                Self::Word(((l as i32).unbounded_shr((r & 31) as u32)) as u32)
             }
             (Self::Quad(l), Self::Byte(r)) => {
-                Self::Quad(((l as i64).wrapping_shr(r as u32)) as u64)
+                Self::Quad(((l as i64).unbounded_shr((r & 63) as u32)) as u64)
             }
             (Self::Quad(l), Self::Short(r)) => {
-                Self::Quad(((l as i64).wrapping_shr(r as u32)) as u64)
+                Self::Quad(((l as i64).unbounded_shr((r & 63) as u32)) as u64)
             }
             (Self::Quad(l), Self::Word(r)) => {
-                Self::Quad(((l as i64).wrapping_shr(r as u32)) as u64)
+                Self::Quad(((l as i64).unbounded_shr((r & 63) as u32)) as u64)
             }
             (Self::Quad(l), Self::Quad(r)) => {
-                Self::Quad(((l as i64).wrapping_shr(r as u32)) as u64)
+                Self::Quad(((l as i64).unbounded_shr((r & 63) as u32)) as u64)
             }
             (_, _) => unreachable!("Invalid combination for rotate right"),
         }
@@ -314,7 +316,11 @@ impl ILVal {
             (Self::Quad(q), 2) => Self::Short(*q as u16),
             (Self::Quad(q), 4) => Self::Word(*q as u32),
             (Self::Quad(v), 8) => Self::Quad(*v),
-            (_, _) => unreachable!("Invalid truncation combination"),
+            (Self::Simd(v), 1) => Self::Byte(*v as u8),
+            (Self::Simd(v), 2) => Self::Short(*v as u16),
+            (Self::Simd(v), 4) => Self::Word(*v as u32),
+            (Self::Simd(v), 8) => Self::Quad(*v as u64),
+            (_, _) => unreachable!("Invalid truncation combination: {self:?} => {size}"),
         }
     }
 
@@ -356,6 +362,17 @@ impl ILVal {
             (Self::Word(v), 8) => Self::Quad(*v as u64),
             (Self::Quad(v), 8) => Self::Quad(*v),
             (_, _) => unreachable!("Invalid zero extension combination {self:?} -> {size}"),
+        }
+    }
+
+    /// Multiply as 128 bit values.
+    pub fn mulu_dp(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Word(left), Self::Word(right)) => {
+                Self::Quad((left as u64).wrapping_mul(right as u64))
+            }
+            (Self::Quad(left), Self::Quad(right)) => Self::Simd((left as u128).wrapping_mul((right as u128))),
+            (_, _) => unreachable!("Invalid combo of {:?} and {:?}", self, other),
         }
     }
 }
@@ -556,7 +573,7 @@ impl Add for ILVal {
             (Self::Simd(a), Self::Simd(b)) => Self::Simd(a.wrapping_add(b)),
             (Self::Float(a), Self::Float(b)) => Self::Float(a + b),
             (Self::Double(a), Self::Double(b)) => Self::Double(a + b),
-            _ => panic!("Trying to add different sized integers"),
+            _ => panic!("Trying to add different sized integers: {self:?} + {rhs:?}"),
         }
     }
 }
@@ -724,16 +741,16 @@ impl Shl for ILVal {
 
     fn shl(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.wrapping_shl(r as u32)),
-            (Self::Short(l), Self::Byte(r)) => Self::Short(l.wrapping_shl(r as u32)),
-            (Self::Short(l), Self::Short(r)) => Self::Short(l.wrapping_shl(r as u32)),
-            (Self::Word(l), Self::Byte(r)) => Self::Word(l.wrapping_shl(r as u32)),
-            (Self::Word(l), Self::Short(r)) => Self::Word(l.wrapping_shl(r as u32)),
-            (Self::Word(l), Self::Word(r)) => Self::Word(l.wrapping_shl(r as u32)),
-            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.wrapping_shl(r as u32)),
-            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.wrapping_shl(r as u32)),
-            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.wrapping_shl(r as u32)),
-            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.wrapping_shl(r as u32)),
+            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.unbounded_shl((r & 7) as u32)),
+            (Self::Short(l), Self::Byte(r)) => Self::Short(l.unbounded_shl((r & 15) as u32)),
+            (Self::Short(l), Self::Short(r)) => Self::Short(l.unbounded_shl((r & 15) as u32)),
+            (Self::Word(l), Self::Byte(r)) => Self::Word(l.unbounded_shl((r & 31) as u32)),
+            (Self::Word(l), Self::Short(r)) => Self::Word(l.unbounded_shl((r & 31) as u32)),
+            (Self::Word(l), Self::Word(r)) => Self::Word(l.unbounded_shl((r & 31) as u32)),
+            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.unbounded_shl((r & 63) as u32)),
+            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.unbounded_shl((r & 63) as u32)),
+            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.unbounded_shl((r & 63) as u32)),
+            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.unbounded_shl((r & 63) as u32)),
             _ => panic!("Incompatible sizes for shift left operation"),
         }
     }
@@ -744,16 +761,20 @@ impl Shr for ILVal {
 
     fn shr(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.wrapping_shr(r as u32)),
-            (Self::Short(l), Self::Byte(r)) => Self::Short(l.wrapping_shr(r as u32)),
-            (Self::Short(l), Self::Short(r)) => Self::Short(l.wrapping_shr(r as u32)),
-            (Self::Word(l), Self::Byte(r)) => Self::Word(l.wrapping_shr(r as u32)),
-            (Self::Word(l), Self::Short(r)) => Self::Word(l.wrapping_shr(r as u32)),
-            (Self::Word(l), Self::Word(r)) => Self::Word(l.wrapping_shr(r as u32)),
-            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.wrapping_shr(r as u32)),
-            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.wrapping_shr(r as u32)),
-            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.wrapping_shr(r as u32)),
-            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.wrapping_shr(r as u32)),
+            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.unbounded_shr((r & 7) as u32)),
+            (Self::Short(l), Self::Byte(r)) => Self::Short(l.unbounded_shr((r & 15) as u32)),
+            (Self::Short(l), Self::Short(r)) => Self::Short(l.unbounded_shr((r & 15) as u32)),
+            (Self::Word(l), Self::Byte(r)) => Self::Word(l.unbounded_shr((r & 31) as u32)),
+            (Self::Word(l), Self::Short(r)) => Self::Word(l.unbounded_shr((r & 31) as u32)),
+            (Self::Word(l), Self::Word(r)) => Self::Word(l.unbounded_shr((r & 31) as u32)),
+            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.unbounded_shr((r & 63) as u32)),
+            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.unbounded_shr((r & 63) as u32)),
+            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.unbounded_shr((r & 63) as u32)),
+            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.unbounded_shr((r & 63) as u32)),
+            (Self::Simd(l), Self::Byte(r)) => Self::Simd(l.unbounded_shr((r & 127) as u32)),
+            (Self::Simd(l), Self::Short(r)) => Self::Simd(l.unbounded_shr((r & 127) as u32)),
+            (Self::Simd(l), Self::Word(r)) => Self::Simd(l.unbounded_shr((r & 127) as u32)),
+            (Self::Simd(l), Self::Quad(r)) => Self::Simd(l.unbounded_shr((r & 127) as u32)),
             _ => panic!("Incompatible sizes for shift right operation"),
         }
     }
@@ -787,7 +808,7 @@ pub enum Emil<R: Reg, E: Endian, I: Intrinsic> {
     /// Read the flag register or context bits into an IL register.
     Flag(ILRef, u32),
     /// Store a value to memory
-    Store { value: ILRef, addr: ILRef },
+    Store { value: ILRef, addr: ILRef, size: u8 },
     /// Load a value from memory into an ILVal
     Load { size: u8, addr: ILRef, dest: ILRef },
     /// Push a value onto the stack
@@ -889,6 +910,18 @@ pub enum Emil<R: Reg, E: Endian, I: Intrinsic> {
     },
     /// Multiplication of two values.
     Mul {
+        out: ILRef,
+        left: ILRef,
+        right: ILRef,
+    },
+    /// Multiplication with extension to 64 bits unsigned.
+    MuluDp {
+        out: ILRef,
+        left: ILRef,
+        right: ILRef,
+    },
+    /// Multiplication with extension to 64 bits signed.
+    MulsDp {
         out: ILRef,
         left: ILRef,
         right: ILRef,

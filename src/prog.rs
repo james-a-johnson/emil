@@ -197,22 +197,27 @@ impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
                     1 => self.il.push(Emil::Store {
                         value: source,
                         addr: dest,
+                        size: 1,
                     }),
                     2 => self.il.push(Emil::Store {
                         value: source,
                         addr: dest,
+                        size: 2,
                     }),
                     4 => self.il.push(Emil::Store {
                         value: source,
                         addr: dest,
+                        size: 4,
                     }),
                     8 => self.il.push(Emil::Store {
                         value: source,
                         addr: dest,
+                        size: 8,
                     }),
                     16 => self.il.push(Emil::Store {
                         value: source,
                         addr: dest,
+                        size: 16,
                     }),
                     s => panic!("Invalid memory write size of {s} bytes"),
                 }
@@ -356,7 +361,8 @@ impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
             ExprKind::Lsr(shift) => bin_op!(shift, Lsr, self, ilr),
             ExprKind::Sub(s) => bin_op!(s, Sub, self, ilr),
             ExprKind::Mul(m) => bin_op!(m, Mul, self, ilr),
-            ExprKind::MuluDp(m) => bin_op!(m, Mul, self, ilr),
+            ExprKind::MuluDp(m) => bin_op!(m, MuluDp, self, ilr),
+            ExprKind::MulsDp(m) => bin_op!(m, MulsDp, self, ilr),
             ExprKind::Modu(mu) => bin_op!(mu, Modu, self, ilr),
             ExprKind::Divu(du) => bin_op!(du, Divu, self, ilr),
             ExprKind::Divs(ds) => bin_op!(ds, Divs, self, ilr),

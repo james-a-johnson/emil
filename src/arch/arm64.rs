@@ -169,8 +169,8 @@ const NUM_CONDS: usize = 64;
 pub struct LinuxArm64<S> {
     pub regs: Arm64State,
     pub mem: MMU<SimplePage>,
-    pub flag: u64,
-    pub conds: [u8; NUM_CONDS],
+    pub flags: [bool; 64],
+    pub conds: [bool; NUM_CONDS],
     pub syscalls: S,
     pub tpid: u64,
 }
@@ -184,8 +184,8 @@ impl<S> LinuxArm64<S> {
         Self {
             regs,
             mem: mmu,
-            flag: 0,
-            conds: [0u8; NUM_CONDS],
+            flags: [false; 64],
+            conds: [false; NUM_CONDS],
             syscalls,
             tpid: 0,
         }
@@ -4358,18 +4358,17 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
 
     fn get_flag(&self, id: u32) -> bool {
         if id < 32 {
-            ((self.flag >> id) & 0b1) != 0
+            self.flags[id as usize]
         } else {
-            (self.conds[(id - 0x80000000) as usize]) != 0
+            self.conds[(id - 0x80000000) as usize]
         }
     }
 
     fn set_flag(&mut self, val: bool, id: u32) {
         if id < 32 {
-            self.flag &= !((1u64) << id);
-            self.flag |= (val as u64) << id;
+            self.flags[id as usize] = val;
         } else {
-            self.conds[(id - 0x80000000) as usize] = val as u8;
+            self.conds[(id - 0x80000000) as usize] = val;
         }
     }
 
@@ -4457,6 +4456,7 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
             (0x5d, exit),
             (0x5e, exit_group),
             (0x60, set_tid_address),
+            (0x62, futex),
             (0x63, set_robust_list),
             (0xae, getuid),
             (0xa0, uname),
@@ -8121,7 +8121,6 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
                 let res = file.read(data);
                 match res {
                     Ok(b) => {
-                        println!("read: {:?}", &data[..b]);
                         regs[Arm64Reg::x0] = b as u64;
                     }
                     Err(e) => {
@@ -8139,7 +8138,6 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
         let ptr = regs[Arm64Reg::x1] as usize;
         let len = regs[Arm64Reg::x2] as usize;
         let data = mem.get_slice(ptr..ptr + len).expect("Failed to read data");
-        println!("write({fd}, {data:?}");
         match self.fds.get_mut(&(fd as u32)) {
             Some(file) => {
                 let res = file.write(&data);
@@ -8169,6 +8167,11 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
         regs: &mut Arm64State,
         _mem: &mut MMU<SimplePage>,
     ) -> SyscallResult {
+        regs[Arm64Reg::x0] = 0;
+        SyscallResult::Continue
+    }
+
+    fn futex(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
         regs[Arm64Reg::x0] = 0;
         SyscallResult::Continue
     }

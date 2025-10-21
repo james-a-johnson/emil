@@ -47,8 +47,6 @@ fn main() {
         println!("\n");
     }
 
-    prog.print_addr(0x1015e);
-
     for _ in 0..5 {
         println!("\n");
     }

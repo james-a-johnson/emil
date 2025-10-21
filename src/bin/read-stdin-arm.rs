@@ -19,7 +19,7 @@ const STACK_SIZE: usize = 0x000000000007f000;
 fn main() {
     let functions_to_load: &[u64] = &[
         0x423a10, 0x40fa10, 0x400850, 0x425160, 0x44b910, 0x424780, 0x4253d0, 0x415b00, 0x400300,
-        0x406984, 0x406090,
+        0x406984, 0x406090, 0x418400, 0x406984, 0x453860,
     ];
     let headless_session = Session::new().expect("Failed to create new session");
     let bv = headless_session
@@ -40,13 +40,12 @@ fn main() {
     prog.add_empty(0x41e940);
     // memset generic
     prog.add_empty(0x41e1c0);
+    // fatal error
     prog.add_empty(0x4240e0);
     // rindex
     prog.add_empty(0x447c80);
     // strchrnul
     prog.add_empty(0x41cc80);
-    // _dlfo_process_initial
-    // prog.add_empty(0x459520);
     for addr in functions_to_load {
         load_function(&mut prog, &bv, *addr)
             .map_err(|e| format!("Loading {:#x} failed: {}", *addr, e))
@@ -66,9 +65,11 @@ fn main() {
     let mut env = Environment::default();
     env.args.push("read-stdin".into());
     env.env.push("EMULATOR=1".into());
+    env.env.push("LANG=en_US.UTF-8".into());
     env.aux.push(AuxVal::Phnum(6));
     env.aux.push(AuxVal::Phdr(0x400040));
     env.aux.push(AuxVal::Phent(0x38));
+    env.aux.push(AuxVal::Hwcap(0b10000000));
     add_default_auxv(&mut env.aux, &bv);
     let sp_val = env
         .encode(stack.as_mut(), (STACK_BASE + STACK_SIZE) as u64)
@@ -92,10 +93,13 @@ fn main() {
     emu.add_hook(0x415b00, malloc_assert).unwrap();
     emu.add_hook(0x447c80, rindex_hook).unwrap();
     emu.add_hook(0x41cc80, strchrnul).unwrap();
-    emu.add_hook(0x4061c4, sum_hook).unwrap();
-    emu.add_hook(0x4061d4, sum_hook).unwrap();
-    emu.add_hook(0x406090, strtoul_hook).unwrap();
-    emu.add_watch_addrs(0x4a7f98..0x4a7fa0, dl_platform_watch);
+    emu.add_hook(0x453938, int_malloc).unwrap();
+    emu.add_hook(0x45393c, int_malloc).unwrap();
+    // emu.add_hook(0x4061c4, sum_hook).unwrap();
+    // emu.add_hook(0x4061d4, sum_hook).unwrap();
+    // emu.add_hook(0x406090, strtoul_hook).unwrap();
+    // emu.add_hook(0x418bd0, int_malloc).unwrap();
+    // emu.add_hook(0x418400, int_malloc_args).unwrap();
     let mut stop_reason: Exit;
     emu.set_pc(entry.start());
     loop {
@@ -104,7 +108,6 @@ fn main() {
             let func = bv.function_at(bv.default_platform().unwrap().as_ref(), addr);
             match func {
                 Some(f) => {
-                    println!("Adding: {:?} @ {:#x}", f.symbol().full_name(), addr);
                     emu.get_prog_mut()
                         .add_function(f.low_level_il().unwrap().as_ref());
                 }
@@ -189,7 +192,7 @@ fn memset_hook(
     state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
 ) -> HookStatus {
     let src = state.read_reg(Arm64Reg::x0).get_quad();
-    let val = state.read_reg(Arm64Reg::x1).truncate(1).get_byte();
+    let val = state.read_reg(Arm64Reg::w1).truncate(1).get_byte();
     let size = state.read_reg(Arm64Reg::x2).get_quad();
     let ret = state.read_reg(Arm64Reg::lr).get_quad();
 
@@ -247,20 +250,6 @@ fn malloc_assert(
     HookStatus::Exit
 }
 
-fn dl_platform_watch(
-    _state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
-    pc: u64,
-    _addr: u64,
-    access: AccessType,
-    _data: &mut [u8],
-) {
-    if access == AccessType::Read {
-        return;
-    }
-
-    println!("dl platform modified by {:#x}", pc);
-}
-
 fn strchrnul(
     state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
 ) -> HookStatus {
@@ -301,5 +290,17 @@ fn strtoul_hook(
 
     let num = state.get_mem(start..start + 3).unwrap();
     println!("strtoul({:?}, {base})", num);
+    HookStatus::Continue
+}
+
+fn int_malloc(
+    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
+) -> HookStatus {
+    let x2 = state.read_reg(Arm64Reg::x2).get_quad() as i64;
+    let x3 = state.read_reg(Arm64Reg::x3).get_quad() as i64;
+    let x6 = state.read_reg(Arm64Reg::x6).get_quad() as i64;
+
+    println!("{x2}, {x3}, {x6}");
+
     HookStatus::Continue
 }

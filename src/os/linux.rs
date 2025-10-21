@@ -122,7 +122,6 @@ pub fn add_default_auxv(auxv: &mut Vec<AuxVal>, binary: &binaryninja::binary_vie
     if let Some(arch) = binary.default_arch() {
         auxv.push(AuxVal::Platform(arch.name().into()));
     }
-    auxv.push(AuxVal::Hwcap(0));
     if let Some(entry) = binary.entry_point_function() {
         auxv.push(AuxVal::Entry(entry.start()));
     }
@@ -288,6 +287,7 @@ pub trait LinuxSyscalls<R: RegState, M> {
     define_syscall!(rseq);
     define_syscall!(mprotect);
     define_syscall!(newfstatat);
+    define_syscall!(futex);
 
     /// Returns that the path could not be found on the system.
     fn openat(&mut self, regs: &mut R, _mem: &mut M) -> SyscallResult {

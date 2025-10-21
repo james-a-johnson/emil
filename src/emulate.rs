@@ -382,6 +382,7 @@ impl<S: State> Emulator<S> {
     /// rust so it can't be the name of a method. Instead, this is just called
     /// proceed.
     pub fn proceed(&mut self) -> Exit {
+        let mut prog_addr = self.curr_pc();
         // Check if current execution is at a user breakpoint. If it is, get the instruction that
         // replaced it, execute it, then continue to normal execution.
         if let Emil::UserBp(idx) = self.curr_inst() {
@@ -400,6 +401,10 @@ impl<S: State> Emulator<S> {
             }
         }
         loop {
+            if prog_addr != self.curr_pc() {
+                prog_addr = self.curr_pc();
+                // println!("prog_addr = {:#x}", prog_addr);
+            }
             match self.emulate(*self.curr_inst()) {
                 ExecutionState::Exit(e) => return e,
                 ExecutionState::Continue => {}
@@ -485,9 +490,11 @@ impl<S: State> Emulator<S> {
                 let val = ILVal::Flag(self.state.get_flag(id));
                 *self.get_ilr_mut(ilr) = val;
             }
-            Emil::Store { value, addr } => {
+            Emil::Store { value, addr, size } => {
+                let value = self.get_ilr(value);
+                assert_eq!(size as usize, value.size());
                 let mut buf = [0u8; 16];
-                let size = S::Endianness::write(self.get_ilr(value), &mut buf);
+                let size = S::Endianness::write(value, &mut buf);
                 let addr = self.get_ilr_mut(addr).extend_64();
                 if let Some(hook) = self.watch.get(&addr) {
                     let pc = self.curr_pc();
@@ -616,6 +623,7 @@ impl<S: State> Emulator<S> {
                 bin_op!(self, out, left, right, ILVal::signed_div)
             }
             Emil::Mul { out, left, right } => bin_op!(self, out, left, right, ILVal::mul),
+            Emil::MuluDp { out, left, right } => bin_op!(self, out, left, right, ILVal::mulu_dp),
             Emil::Not(dest, source) => *self.get_ilr_mut(dest) = !self.get_ilr(source),
             Emil::Negate(dest, source) => *self.get_ilr_mut(dest) = -self.get_ilr(source),
             Emil::Sub { out, left, right } => bin_op!(self, out, left, right, ILVal::sub),
@@ -809,7 +817,7 @@ where
         use rmp_serde::decode::Deserializer;
         let mut deserializer = Deserializer::new(file);
         let pc = usize::deserialize(&mut deserializer)?;
-        let temps = <[ILVal; 16]>::deserialize(&mut deserializer)?;
+        let temps = <[ILVal; NUM_TEMPS]>::deserialize(&mut deserializer)?;
         let prog = Program::deserialize(&mut deserializer)?;
         let state = S::deserialize(&mut deserializer)?;
         Ok(Self {
