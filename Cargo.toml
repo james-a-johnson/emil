@@ -11,7 +11,8 @@ members = ["from_id"]
 serde = ["dep:serde", "softmew/serde", "rmp-serde"]
 
 [dependencies]
-binaryninja = { git = "https://github.com/Vector35/binaryninja-api.git", rev = "92d75df37c76813ac4a71e35096dcb31ac1b18af" }
+binaryninja = { git = "https://github.com/james-a-johnson/binaryninja-api.git", branch = "const-mask" }
+# binaryninja = { git = "https://github.com/Vector35/binaryninja-api.git", rev = "92d75df37c76813ac4a71e35096dcb31ac1b18af" }
 softmew = { git = "https://github.com/james-a-johnson/softmew", tag = "v0.8.0" }
 from_id = { path = "./from_id" }
 serde = { version = "1.0", features = ["derive"], optional = true }
