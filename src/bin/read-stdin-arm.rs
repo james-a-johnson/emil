@@ -54,7 +54,10 @@ fn main() {
 
     let mut stdin = VecDeque::new();
     stdin.extend(b"10\n11\n12\n13\n");
-    let mut state = LinuxArm64::new(ArmMachine::new(0x80000000..0x80100000));
+    let mut state = LinuxArm64::new(ArmMachine::new(
+        c"/home/user/read-stdin",
+        0x80000000..0x80100000,
+    ));
     state.syscalls.set_stdin(stdin);
     let mem = state.memory_mut();
     load_sections(mem, &bv).expect("Failed to load a section");
@@ -86,20 +89,11 @@ fn main() {
     state.regs_mut()[Arm64Reg::sp] = sp_val;
 
     let mut emu = Emulator::new(prog, state);
-    emu.add_hook(0x40fa10, libc_fatal_hook).unwrap();
     emu.add_hook(0x400300, strlen_hook).unwrap();
-    emu.add_hook(0x4240e0, fatal_hook).unwrap();
     emu.add_hook(0x41e1c0, memset_hook).unwrap();
-    emu.add_hook(0x415b00, malloc_assert).unwrap();
     emu.add_hook(0x447c80, rindex_hook).unwrap();
     emu.add_hook(0x41cc80, strchrnul).unwrap();
-    emu.add_hook(0x453938, int_malloc).unwrap();
-    emu.add_hook(0x45393c, int_malloc).unwrap();
-    // emu.add_hook(0x4061c4, sum_hook).unwrap();
-    // emu.add_hook(0x4061d4, sum_hook).unwrap();
-    // emu.add_hook(0x406090, strtoul_hook).unwrap();
-    // emu.add_hook(0x418bd0, int_malloc).unwrap();
-    // emu.add_hook(0x418400, int_malloc_args).unwrap();
+
     let mut stop_reason: Exit;
     emu.set_pc(entry.start());
     loop {
@@ -127,46 +121,6 @@ fn main() {
     let mut stdout: Box<VecDeque<u8>> = stdout.downcast().unwrap();
     let message = String::from_utf8(stdout.make_contiguous().to_vec()).unwrap();
     println!("{message}");
-}
-
-fn libc_fatal_hook(
-    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
-) -> HookStatus {
-    println!("__libc_fatal called");
-    let mut msg_ptr = state.read_reg(Arm64Reg::x0).extend_64();
-    let mut message = Vec::new();
-    let mut buf = [0u8];
-    loop {
-        state.read_mem(msg_ptr, &mut buf).unwrap();
-        if buf[0] == 0 {
-            break;
-        }
-        message.push(buf[0]);
-        msg_ptr += 1;
-    }
-    let message = String::from_utf8(message).unwrap();
-    println!("Fatal message: {}", message);
-    HookStatus::Exit
-}
-
-fn fatal_hook(
-    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
-) -> HookStatus {
-    println!("fatal_error called");
-    let mut msg_ptr = state.read_reg(Arm64Reg::x3).extend_64();
-    let mut message = Vec::new();
-    let mut buf = [0u8];
-    loop {
-        state.read_mem(msg_ptr, &mut buf).unwrap();
-        if buf[0] == 0 {
-            break;
-        }
-        message.push(buf[0]);
-        msg_ptr += 1;
-    }
-    let message = String::from_utf8(message).unwrap();
-    println!("Fatal message: {}", message);
-    HookStatus::Exit
 }
 
 fn strlen_hook(
@@ -231,25 +185,6 @@ fn rindex_hook(
     HookStatus::Goto(ret)
 }
 
-fn malloc_assert(
-    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
-) -> HookStatus {
-    let mut msg_ptr = state.read_reg(Arm64Reg::x0).extend_64();
-    let mut message = Vec::new();
-    let mut buf = [0u8];
-    loop {
-        state.read_mem(msg_ptr, &mut buf).unwrap();
-        if buf[0] == 0 {
-            break;
-        }
-        message.push(buf[0]);
-        msg_ptr += 1;
-    }
-    let message = String::from_utf8(message).unwrap();
-    println!("malloc assert: {}", message);
-    HookStatus::Exit
-}
-
 fn strchrnul(
     state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
 ) -> HookStatus {
@@ -271,36 +206,4 @@ fn strchrnul(
     }
 
     HookStatus::Goto(ret)
-}
-
-fn sum_hook(
-    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
-) -> HookStatus {
-    let chr = state.read_reg(Arm64Reg::x19).get_quad();
-    let idx = state.read_reg(Arm64Reg::x5).get_quad();
-    println!("[{idx:#x}] = {chr}");
-    HookStatus::Continue
-}
-
-fn strtoul_hook(
-    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
-) -> HookStatus {
-    let start = state.read_reg(Arm64Reg::x0).get_quad();
-    let base = state.read_reg(Arm64Reg::x2).get_quad();
-
-    let num = state.get_mem(start..start + 3).unwrap();
-    println!("strtoul({:?}, {base})", num);
-    HookStatus::Continue
-}
-
-fn int_malloc(
-    state: &mut dyn State<Reg = Arm64Reg, Endianness = Little, Intrin = ArmIntrinsic>,
-) -> HookStatus {
-    let x2 = state.read_reg(Arm64Reg::x2).get_quad() as i64;
-    let x3 = state.read_reg(Arm64Reg::x3).get_quad() as i64;
-    let x6 = state.read_reg(Arm64Reg::x6).get_quad() as i64;
-
-    println!("{x2}, {x3}, {x6}");
-
-    HookStatus::Continue
 }

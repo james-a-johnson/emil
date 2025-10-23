@@ -7,7 +7,7 @@ use binaryninja::low_level_il::expression::ExpressionHandler;
 use binaryninja::low_level_il::expression::LowLevelILExpressionKind as ExprKind;
 use binaryninja::low_level_il::operation::IntrinsicOutput;
 use from_id::FromId;
-use softmew::page::{Page, SimplePage};
+use softmew::page::SimplePage;
 use softmew::{MMU, Perm, fault::Fault};
 
 #[cfg(feature = "serde")]
@@ -15,6 +15,7 @@ use crate::arch::Saveable;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
+use std::ffi::CString;
 use std::ops::{Index, IndexMut, Range};
 
 #[derive(Clone, Copy, Debug)]
@@ -8072,6 +8073,7 @@ pub struct ArmMachine {
     #[cfg_attr(feature = "serde", serde(skip))]
     fds: HashMap<u32, Box<dyn FileDescriptor>>,
     heap: Range<u64>,
+    progname: CString,
 }
 
 impl ArmMachine {
@@ -8079,7 +8081,7 @@ impl ArmMachine {
     ///
     /// `heap` is the range of addresses that should be used for the heap. Those addresses are used to set return values for
     /// the brk syscall.
-    pub fn new(heap: Range<u64>) -> Self {
+    pub fn new(name: impl Into<CString>, heap: Range<u64>) -> Self {
         let mut map = HashMap::new();
         let stdin: Box<dyn FileDescriptor> = Box::new(VecDeque::<u8>::new());
         let stdout: Box<dyn FileDescriptor> = Box::new(VecDeque::<u8>::new());
@@ -8087,7 +8089,11 @@ impl ArmMachine {
         map.insert(0, stdin);
         map.insert(1, stdout);
         map.insert(2, stderr);
-        Self { fds: map, heap }
+        Self {
+            fds: map,
+            heap,
+            progname: name.into(),
+        }
     }
 
     pub fn take_fd(&mut self, fd: u32) -> Option<Box<dyn FileDescriptor>> {
@@ -8313,6 +8319,8 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
         let mut path_addr = regs[Arm64Reg::x1];
         let mut path = Vec::new();
         let mut buf = [0u8];
+        let bufsize = regs[Arm64Reg::x2] as usize;
+        let copy_size = bufsize.min(self.progname.count_bytes());
         let link_buf = regs[Arm64Reg::x2];
         loop {
             if mem.read_perm(path_addr as usize, &mut buf).is_err() {
@@ -8327,8 +8335,10 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
         }
         match <Vec<u8> as AsRef<[u8]>>::as_ref(&path) {
             b"/proc/self/exe" => {
-                mem.write_perm(link_buf as usize, b"/home/emulator/exe\x00");
-                regs[Arm64Reg::x0] = 18;
+                match mem.write_perm(link_buf as usize, &self.progname.as_bytes()[..copy_size]) {
+                    Ok(_) => regs[Arm64Reg::x0] = copy_size as u64,
+                    Err(_) => regs[Arm64Reg::x0] = (-14_i16) as u64,
+                };
             }
             _ => regs[Arm64Reg::x0] = (-2_i64) as u64,
         }
