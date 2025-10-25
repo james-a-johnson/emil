@@ -354,7 +354,8 @@ impl<R: Reg, E: Endian, I: Intrinsic> Program<R, E, I> {
                 self.il.push(Emil::Pop { size, dest: ilr });
                 ilr
             }
-            ExprKind::Add(a) | ExprKind::AddOverflow(a) => bin_op!(a, Add, self, ilr),
+            ExprKind::Add(a) => bin_op!(a, Add, self, ilr),
+            ExprKind::AddOverflow(ao) => bin_op!(ao, AddOf, self, ilr),
             ExprKind::And(a) => bin_op!(a, And, self, ilr),
             ExprKind::Asr(shift) => bin_op!(shift, Asr, self, ilr),
             ExprKind::Lsl(shift) => bin_op!(shift, Lsl, self, ilr),
