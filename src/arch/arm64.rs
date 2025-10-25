@@ -21,8 +21,14 @@ use std::ops::{Index, IndexMut, Range};
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ArmIntrinsic {
+    /// Data cache operation.
+    Dc,
     WriteMSR(Arm64Reg, u32),
     ReadMSR(Arm64Reg, u32),
+    Clz(Arm64Reg, Arm64Reg),
+    /// Reverses bit order of a register
+    Rbit(Arm64Reg, Arm64Reg),
+    Rev(Arm64Reg, Arm64Reg),
     /// (Destnation register, Address register).
     Ldxr(Arm64Reg, Arm64Reg),
     /// (Destination register, Value Register, Address register).
@@ -42,8 +48,30 @@ impl Intrinsic for ArmIntrinsic {
     ) -> Result<Self, String> {
         let id = intrinsic.intrinsic().expect("Invalid intrinsic").id.0;
         match id {
+            4 => Ok(Self::Dc),
             5 => Ok(Self::Dmb),
             8 => Ok(Self::BtiHint),
+            30 => {
+                let dest_reg = get_reg_from_outputs(intrinsic, 0)
+                    .map_err(|e| format!("Bad output for reverse: {e}"))?;
+                let src_reg = get_reg_from_inputs(intrinsic, 0)
+                    .map_err(|e| format!("Bad source register for reverse: {e}"))?;
+                Ok(Self::Clz(dest_reg, src_reg))
+            }
+            32 => {
+                let dest_reg = get_reg_from_outputs(intrinsic, 0)
+                    .map_err(|e| format!("Bad output for reverse: {e}"))?;
+                let src_reg = get_reg_from_inputs(intrinsic, 0)
+                    .map_err(|e| format!("Bad source register for reverse: {e}"))?;
+                Ok(Self::Rev(dest_reg, src_reg))
+            }
+            33 => {
+                let dest_reg = get_reg_from_outputs(intrinsic, 0)
+                    .map_err(|e| format!("Bad output register for rbit: {e}"))?;
+                let src_reg = get_reg_from_inputs(intrinsic, 0)
+                    .map_err(|e| format!("Bad source register for rbit: {e}"))?;
+                Ok(Self::Rbit(dest_reg, src_reg))
+            }
             38 | 41 => {
                 // ldaxr, load acquire exclusive
                 let dest_reg = get_reg_from_outputs(intrinsic, 0)
@@ -4393,8 +4421,24 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
 
     fn intrinsic(&mut self, intrin: &ArmIntrinsic) -> Result<(), softmew::fault::Fault> {
         match intrin {
+            ArmIntrinsic::Dc => Ok(()),
             ArmIntrinsic::Dmb => Ok(()),
             ArmIntrinsic::BtiHint => Ok(()),
+            ArmIntrinsic::Rev(dest, src) => {
+                let val = self.read_reg(*src);
+                self.write_reg(*dest, val.byte_rev());
+                Ok(())
+            }
+            ArmIntrinsic::Rbit(dest, src) => {
+                let val = self.read_reg(*src);
+                self.write_reg(*dest, val.bit_rev());
+                Ok(())
+            }
+            ArmIntrinsic::Clz(dest, src) => {
+                let val = self.read_reg(*src);
+                self.write_reg(*dest, val.leading_zeros());
+                Ok(())
+            }
             ArmIntrinsic::Ldxr(dest, addr) => {
                 let addr = self.read_reg(*addr).extend_64();
                 let mut buf = [0u8; 8];
