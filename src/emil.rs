@@ -365,14 +365,83 @@ impl ILVal {
         }
     }
 
-    /// Multiply as 128 bit values.
+    /// Zero extend value then multiply.
     pub fn mulu_dp(self, other: Self) -> Self {
         match (self, other) {
             (Self::Word(left), Self::Word(right)) => {
                 Self::Quad((left as u64).wrapping_mul(right as u64))
             }
-            (Self::Quad(left), Self::Quad(right)) => Self::Simd((left as u128).wrapping_mul((right as u128))),
+            (Self::Quad(left), Self::Quad(right)) => {
+                Self::Simd((left as u128).wrapping_mul(right as u128))
+            }
             (_, _) => unreachable!("Invalid combo of {:?} and {:?}", self, other),
+        }
+    }
+
+    /// Sign extend value then multiply
+    pub fn muls_dp(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Word(left), Self::Word(right)) => {
+                Self::Quad((left as i32 as i64).wrapping_mul(right as i32 as i64) as u64)
+            }
+            (Self::Quad(left), Self::Quad(right)) => {
+                Self::Simd((left as i64 as i128).wrapping_mul(right as i64 as i128) as u128)
+            }
+            (_, _) => unreachable!("Invalid combo of {:?} and {:?}", self, other),
+        }
+    }
+
+    /// Bit-wise reversal of value.
+    pub fn bit_rev(&self) -> Self {
+        match self {
+            Self::Byte(v) => Self::Byte(v.reverse_bits()),
+            Self::Short(v) => Self::Short(v.reverse_bits()),
+            Self::Word(v) => Self::Word(v.reverse_bits()),
+            Self::Quad(v) => Self::Quad(v.reverse_bits()),
+            Self::Simd(v) => Self::Simd(v.reverse_bits()),
+            x => panic!("{x:?} cannot be bit-wise reversed"),
+        }
+    }
+
+    /// Byte-wise reversal of value.
+    pub fn byte_rev(&self) -> Self {
+        match self {
+            Self::Byte(v) => Self::Byte(v.swap_bytes()),
+            Self::Short(v) => Self::Short(v.swap_bytes()),
+            Self::Word(v) => Self::Word(v.swap_bytes()),
+            Self::Quad(v) => Self::Quad(v.swap_bytes()),
+            Self::Simd(v) => Self::Simd(v.swap_bytes()),
+            x => panic!("{x:?} cannot be byte-wise reversed"),
+        }
+    }
+
+    /// Leading zeros.
+    pub fn leading_zeros(&self) -> Self {
+        match self {
+            Self::Byte(v) => Self::Word(v.leading_zeros()),
+            Self::Short(v) => Self::Word(v.leading_zeros()),
+            Self::Word(v) => Self::Word(v.leading_zeros()),
+            Self::Quad(v) => Self::Word(v.leading_zeros()),
+            Self::Simd(v) => Self::Word(v.leading_zeros()),
+            x => panic!("{x:?} does not support leading zeros"),
+        }
+    }
+
+    /// Check if an add would overflow or not.
+    pub fn add_of(self, other: Self) -> Self {
+        // TODO: This might be architecture specific. It seems like this should be signed addition checking overflow.
+        match (self, other) {
+            (Self::Byte(a), Self::Byte(b)) => Self::Flag((a as i8).overflowing_sub(b as i8).1),
+            (Self::Short(a), Self::Byte(b)) => Self::Flag(a.overflowing_sub(b as u16).1),
+            (Self::Short(a), Self::Short(b)) => Self::Flag(a.overflowing_sub(b).1),
+            (Self::Word(a), Self::Byte(b)) => Self::Flag(a.overflowing_sub(b as u32).1),
+            (Self::Word(a), Self::Short(b)) => Self::Flag(a.overflowing_sub(b as u32).1),
+            (Self::Word(a), Self::Word(b)) => Self::Flag((a as i32).overflowing_sub(b as i32).1),
+            (Self::Quad(a), Self::Byte(b)) => Self::Flag(a.overflowing_sub(b as u64).1),
+            (Self::Quad(a), Self::Short(b)) => Self::Flag(a.overflowing_sub(b as u64).1),
+            (Self::Quad(a), Self::Word(b)) => Self::Flag(a.overflowing_sub(b as u64).1),
+            (Self::Quad(a), Self::Quad(b)) => Self::Flag((a).overflowing_sub(b).1),
+            _ => panic!("Trying to check overflow of unsupported types: {self:?} + {other:?}"),
         }
     }
 }
@@ -662,7 +731,7 @@ impl BitOr for ILVal {
 
     fn bitor(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Flag(a), Self::Flag(b)) => Self::Flag(a | b),
+            (Self::Flag(a), Self::Flag(b)) => Self::Flag(a || b),
             (Self::Byte(a), Self::Byte(b)) => Self::Byte(a | b),
             (Self::Short(a), Self::Short(b)) => Self::Short(a | b),
             (Self::Word(a), Self::Word(b)) => Self::Word(a | b),
@@ -838,6 +907,12 @@ pub enum Emil<R: Reg, E: Endian, I: Intrinsic> {
     Constant { reg: ILRef, value: u64, size: u8 },
     /// Add two values together.
     Add {
+        out: ILRef,
+        left: ILRef,
+        right: ILRef,
+    },
+    /// Check if an add would overflow or not.
+    AddOf {
         out: ILRef,
         left: ILRef,
         right: ILRef,
