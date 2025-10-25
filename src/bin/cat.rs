@@ -39,9 +39,8 @@ fn main() {
     let mut env = Environment::default();
     env.args
         .push("../../repos/busybox/busybox_unstripped".into());
-    env.args.push("echo".into());
-    env.args.push("hello".into());
-    env.args.push("world".into());
+    env.args.push("cat".into());
+    env.args.push("./src/bin/cat.rs".into());
     env.env.push("EMULATOR=1".into());
     env.env.push("LANG=en_US.UTF-8".into());
     env.aux.push(AuxVal::Phnum(6));
