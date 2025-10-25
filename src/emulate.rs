@@ -382,7 +382,6 @@ impl<S: State> Emulator<S> {
     /// rust so it can't be the name of a method. Instead, this is just called
     /// proceed.
     pub fn proceed(&mut self) -> Exit {
-        let mut prog_addr = self.curr_pc();
         // Check if current execution is at a user breakpoint. If it is, get the instruction that
         // replaced it, execute it, then continue to normal execution.
         if let Emil::UserBp(idx) = self.curr_inst() {
@@ -401,10 +400,6 @@ impl<S: State> Emulator<S> {
             }
         }
         loop {
-            if prog_addr != self.curr_pc() {
-                prog_addr = self.curr_pc();
-                // println!("prog_addr = {:#x}", prog_addr);
-            }
             match self.emulate(*self.curr_inst()) {
                 ExecutionState::Exit(e) => return e,
                 ExecutionState::Continue => {}
@@ -617,6 +612,7 @@ impl<S: State> Emulator<S> {
                 return ExecutionState::Continue;
             }
             Emil::Add { out, left, right } => bin_op!(self, out, left, right, ILVal::add),
+            Emil::AddOf { out, left, right } => bin_op!(self, out, left, right, ILVal::add_of),
             Emil::And { out, left, right } => bin_op!(self, out, left, right, ILVal::bitand),
             Emil::Divu { out, left, right } => bin_op!(self, out, left, right, ILVal::div),
             Emil::Divs { out, left, right } => {
@@ -624,6 +620,7 @@ impl<S: State> Emulator<S> {
             }
             Emil::Mul { out, left, right } => bin_op!(self, out, left, right, ILVal::mul),
             Emil::MuluDp { out, left, right } => bin_op!(self, out, left, right, ILVal::mulu_dp),
+            Emil::MulsDp { out, left, right } => bin_op!(self, out, left, right, ILVal::muls_dp),
             Emil::Not(dest, source) => *self.get_ilr_mut(dest) = !self.get_ilr(source),
             Emil::Negate(dest, source) => *self.get_ilr_mut(dest) = -self.get_ilr(source),
             Emil::Sub { out, left, right } => bin_op!(self, out, left, right, ILVal::sub),
