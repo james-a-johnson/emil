@@ -308,4 +308,12 @@ pub trait LinuxSyscalls<R: RegState, M> {
     fn exit_group(&mut self, _regs: &mut R, _mem: &mut M) -> SyscallResult {
         SyscallResult::Exit
     }
+
+    /// Close a file descriptor.
+    ///
+    /// Default implementation always returns success.
+    fn close(&mut self, regs: &mut R, _mem: &mut M) -> SyscallResult {
+        regs.set_syscall_return(ILVal::Quad(0));
+        SyscallResult::Continue
+    }
 }

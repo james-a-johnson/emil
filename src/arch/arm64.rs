@@ -15,8 +15,11 @@ use crate::arch::Saveable;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
-use std::ffi::CString;
+use std::ffi::{CString, OsString};
+use std::fs::OpenOptions;
 use std::ops::{Index, IndexMut, Range};
+use std::os::unix::ffi::OsStringExt;
+use std::path::PathBuf;
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -4494,6 +4497,7 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
             self,
             syscall_no,
             (0x38, openat),
+            (0x39, close),
             (0x3f, read),
             (0x40, write),
             (0x4e, readlinkat),
@@ -8389,7 +8393,70 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
         SyscallResult::Continue
     }
 
-    fn newfstatat(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+    fn openat(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let mut path_addr = regs[Arm64Reg::x1];
+        let options = regs[Arm64Reg::x2] & 0xffffffff;
+        let mut path = Vec::new();
+        let mut buf = [0u8];
+        loop {
+            if mem.read_perm(path_addr as usize, &mut buf).is_err() {
+                regs[Arm64Reg::x0] = (-14_i64) as u64;
+                return SyscallResult::Continue;
+            }
+            if buf[0] == 0 {
+                break;
+            }
+            path.push(buf[0]);
+            path_addr += 1;
+        }
+
+        let string = OsString::from_vec(path);
+        let path = PathBuf::from(string);
+
+        let mut open_options = OpenOptions::new();
+        match options & 0b11 {
+            0 => open_options.read(true),
+            1 => open_options.write(true),
+            2 => open_options.read(true).write(true),
+            _ => panic!("Invalid open options"),
+        };
+
+        let path = path.canonicalize();
+        match path {
+            Ok(p) => match open_options.open(p) {
+                Ok(f) => {
+                    let fd: Box<dyn FileDescriptor> = Box::new(f);
+                    let num = self.fds.len();
+                    self.fds.insert(num.try_into().unwrap(), fd);
+                    regs[Arm64Reg::x0] = num as u64;
+                }
+                Err(e) => {
+                    let errno = e.raw_os_error().unwrap_or(-2);
+                    regs[Arm64Reg::x0] = errno as i64 as u64;
+                }
+            },
+            Err(e) => {
+                let errno = e.raw_os_error().unwrap_or(-2);
+                regs[Arm64Reg::x0] = errno as i64 as u64;
+            }
+        };
+
+        SyscallResult::Continue
+    }
+
+    fn close(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
+        let fd = regs[Arm64Reg::x0] as u32;
+        if self.fds.contains_key(&fd) {
+            // Don't actually close here because user of the emulator might want to get the file and look at it
+            // themselves.
+            regs[Arm64Reg::x0] = 0;
+        } else {
+            regs[Arm64Reg::x0] = (-77_i64) as u64;
+        }
+        SyscallResult::Continue
+    }
+
+    fn newfstatat(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
         regs[Arm64Reg::x0] = (-2_i64) as u64;
         SyscallResult::Continue
     }
