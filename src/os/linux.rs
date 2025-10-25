@@ -23,7 +23,7 @@ pub enum AuxVal {
     /// number of program headers
     Phnum(u64),
     /// system page size
-    Pagesz,
+    Pagesz(u64),
     /// base address of interpreter
     Base,
     /// flags
@@ -87,7 +87,7 @@ impl AuxVal {
             Self::Phdr(_) => 3,
             Self::Phent(_) => 4,
             Self::Phnum(_) => 5,
-            Self::Pagesz => 6,
+            Self::Pagesz(_) => 6,
             Self::Base => 7,
             Self::Flags => 8,
             Self::Entry(_) => 9,
@@ -119,6 +119,7 @@ pub fn add_default_auxv(auxv: &mut Vec<AuxVal>, binary: &binaryninja::binary_vie
     auxv.push(AuxVal::Gid(1000));
     auxv.push(AuxVal::Euid(1000));
     auxv.push(AuxVal::Egid(1000));
+    auxv.push(AuxVal::Pagesz(0x1000));
     if let Some(arch) = binary.default_arch() {
         auxv.push(AuxVal::Platform(arch.name().into()));
     }
@@ -192,7 +193,8 @@ impl Environment {
                 | AuxVal::Phdr(id)
                 | AuxVal::Phent(id)
                 | AuxVal::SysinfoEhdr(id)
-                | AuxVal::Entry(id) => {
+                | AuxVal::Entry(id)
+                | AuxVal::Pagesz(id) => {
                     aux_vals.push((aux.discrim(), *id));
                 }
                 AuxVal::Random(rand) => {
@@ -232,6 +234,8 @@ impl Environment {
         }
         len -= 8;
         current -= 8;
+        // Need to do these in reverse order
+        arg_ptrs.reverse();
         for ptr in arg_ptrs {
             len -= 8;
             current -= 8;
