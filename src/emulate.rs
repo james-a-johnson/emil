@@ -23,6 +23,8 @@ const NUM_TEMPS: usize = 32;
 /// Function that can be used to hook specific instructions.
 pub type HookFn<R, E, I> = fn(&mut dyn State<Reg = R, Endianness = E, Intrin = I>) -> HookStatus;
 
+pub static mut NUM_INSTRUCTIONS: u64 = 0;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AccessType {
     Read,
@@ -400,6 +402,9 @@ impl<S: State> Emulator<S> {
             }
         }
         loop {
+            unsafe {
+                NUM_INSTRUCTIONS += 1;
+            }
             match self.emulate(*self.curr_inst()) {
                 ExecutionState::Exit(e) => return e,
                 ExecutionState::Continue => {}
