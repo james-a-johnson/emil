@@ -1,4 +1,4 @@
-use crate::arch::{Register, State, SyscallResult};
+use crate::arch::{Endian, State, SyscallResult};
 use crate::emil::{Emil, ILRef, ILVal};
 use crate::prog::Program;
 use std::cmp::Ordering;
@@ -80,72 +80,6 @@ impl From<Fault> for Exit {
         Self::Access(value)
     }
 }
-
-pub trait Endian: Debug + Clone + Copy {
-    fn read(data: &[u8]) -> ILVal;
-    fn write(value: ILVal, data: &mut [u8]) -> usize;
-}
-
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Little;
-impl Endian for Little {
-    fn read(data: &[u8]) -> ILVal {
-        match data.len() {
-            1 => ILVal::Byte(data[0]),
-            2 => ILVal::Short(u16::from_le_bytes(
-                data.try_into().expect("Length is valid"),
-            )),
-            4 => ILVal::Word(u32::from_le_bytes(
-                data.try_into().expect("Length is valid"),
-            )),
-            8 => ILVal::Quad(u64::from_le_bytes(
-                data.try_into().expect("Length is valid"),
-            )),
-            16 => ILVal::Simd(u128::from_le_bytes(
-                data.try_into().expect("Length is valid"),
-            )),
-            _ => unreachable!("Invalid length"),
-        }
-    }
-
-    fn write(value: ILVal, data: &mut [u8]) -> usize {
-        match value {
-            ILVal::Flag(_) => unreachable!("Can't write a flag"),
-            ILVal::Byte(b) => {
-                data[0] = b;
-                1
-            }
-            ILVal::Short(s) => {
-                data[0..2].copy_from_slice(&s.to_le_bytes());
-                2
-            }
-            ILVal::Word(w) => {
-                data[0..4].copy_from_slice(&w.to_le_bytes());
-                4
-            }
-            ILVal::Float(f) => {
-                data[0..4].copy_from_slice(&f.to_le_bytes());
-                4
-            }
-            ILVal::Quad(q) => {
-                data[0..8].copy_from_slice(&q.to_le_bytes());
-                8
-            }
-            ILVal::Double(d) => {
-                data[0..8].copy_from_slice(&d.to_le_bytes());
-                8
-            }
-            ILVal::Simd(s) => {
-                data.copy_from_slice(&s.to_le_bytes());
-                16
-            }
-        }
-    }
-}
-
-pub struct Big;
-// impl Endian for Big {}
 
 /// Handle to a hook that was installed.
 pub struct HookID(usize);
@@ -345,6 +279,10 @@ impl<S: State> Emulator<S> {
     ///
     /// You can call this function and then you can can [`Emulator::proceed`]
     /// and it will start executing at the correct address.
+    ///
+    /// # Return
+    /// Returns if the pc value was successfully updated. Updating the PC value can fail if an invalid address is
+    /// provided.
     pub fn set_pc(&mut self, addr: u64) -> bool {
         let idx = self.prog.insn_map.get(&addr);
         if let Some(idx) = idx {
@@ -361,17 +299,10 @@ impl<S: State> Emulator<S> {
             None => return Exit::InstructionFault(addr),
         };
         loop {
-            match self.emulate(*self.curr_inst()) {
+            match self.exec_one() {
                 ExecutionState::Exit(e) => return e,
-                ExecutionState::Continue => {}
-                ExecutionState::Hook(idx) => {
-                    let replaced = self.replaced[idx];
-                    match self.emulate(replaced.0) {
-                        ExecutionState::Exit(e) => return e,
-                        ExecutionState::Continue => {}
-                        ExecutionState::Hook(_) => unreachable!("Can't hook a hook instruction"),
-                    }
-                }
+                ExecutionState::Continue => continue,
+                ExecutionState::Hook(_) => unreachable!("Hook can't be returned from exec_one"),
             }
         }
     }
@@ -400,17 +331,10 @@ impl<S: State> Emulator<S> {
             }
         }
         loop {
-            match self.emulate(*self.curr_inst()) {
+            match self.exec_one() {
                 ExecutionState::Exit(e) => return e,
-                ExecutionState::Continue => {}
-                ExecutionState::Hook(idx) => {
-                    let replaced = self.replaced[idx];
-                    match self.emulate(replaced.0) {
-                        ExecutionState::Exit(e) => return e,
-                        ExecutionState::Continue => {}
-                        ExecutionState::Hook(_) => unreachable!("Can't hook a hook instruction"),
-                    }
-                }
+                ExecutionState::Continue => continue,
+                ExecutionState::Hook(_) => unreachable!("Hook can't be returned from exec_one"),
             }
         }
     }
@@ -423,27 +347,37 @@ impl<S: State> Emulator<S> {
     pub fn step(&mut self) -> Exit {
         let addr = self.curr_pc();
         while addr == self.curr_pc() {
-            match self.emulate(*self.curr_inst()) {
+            match self.exec_one() {
                 ExecutionState::Exit(e) => return e,
-                ExecutionState::Continue => {}
-                ExecutionState::Hook(idx) => {
-                    let replaced = self.replaced[idx];
-                    match self.emulate(replaced.0) {
-                        ExecutionState::Exit(e) => return e,
-                        ExecutionState::Continue => {}
-                        ExecutionState::Hook(_) => unreachable!("Can't hook a hook instruction"),
-                    }
-                }
+                ExecutionState::Continue => continue,
+                ExecutionState::Hook(_) => unreachable!("Hook can't be returned from exec_one"),
             }
         }
         Exit::SingleStep
     }
 
     #[inline(always)]
+    fn exec_one(&mut self) -> ExecutionState {
+        match self.emulate(*self.curr_inst()) {
+            ExecutionState::Hook(idx) => {
+                let replaced = self.replaced[idx];
+                match self.emulate(replaced.0) {
+                    ExecutionState::Hook(_) => unreachable!("Can't hook a hook instruction"),
+                    e => return e,
+                }
+            }
+            e => return e,
+        }
+    }
+
+    /// Get the EMIL instruction at the current pc value.
+    #[inline(always)]
     fn curr_inst(&self) -> &Emil<S::Reg, S::Endianness, S::Intrin> {
+        // SAFETY: self.pc will always be set to a valid index in the il array.
         unsafe { self.prog.il.get_unchecked(self.pc) }
     }
 
+    /// Emulate a single instruction.
     fn emulate(&mut self, inst: Emil<S::Reg, S::Endianness, S::Intrin>) -> ExecutionState {
         match inst {
             Emil::Nop => {}

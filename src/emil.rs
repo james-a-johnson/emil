@@ -16,8 +16,8 @@
 //! first be loaded into an ILVal. In this way, reading and writing registers or memory is
 //! essentially just treated as a side effect of the instruction.
 
-use crate::arch::{Intrinsic, Register as Reg, State};
-use crate::emulate::{Endian, HookStatus};
+use crate::arch::{Endian, Intrinsic, Register as Reg, State};
+use crate::emulate::HookStatus;
 use std::fmt::{Debug, Display, LowerHex, UpperHex};
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub};
 
@@ -56,8 +56,6 @@ pub enum ILVal {
     Word(u32),
     Quad(u64),
     Simd(u128),
-    Float(f32),
-    Double(f64),
 }
 
 impl ILVal {
@@ -70,8 +68,6 @@ impl ILVal {
             Self::Word(_) => 4,
             Self::Quad(_) => 8,
             Self::Simd(_) => 16,
-            Self::Float(_) => 4,
-            Self::Double(_) => 8,
         }
     }
 
@@ -86,8 +82,6 @@ impl ILVal {
             Self::Word(v) => *v,
             Self::Quad(v) => *v as u32,
             Self::Simd(v) => *v as u32,
-            Self::Float(v) => *v as u32,
-            Self::Double(v) => *v as u32,
         }
     }
 
@@ -116,7 +110,6 @@ impl ILVal {
             Self::Word(w) => *w as u128,
             Self::Quad(q) => *q as u128,
             Self::Simd(s) => *s,
-            v => panic!("Can't extend float ({v:?}) to a 128 bit value"),
         }
     }
 
@@ -160,26 +153,6 @@ impl ILVal {
         }
     }
 
-    /// Gets the value if it is a float and panics otherwise.
-    #[inline]
-    pub fn get_float(&self) -> f32 {
-        if let Self::Float(f) = self {
-            *f
-        } else {
-            panic!("Value was not a float")
-        }
-    }
-
-    /// Gets the value if it is a double and panics otherwise.
-    #[inline]
-    pub fn get_double(&self) -> f64 {
-        if let Self::Double(d) = self {
-            *d
-        } else {
-            panic!("Value was not a float")
-        }
-    }
-
     /// Checks if the value is true or not.
     ///
     /// This follows the standard c definition of true. So any non-zero value is considered to be true and zero is false.
@@ -191,8 +164,6 @@ impl ILVal {
             Self::Word(v) => *v != 0,
             Self::Quad(v) => *v != 0,
             Self::Simd(v) => *v != 0,
-            Self::Float(v) => !v.is_nan() && *v != 0.0,
-            Self::Double(v) => !v.is_nan() && *v != 0.0,
         }
     }
 
@@ -455,8 +426,6 @@ impl Debug for ILVal {
             Self::Word(w) => write!(f, "{:X}w", w),
             Self::Quad(q) => write!(f, "{:X}q", q),
             Self::Simd(s) => write!(f, "{:X}d", s),
-            Self::Float(fl) => write!(f, "{fl}f"),
-            Self::Double(d) => write!(f, "{d}d"),
         }
     }
 }
@@ -470,8 +439,6 @@ impl Display for ILVal {
             Self::Word(w) => write!(f, "{:X}", w),
             Self::Quad(q) => write!(f, "{:X}", q),
             Self::Simd(s) => write!(f, "{:X}", s),
-            Self::Float(fl) => write!(f, "{fl}"),
-            Self::Double(d) => write!(f, "{d}"),
         }
     }
 }
@@ -485,8 +452,6 @@ impl LowerHex for ILVal {
             Self::Word(v) => LowerHex::fmt(v, f),
             Self::Quad(v) => LowerHex::fmt(v, f),
             Self::Simd(v) => LowerHex::fmt(v, f),
-            Self::Float(v) => LowerHex::fmt(&(*v as u32), f),
-            Self::Double(v) => LowerHex::fmt(&(*v as u64), f),
         }
     }
 }
@@ -500,8 +465,6 @@ impl UpperHex for ILVal {
             Self::Word(v) => UpperHex::fmt(v, f),
             Self::Quad(v) => UpperHex::fmt(v, f),
             Self::Simd(v) => UpperHex::fmt(v, f),
-            Self::Float(v) => UpperHex::fmt(&(*v as u32), f),
-            Self::Double(v) => UpperHex::fmt(&(*v as u64), f),
         }
     }
 }
@@ -517,8 +480,6 @@ impl PartialEq for ILVal {
             (Self::Word(w1), Self::Word(w2)) => w1 == w2,
             (Self::Quad(q1), Self::Quad(q2)) => q1 == q2,
             (Self::Simd(s1), Self::Simd(s2)) => s1 == s2,
-            (Self::Float(f1), Self::Float(f2)) => f1 == f2,
-            (Self::Double(d1), Self::Double(d2)) => d1 == d2,
             (_, _) => false,
         }
     }
@@ -535,8 +496,6 @@ impl PartialOrd for ILVal {
             (Self::Word(w1), Self::Word(w2)) => w1.partial_cmp(&w2),
             (Self::Quad(q1), Self::Quad(q2)) => q1.partial_cmp(&q2),
             (Self::Simd(s1), Self::Simd(s2)) => s1.partial_cmp(&s2),
-            (Self::Float(f1), Self::Float(f2)) => f1.partial_cmp(&f2),
-            (Self::Double(d1), Self::Double(d2)) => d1.partial_cmp(&d2),
             (_, _) => panic!("Comparing types of unequal size"),
         }
     }
@@ -610,13 +569,13 @@ impl From<i128> for ILVal {
 
 impl From<f32> for ILVal {
     fn from(value: f32) -> Self {
-        Self::Float(value)
+        Self::Word(value as u32)
     }
 }
 
 impl From<f64> for ILVal {
     fn from(value: f64) -> Self {
-        Self::Double(value)
+        Self::Quad(value as u64)
     }
 }
 
@@ -640,8 +599,6 @@ impl Add for ILVal {
             (Self::Quad(a), Self::Word(b)) => Self::Quad(a.wrapping_add(b as u64)),
             (Self::Quad(a), Self::Quad(b)) => Self::Quad(a.wrapping_add(b)),
             (Self::Simd(a), Self::Simd(b)) => Self::Simd(a.wrapping_add(b)),
-            (Self::Float(a), Self::Float(b)) => Self::Float(a + b),
-            (Self::Double(a), Self::Double(b)) => Self::Double(a + b),
             _ => panic!("Trying to add different sized integers: {self:?} + {rhs:?}"),
         }
     }
@@ -661,8 +618,6 @@ impl Sub for ILVal {
             (Self::Word(a), Self::Word(b)) => Self::Word(a.wrapping_sub(b)),
             (Self::Quad(a), Self::Quad(b)) => Self::Quad(a.wrapping_sub(b)),
             (Self::Simd(a), Self::Simd(b)) => Self::Simd(a.wrapping_sub(b)),
-            (Self::Float(a), Self::Float(b)) => Self::Float(a - b),
-            (Self::Double(a), Self::Double(b)) => Self::Double(a - b),
             _ => panic!("Trying to subtract different sized integers"),
         }
     }
@@ -682,8 +637,6 @@ impl Mul for ILVal {
             (Self::Word(a), Self::Word(b)) => Self::Word(a.wrapping_mul(b)),
             (Self::Quad(a), Self::Quad(b)) => Self::Quad(a.wrapping_mul(b)),
             (Self::Simd(a), Self::Simd(b)) => Self::Simd(a.wrapping_mul(b)),
-            (Self::Float(a), Self::Float(b)) => Self::Float(a * b),
-            (Self::Double(a), Self::Double(b)) => Self::Double(a * b),
             _ => panic!("Trying to multiply different sized integers"),
         }
     }
@@ -703,8 +656,6 @@ impl Div for ILVal {
             (Self::Word(a), Self::Word(b)) => Self::Word(a.wrapping_div(b)),
             (Self::Quad(a), Self::Quad(b)) => Self::Quad(a.wrapping_div(b)),
             (Self::Simd(a), Self::Simd(b)) => Self::Simd(a.wrapping_div(b)),
-            (Self::Float(a), Self::Float(b)) => Self::Float(a / b),
-            (Self::Double(a), Self::Double(b)) => Self::Double(a / b),
             _ => panic!("Trying to divide different sized integers"),
         }
     }
@@ -768,8 +719,6 @@ impl Neg for ILVal {
             Self::Word(v) => Self::Word(-(v as i32) as u32),
             Self::Quad(v) => Self::Quad(-(v as i64) as u64),
             Self::Simd(v) => Self::Simd(-(v as i128) as u128),
-            Self::Float(v) => Self::Float(-v),
-            Self::Double(v) => Self::Double(-v),
         }
     }
 }
@@ -785,7 +734,6 @@ impl Not for ILVal {
             Self::Word(v) => Self::Word(!v),
             Self::Quad(v) => Self::Quad(!v),
             Self::Simd(v) => Self::Simd(!v),
-            _ => panic!("Can't bit negate a floating point number"),
         }
     }
 }

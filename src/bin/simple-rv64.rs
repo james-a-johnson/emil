@@ -1,8 +1,8 @@
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
-use emil::arch::{SyscallResult, riscv::*};
-use emil::emulate::{Emulator, Little};
+use emil::arch::{Little, SyscallResult, riscv::*};
+use emil::emulate::Emulator;
 use emil::os::linux::LinuxSyscalls;
 use emil::prog::Program;
 use softmew::page::SimplePage;

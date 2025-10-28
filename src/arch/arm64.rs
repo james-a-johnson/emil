@@ -1,6 +1,6 @@
+use crate::arch::{Endian, Little};
 use crate::arch::{FileDescriptor, Intrinsic, RegState, Register, State, SyscallResult};
 use crate::emil::ILVal;
-use crate::emulate::{Endian, Little};
 use crate::os::linux::LinuxSyscalls;
 use binaryninja::architecture::Register as BNReg;
 use binaryninja::low_level_il::expression::ExpressionHandler;
@@ -335,165 +335,165 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
             Arm64Reg::lr => self.regs.gregs[30] = value.extend_64(),
             Arm64Reg::sp => self.regs.gregs[31] = value.extend_64(),
             Arm64Reg::syscall_info => self.regs.syscall_info = value.extend_64(),
-            Arm64Reg::d0 => self.regs.neon[0] = value.get_double() as u64 as u128,
-            Arm64Reg::d1 => self.regs.neon[1] = value.get_double() as u64 as u128,
-            Arm64Reg::d2 => self.regs.neon[2] = value.get_double() as u64 as u128,
-            Arm64Reg::d3 => self.regs.neon[3] = value.get_double() as u64 as u128,
-            Arm64Reg::d4 => self.regs.neon[4] = value.get_double() as u64 as u128,
-            Arm64Reg::d5 => self.regs.neon[5] = value.get_double() as u64 as u128,
-            Arm64Reg::d6 => self.regs.neon[6] = value.get_double() as u64 as u128,
-            Arm64Reg::d7 => self.regs.neon[7] = value.get_double() as u64 as u128,
-            Arm64Reg::d8 => self.regs.neon[8] = value.get_double() as u64 as u128,
-            Arm64Reg::d9 => self.regs.neon[9] = value.get_double() as u64 as u128,
-            Arm64Reg::d10 => self.regs.neon[10] = value.get_double() as u64 as u128,
-            Arm64Reg::d11 => self.regs.neon[11] = value.get_double() as u64 as u128,
-            Arm64Reg::d12 => self.regs.neon[12] = value.get_double() as u64 as u128,
-            Arm64Reg::d13 => self.regs.neon[13] = value.get_double() as u64 as u128,
-            Arm64Reg::d14 => self.regs.neon[14] = value.get_double() as u64 as u128,
-            Arm64Reg::d15 => self.regs.neon[15] = value.get_double() as u64 as u128,
-            Arm64Reg::d16 => self.regs.neon[16] = value.get_double() as u64 as u128,
-            Arm64Reg::d17 => self.regs.neon[17] = value.get_double() as u64 as u128,
-            Arm64Reg::d18 => self.regs.neon[18] = value.get_double() as u64 as u128,
-            Arm64Reg::d19 => self.regs.neon[19] = value.get_double() as u64 as u128,
-            Arm64Reg::d20 => self.regs.neon[20] = value.get_double() as u64 as u128,
-            Arm64Reg::d21 => self.regs.neon[21] = value.get_double() as u64 as u128,
-            Arm64Reg::d22 => self.regs.neon[22] = value.get_double() as u64 as u128,
-            Arm64Reg::d23 => self.regs.neon[23] = value.get_double() as u64 as u128,
-            Arm64Reg::d24 => self.regs.neon[24] = value.get_double() as u64 as u128,
-            Arm64Reg::d25 => self.regs.neon[25] = value.get_double() as u64 as u128,
-            Arm64Reg::d26 => self.regs.neon[26] = value.get_double() as u64 as u128,
-            Arm64Reg::d27 => self.regs.neon[27] = value.get_double() as u64 as u128,
-            Arm64Reg::d28 => self.regs.neon[28] = value.get_double() as u64 as u128,
-            Arm64Reg::d29 => self.regs.neon[29] = value.get_double() as u64 as u128,
-            Arm64Reg::d30 => self.regs.neon[30] = value.get_double() as u64 as u128,
-            Arm64Reg::d31 => self.regs.neon[31] = value.get_double() as u64 as u128,
+            Arm64Reg::d0 => self.regs.neon[0] = value.get_quad() as u128,
+            Arm64Reg::d1 => self.regs.neon[1] = value.get_quad() as u128,
+            Arm64Reg::d2 => self.regs.neon[2] = value.get_quad() as u128,
+            Arm64Reg::d3 => self.regs.neon[3] = value.get_quad() as u128,
+            Arm64Reg::d4 => self.regs.neon[4] = value.get_quad() as u128,
+            Arm64Reg::d5 => self.regs.neon[5] = value.get_quad() as u128,
+            Arm64Reg::d6 => self.regs.neon[6] = value.get_quad() as u128,
+            Arm64Reg::d7 => self.regs.neon[7] = value.get_quad() as u128,
+            Arm64Reg::d8 => self.regs.neon[8] = value.get_quad() as u128,
+            Arm64Reg::d9 => self.regs.neon[9] = value.get_quad() as u128,
+            Arm64Reg::d10 => self.regs.neon[10] = value.get_quad() as u128,
+            Arm64Reg::d11 => self.regs.neon[11] = value.get_quad() as u128,
+            Arm64Reg::d12 => self.regs.neon[12] = value.get_quad() as u128,
+            Arm64Reg::d13 => self.regs.neon[13] = value.get_quad() as u128,
+            Arm64Reg::d14 => self.regs.neon[14] = value.get_quad() as u128,
+            Arm64Reg::d15 => self.regs.neon[15] = value.get_quad() as u128,
+            Arm64Reg::d16 => self.regs.neon[16] = value.get_quad() as u128,
+            Arm64Reg::d17 => self.regs.neon[17] = value.get_quad() as u128,
+            Arm64Reg::d18 => self.regs.neon[18] = value.get_quad() as u128,
+            Arm64Reg::d19 => self.regs.neon[19] = value.get_quad() as u128,
+            Arm64Reg::d20 => self.regs.neon[20] = value.get_quad() as u128,
+            Arm64Reg::d21 => self.regs.neon[21] = value.get_quad() as u128,
+            Arm64Reg::d22 => self.regs.neon[22] = value.get_quad() as u128,
+            Arm64Reg::d23 => self.regs.neon[23] = value.get_quad() as u128,
+            Arm64Reg::d24 => self.regs.neon[24] = value.get_quad() as u128,
+            Arm64Reg::d25 => self.regs.neon[25] = value.get_quad() as u128,
+            Arm64Reg::d26 => self.regs.neon[26] = value.get_quad() as u128,
+            Arm64Reg::d27 => self.regs.neon[27] = value.get_quad() as u128,
+            Arm64Reg::d28 => self.regs.neon[28] = value.get_quad() as u128,
+            Arm64Reg::d29 => self.regs.neon[29] = value.get_quad() as u128,
+            Arm64Reg::d30 => self.regs.neon[30] = value.get_quad() as u128,
+            Arm64Reg::d31 => self.regs.neon[31] = value.get_quad() as u128,
             Arm64Reg::s0 => {
                 self.regs.neon[0] &= 0xffffffff_u128;
-                self.regs.neon[0] |= value.get_float() as u32 as u128;
+                self.regs.neon[0] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s1 => {
                 self.regs.neon[0] &= 0xffffffff_u128 << 32;
-                self.regs.neon[0] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[0] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s2 => {
                 self.regs.neon[1] &= 0xffffffff_u128;
-                self.regs.neon[1] |= value.get_float() as u32 as u128;
+                self.regs.neon[1] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s3 => {
                 self.regs.neon[1] &= 0xffffffff_u128 << 32;
-                self.regs.neon[1] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[1] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s4 => {
                 self.regs.neon[2] &= 0xffffffff_u128;
-                self.regs.neon[2] |= value.get_float() as u32 as u128;
+                self.regs.neon[2] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s5 => {
                 self.regs.neon[2] &= 0xffffffff_u128 << 32;
-                self.regs.neon[2] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[2] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s6 => {
                 self.regs.neon[3] &= 0xffffffff_u128;
-                self.regs.neon[3] |= value.get_float() as u32 as u128;
+                self.regs.neon[3] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s7 => {
                 self.regs.neon[3] &= 0xffffffff_u128 << 32;
-                self.regs.neon[3] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[3] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s8 => {
                 self.regs.neon[4] &= 0xffffffff_u128;
-                self.regs.neon[4] |= value.get_float() as u32 as u128;
+                self.regs.neon[4] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s9 => {
                 self.regs.neon[4] &= 0xffffffff_u128 << 32;
-                self.regs.neon[4] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[4] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s10 => {
                 self.regs.neon[5] &= 0xffffffff_u128;
-                self.regs.neon[5] |= value.get_float() as u32 as u128;
+                self.regs.neon[5] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s11 => {
                 self.regs.neon[5] &= 0xffffffff_u128 << 32;
-                self.regs.neon[5] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[5] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s12 => {
                 self.regs.neon[6] &= 0xffffffff_u128;
-                self.regs.neon[6] |= value.get_float() as u32 as u128;
+                self.regs.neon[6] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s13 => {
                 self.regs.neon[6] &= 0xffffffff_u128 << 32;
-                self.regs.neon[6] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[6] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s14 => {
                 self.regs.neon[7] &= 0xffffffff_u128;
-                self.regs.neon[7] |= value.get_float() as u32 as u128;
+                self.regs.neon[7] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s15 => {
                 self.regs.neon[7] &= 0xffffffff_u128 << 32;
-                self.regs.neon[7] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[7] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s16 => {
                 self.regs.neon[8] &= 0xffffffff_u128;
-                self.regs.neon[8] |= value.get_float() as u32 as u128;
+                self.regs.neon[8] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s17 => {
                 self.regs.neon[8] &= 0xffffffff_u128 << 32;
-                self.regs.neon[8] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[8] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s18 => {
                 self.regs.neon[9] &= 0xffffffff_u128;
-                self.regs.neon[9] |= value.get_float() as u32 as u128;
+                self.regs.neon[9] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s19 => {
                 self.regs.neon[9] &= 0xffffffff_u128 << 32;
-                self.regs.neon[9] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[9] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s20 => {
                 self.regs.neon[10] &= 0xffffffff_u128;
-                self.regs.neon[10] |= value.get_float() as u32 as u128;
+                self.regs.neon[10] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s21 => {
                 self.regs.neon[10] &= 0xffffffff_u128 << 32;
-                self.regs.neon[10] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[10] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s22 => {
                 self.regs.neon[11] &= 0xffffffff_u128;
-                self.regs.neon[11] |= value.get_float() as u32 as u128;
+                self.regs.neon[11] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s23 => {
                 self.regs.neon[11] &= 0xffffffff_u128 << 32;
-                self.regs.neon[11] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[11] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s24 => {
                 self.regs.neon[12] &= 0xffffffff_u128;
-                self.regs.neon[12] |= value.get_float() as u32 as u128;
+                self.regs.neon[12] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s25 => {
                 self.regs.neon[12] &= 0xffffffff_u128 << 32;
-                self.regs.neon[12] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[12] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s26 => {
                 self.regs.neon[13] &= 0xffffffff_u128;
-                self.regs.neon[13] |= value.get_float() as u32 as u128;
+                self.regs.neon[13] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s27 => {
                 self.regs.neon[13] &= 0xffffffff_u128 << 32;
-                self.regs.neon[13] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[13] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s28 => {
                 self.regs.neon[14] &= 0xffffffff_u128;
-                self.regs.neon[14] |= value.get_float() as u32 as u128;
+                self.regs.neon[14] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s29 => {
                 self.regs.neon[14] &= 0xffffffff_u128 << 32;
-                self.regs.neon[14] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[14] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::s30 => {
                 self.regs.neon[15] &= 0xffffffff_u128;
-                self.regs.neon[15] |= value.get_float() as u32 as u128;
+                self.regs.neon[15] |= value.get_word() as u32 as u128;
             }
             Arm64Reg::s31 => {
                 self.regs.neon[15] &= 0xffffffff_u128 << 32;
-                self.regs.neon[15] |= (value.get_float() as u32 as u128) << 32;
+                self.regs.neon[15] |= (value.get_word() as u32 as u128) << 32;
             }
             Arm64Reg::q0 => self.regs.neon[0] = value.extend_128(),
             Arm64Reg::q1 => self.regs.neon[1] = value.extend_128(),
@@ -4605,70 +4605,70 @@ impl Arm64State {
             Arm64Reg::lr => ILVal::Quad(self.gregs[30]),
             Arm64Reg::sp => ILVal::Quad(self.gregs[31]),
             Arm64Reg::syscall_info => ILVal::Quad(self.syscall_info),
-            Arm64Reg::d0 => ILVal::Double(self.neon[0] as u64 as f64),
-            Arm64Reg::d1 => ILVal::Double(self.neon[1] as u64 as f64),
-            Arm64Reg::d2 => ILVal::Double(self.neon[2] as u64 as f64),
-            Arm64Reg::d3 => ILVal::Double(self.neon[3] as u64 as f64),
-            Arm64Reg::d4 => ILVal::Double(self.neon[4] as u64 as f64),
-            Arm64Reg::d5 => ILVal::Double(self.neon[5] as u64 as f64),
-            Arm64Reg::d6 => ILVal::Double(self.neon[6] as u64 as f64),
-            Arm64Reg::d7 => ILVal::Double(self.neon[7] as u64 as f64),
-            Arm64Reg::d8 => ILVal::Double(self.neon[8] as u64 as f64),
-            Arm64Reg::d9 => ILVal::Double(self.neon[9] as u64 as f64),
-            Arm64Reg::d10 => ILVal::Double(self.neon[10] as u64 as f64),
-            Arm64Reg::d11 => ILVal::Double(self.neon[11] as u64 as f64),
-            Arm64Reg::d12 => ILVal::Double(self.neon[12] as u64 as f64),
-            Arm64Reg::d13 => ILVal::Double(self.neon[13] as u64 as f64),
-            Arm64Reg::d14 => ILVal::Double(self.neon[14] as u64 as f64),
-            Arm64Reg::d15 => ILVal::Double(self.neon[15] as u64 as f64),
-            Arm64Reg::d16 => ILVal::Double(self.neon[16] as u64 as f64),
-            Arm64Reg::d17 => ILVal::Double(self.neon[17] as u64 as f64),
-            Arm64Reg::d18 => ILVal::Double(self.neon[18] as u64 as f64),
-            Arm64Reg::d19 => ILVal::Double(self.neon[19] as u64 as f64),
-            Arm64Reg::d20 => ILVal::Double(self.neon[20] as u64 as f64),
-            Arm64Reg::d21 => ILVal::Double(self.neon[21] as u64 as f64),
-            Arm64Reg::d22 => ILVal::Double(self.neon[22] as u64 as f64),
-            Arm64Reg::d23 => ILVal::Double(self.neon[23] as u64 as f64),
-            Arm64Reg::d24 => ILVal::Double(self.neon[24] as u64 as f64),
-            Arm64Reg::d25 => ILVal::Double(self.neon[25] as u64 as f64),
-            Arm64Reg::d26 => ILVal::Double(self.neon[26] as u64 as f64),
-            Arm64Reg::d27 => ILVal::Double(self.neon[27] as u64 as f64),
-            Arm64Reg::d28 => ILVal::Double(self.neon[28] as u64 as f64),
-            Arm64Reg::d29 => ILVal::Double(self.neon[29] as u64 as f64),
-            Arm64Reg::d30 => ILVal::Double(self.neon[30] as u64 as f64),
-            Arm64Reg::d31 => ILVal::Double(self.neon[31] as u64 as f64),
-            Arm64Reg::s0 => ILVal::Float(self.neon[0] as u32 as f32),
-            Arm64Reg::s1 => ILVal::Float((self.neon[0] >> 32) as u32 as f32),
-            Arm64Reg::s2 => ILVal::Float(self.neon[1] as u32 as f32),
-            Arm64Reg::s3 => ILVal::Float((self.neon[1] >> 32) as u32 as f32),
-            Arm64Reg::s4 => ILVal::Float(self.neon[2] as u32 as f32),
-            Arm64Reg::s5 => ILVal::Float((self.neon[2] >> 32) as u32 as f32),
-            Arm64Reg::s6 => ILVal::Float(self.neon[3] as u32 as f32),
-            Arm64Reg::s7 => ILVal::Float((self.neon[3] >> 32) as u32 as f32),
-            Arm64Reg::s8 => ILVal::Float(self.neon[4] as u32 as f32),
-            Arm64Reg::s9 => ILVal::Float((self.neon[4] >> 32) as u32 as f32),
-            Arm64Reg::s10 => ILVal::Float(self.neon[5] as u32 as f32),
-            Arm64Reg::s11 => ILVal::Float((self.neon[5] >> 32) as u32 as f32),
-            Arm64Reg::s12 => ILVal::Float(self.neon[6] as u32 as f32),
-            Arm64Reg::s13 => ILVal::Float((self.neon[6] >> 32) as u32 as f32),
-            Arm64Reg::s14 => ILVal::Float(self.neon[7] as u32 as f32),
-            Arm64Reg::s15 => ILVal::Float((self.neon[7] >> 32) as u32 as f32),
-            Arm64Reg::s16 => ILVal::Float(self.neon[8] as u32 as f32),
-            Arm64Reg::s17 => ILVal::Float((self.neon[8] >> 32) as u32 as f32),
-            Arm64Reg::s18 => ILVal::Float(self.neon[9] as u32 as f32),
-            Arm64Reg::s19 => ILVal::Float((self.neon[9] >> 32) as u32 as f32),
-            Arm64Reg::s20 => ILVal::Float(self.neon[10] as u32 as f32),
-            Arm64Reg::s21 => ILVal::Float((self.neon[10] >> 32) as u32 as f32),
-            Arm64Reg::s22 => ILVal::Float(self.neon[11] as u32 as f32),
-            Arm64Reg::s23 => ILVal::Float((self.neon[11] >> 32) as u32 as f32),
-            Arm64Reg::s24 => ILVal::Float(self.neon[12] as u32 as f32),
-            Arm64Reg::s25 => ILVal::Float((self.neon[12] >> 32) as u32 as f32),
-            Arm64Reg::s26 => ILVal::Float(self.neon[13] as u32 as f32),
-            Arm64Reg::s27 => ILVal::Float((self.neon[13] >> 32) as u32 as f32),
-            Arm64Reg::s28 => ILVal::Float(self.neon[14] as u32 as f32),
-            Arm64Reg::s29 => ILVal::Float((self.neon[14] >> 32) as u32 as f32),
-            Arm64Reg::s30 => ILVal::Float(self.neon[15] as u32 as f32),
-            Arm64Reg::s31 => ILVal::Float((self.neon[15] >> 32) as u32 as f32),
+            Arm64Reg::d0 => ILVal::Quad(self.neon[0] as u64),
+            Arm64Reg::d1 => ILVal::Quad(self.neon[1] as u64),
+            Arm64Reg::d2 => ILVal::Quad(self.neon[2] as u64),
+            Arm64Reg::d3 => ILVal::Quad(self.neon[3] as u64),
+            Arm64Reg::d4 => ILVal::Quad(self.neon[4] as u64),
+            Arm64Reg::d5 => ILVal::Quad(self.neon[5] as u64),
+            Arm64Reg::d6 => ILVal::Quad(self.neon[6] as u64),
+            Arm64Reg::d7 => ILVal::Quad(self.neon[7] as u64),
+            Arm64Reg::d8 => ILVal::Quad(self.neon[8] as u64),
+            Arm64Reg::d9 => ILVal::Quad(self.neon[9] as u64),
+            Arm64Reg::d10 => ILVal::Quad(self.neon[10] as u64),
+            Arm64Reg::d11 => ILVal::Quad(self.neon[11] as u64),
+            Arm64Reg::d12 => ILVal::Quad(self.neon[12] as u64),
+            Arm64Reg::d13 => ILVal::Quad(self.neon[13] as u64),
+            Arm64Reg::d14 => ILVal::Quad(self.neon[14] as u64),
+            Arm64Reg::d15 => ILVal::Quad(self.neon[15] as u64),
+            Arm64Reg::d16 => ILVal::Quad(self.neon[16] as u64),
+            Arm64Reg::d17 => ILVal::Quad(self.neon[17] as u64),
+            Arm64Reg::d18 => ILVal::Quad(self.neon[18] as u64),
+            Arm64Reg::d19 => ILVal::Quad(self.neon[19] as u64),
+            Arm64Reg::d20 => ILVal::Quad(self.neon[20] as u64),
+            Arm64Reg::d21 => ILVal::Quad(self.neon[21] as u64),
+            Arm64Reg::d22 => ILVal::Quad(self.neon[22] as u64),
+            Arm64Reg::d23 => ILVal::Quad(self.neon[23] as u64),
+            Arm64Reg::d24 => ILVal::Quad(self.neon[24] as u64),
+            Arm64Reg::d25 => ILVal::Quad(self.neon[25] as u64),
+            Arm64Reg::d26 => ILVal::Quad(self.neon[26] as u64),
+            Arm64Reg::d27 => ILVal::Quad(self.neon[27] as u64),
+            Arm64Reg::d28 => ILVal::Quad(self.neon[28] as u64),
+            Arm64Reg::d29 => ILVal::Quad(self.neon[29] as u64),
+            Arm64Reg::d30 => ILVal::Quad(self.neon[30] as u64),
+            Arm64Reg::d31 => ILVal::Quad(self.neon[31] as u64),
+            Arm64Reg::s0 => ILVal::Word(self.neon[0] as u32),
+            Arm64Reg::s1 => ILVal::Word((self.neon[0] >> 32) as u32),
+            Arm64Reg::s2 => ILVal::Word(self.neon[1] as u32),
+            Arm64Reg::s3 => ILVal::Word((self.neon[1] >> 32) as u32),
+            Arm64Reg::s4 => ILVal::Word(self.neon[2] as u32),
+            Arm64Reg::s5 => ILVal::Word((self.neon[2] >> 32) as u32),
+            Arm64Reg::s6 => ILVal::Word(self.neon[3] as u32),
+            Arm64Reg::s7 => ILVal::Word((self.neon[3] >> 32) as u32),
+            Arm64Reg::s8 => ILVal::Word(self.neon[4] as u32),
+            Arm64Reg::s9 => ILVal::Word((self.neon[4] >> 32) as u32),
+            Arm64Reg::s10 => ILVal::Word(self.neon[5] as u32),
+            Arm64Reg::s11 => ILVal::Word((self.neon[5] >> 32) as u32),
+            Arm64Reg::s12 => ILVal::Word(self.neon[6] as u32),
+            Arm64Reg::s13 => ILVal::Word((self.neon[6] >> 32) as u32),
+            Arm64Reg::s14 => ILVal::Word(self.neon[7] as u32),
+            Arm64Reg::s15 => ILVal::Word((self.neon[7] >> 32) as u32),
+            Arm64Reg::s16 => ILVal::Word(self.neon[8] as u32),
+            Arm64Reg::s17 => ILVal::Word((self.neon[8] >> 32) as u32),
+            Arm64Reg::s18 => ILVal::Word(self.neon[9] as u32),
+            Arm64Reg::s19 => ILVal::Word((self.neon[9] >> 32) as u32),
+            Arm64Reg::s20 => ILVal::Word(self.neon[10] as u32),
+            Arm64Reg::s21 => ILVal::Word((self.neon[10] >> 32) as u32),
+            Arm64Reg::s22 => ILVal::Word(self.neon[11] as u32),
+            Arm64Reg::s23 => ILVal::Word((self.neon[11] >> 32) as u32),
+            Arm64Reg::s24 => ILVal::Word(self.neon[12] as u32),
+            Arm64Reg::s25 => ILVal::Word((self.neon[12] >> 32) as u32),
+            Arm64Reg::s26 => ILVal::Word(self.neon[13] as u32),
+            Arm64Reg::s27 => ILVal::Word((self.neon[13] >> 32) as u32),
+            Arm64Reg::s28 => ILVal::Word(self.neon[14] as u32),
+            Arm64Reg::s29 => ILVal::Word((self.neon[14] >> 32) as u32),
+            Arm64Reg::s30 => ILVal::Word(self.neon[15] as u32),
+            Arm64Reg::s31 => ILVal::Word((self.neon[15] >> 32) as u32),
             Arm64Reg::q0 => ILVal::Simd(self.neon[0]),
             Arm64Reg::q1 => ILVal::Simd(self.neon[1]),
             Arm64Reg::q2 => ILVal::Simd(self.neon[2]),
@@ -8098,10 +8098,6 @@ impl Arm64Reg {
 }
 
 impl Register for Arm64Reg {
-    fn syscall_ret() -> Self {
-        Self::x0
-    }
-
     fn id(&self) -> u32 {
         *self as u32
     }

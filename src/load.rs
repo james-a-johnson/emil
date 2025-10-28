@@ -3,8 +3,8 @@ use softmew::{MMU, Perm, page::Page};
 use std::ops::Range;
 
 use crate::{
+    arch::Endian,
     arch::{Intrinsic, Register},
-    emulate::Endian,
     prog::Program,
 };
 

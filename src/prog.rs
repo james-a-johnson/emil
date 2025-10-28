@@ -1,6 +1,6 @@
+use crate::arch::Endian;
 use crate::arch::{Intrinsic, Register as Reg};
 use crate::emil::{Emil, ILRef};
-use crate::emulate::Endian;
 use binaryninja::architecture::{Flag, Register as _};
 use binaryninja::low_level_il::expression::{
     ExpressionHandler, LowLevelILExpression as Expr, LowLevelILExpressionKind as ExprKind,

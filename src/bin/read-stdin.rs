@@ -7,9 +7,9 @@ use std::collections::VecDeque;
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
-use emil::arch::{State, riscv::*};
+use emil::arch::{Endian, Little, State, riscv::*};
 use emil::emil::ILVal;
-use emil::emulate::{Emulator, Endian, Exit, HookStatus, Little};
+use emil::emulate::{Emulator, Exit, HookStatus};
 use emil::os::linux::{AuxVal, Environment};
 use emil::prog::Program;
 

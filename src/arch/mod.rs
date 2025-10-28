@@ -19,12 +19,12 @@ use std::{
 use serde::{Serialize, de::Deserialize};
 
 pub mod arm64;
+pub mod generic;
 pub mod riscv;
 
 use std::fmt::{Debug, Display};
 
 use crate::emil::ILVal;
-use crate::emulate::Endian;
 
 pub enum SyscallResult {
     Continue,
@@ -33,7 +33,6 @@ pub enum SyscallResult {
 }
 
 pub trait Register: TryFrom<u32> + Debug + Display + Clone + Copy {
-    fn syscall_ret() -> Self;
     fn id(&self) -> u32;
 }
 
@@ -95,3 +94,108 @@ pub trait FileDescriptor: Read + Write + Any {}
 
 /// Implement trait for any type that implements all of the required traits.
 impl<T: Read + Write + Any> FileDescriptor for T {}
+
+pub trait Endian: Debug + Clone + Copy {
+    fn read(data: &[u8]) -> ILVal;
+    fn write(value: ILVal, data: &mut [u8]) -> usize;
+}
+
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct Little;
+impl Endian for Little {
+    fn read(data: &[u8]) -> ILVal {
+        match data.len() {
+            1 => ILVal::Byte(data[0]),
+            2 => ILVal::Short(u16::from_le_bytes(
+                data.try_into().expect("Length is valid"),
+            )),
+            4 => ILVal::Word(u32::from_le_bytes(
+                data.try_into().expect("Length is valid"),
+            )),
+            8 => ILVal::Quad(u64::from_le_bytes(
+                data.try_into().expect("Length is valid"),
+            )),
+            16 => ILVal::Simd(u128::from_le_bytes(
+                data.try_into().expect("Length is valid"),
+            )),
+            _ => unreachable!("Invalid length"),
+        }
+    }
+
+    fn write(value: ILVal, data: &mut [u8]) -> usize {
+        match value {
+            ILVal::Flag(_) => unreachable!("Can't write a flag"),
+            ILVal::Byte(b) => {
+                data[0] = b;
+                1
+            }
+            ILVal::Short(s) => {
+                data[0..2].copy_from_slice(&s.to_le_bytes());
+                2
+            }
+            ILVal::Word(w) => {
+                data[0..4].copy_from_slice(&w.to_le_bytes());
+                4
+            }
+            ILVal::Quad(q) => {
+                data[0..8].copy_from_slice(&q.to_le_bytes());
+                8
+            }
+            ILVal::Simd(s) => {
+                data.copy_from_slice(&s.to_le_bytes());
+                16
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Big;
+
+impl Endian for Big {
+    fn read(data: &[u8]) -> ILVal {
+        match data.len() {
+            1 => ILVal::Byte(data[0]),
+            2 => ILVal::Short(u16::from_be_bytes(
+                data.try_into().expect("bength is valid"),
+            )),
+            4 => ILVal::Word(u32::from_be_bytes(
+                data.try_into().expect("bength is valid"),
+            )),
+            8 => ILVal::Quad(u64::from_be_bytes(
+                data.try_into().expect("bength is valid"),
+            )),
+            16 => ILVal::Simd(u128::from_be_bytes(
+                data.try_into().expect("Length is valid"),
+            )),
+            _ => unreachable!("Invalid length"),
+        }
+    }
+
+    fn write(value: ILVal, data: &mut [u8]) -> usize {
+        match value {
+            ILVal::Flag(_) => unreachable!("Can't write a flag"),
+            ILVal::Byte(b) => {
+                data[0] = b;
+                1
+            }
+            ILVal::Short(s) => {
+                data[0..2].copy_from_slice(&s.to_be_bytes());
+                2
+            }
+            ILVal::Word(w) => {
+                data[0..4].copy_from_slice(&w.to_be_bytes());
+                4
+            }
+            ILVal::Quad(q) => {
+                data[0..8].copy_from_slice(&q.to_be_bytes());
+                8
+            }
+            ILVal::Simd(s) => {
+                data.copy_from_slice(&s.to_be_bytes());
+                16
+            }
+        }
+    }
+}

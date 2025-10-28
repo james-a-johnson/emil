@@ -1,7 +1,7 @@
+use crate::arch::Little;
 use crate::arch::{FileDescriptor, Intrinsic, RegState, State};
 use crate::arch::{Register, SyscallResult};
 use crate::emil::ILVal;
-use crate::emulate::Little;
 use crate::os::linux::LinuxSyscalls;
 use from_id::FromId;
 use softmew::{MMU, Perm, fault::Fault, page::Page, page::SimplePage};
@@ -360,10 +360,6 @@ impl std::fmt::Display for Rv64Reg {
 }
 
 impl Register for Rv64Reg {
-    fn syscall_ret() -> Self {
-        Self::a0
-    }
-
     fn id(&self) -> u32 {
         *self as u32
     }

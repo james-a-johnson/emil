@@ -5,8 +5,9 @@ use std::io::Write;
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
+use emil::arch::Little;
 use emil::arch::arm64::*;
-use emil::emulate::{Emulator, Exit, Little};
+use emil::emulate::{Emulator, Exit};
 use emil::load::*;
 use emil::os::linux::{AuxVal, Environment, add_default_auxv};
 use emil::prog::Program;
