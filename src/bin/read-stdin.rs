@@ -38,12 +38,6 @@ fn main() {
             prog.add_function(llil_func);
         }
     }
-    // for func in &bv.functions() {
-    //     println!("Function: {:?}", func.symbol().full_name());
-    //     if let Ok(llil_func) = func.low_level_il().as_ref() {
-    //         prog.add_function(llil_func);
-    //     }
-    // }
 
     let mut stdin = VecDeque::new();
     stdin.extend(b"10\n11\n12\n13\n");
@@ -86,10 +80,6 @@ fn main() {
     let sp_val = env
         .encode(stack.as_mut(), (STACK_BASE + STACK_SIZE) as u64)
         .unwrap();
-
-    // println!("Stack pointer is {:X}", sp_val);
-    // let mut stack_file = fs::File::create("stack.bin").unwrap();
-    // stack_file.write_all(stack.as_ref()).unwrap();
 
     let _heap = mem
         .map_memory(0x80000000, 0x10000, Perm::READ | Perm::WRITE)

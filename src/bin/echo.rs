@@ -1,6 +1,5 @@
 use std::any::Any;
 use std::collections::VecDeque;
-use std::io::Write;
 
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
@@ -53,9 +52,6 @@ fn main() {
     let sp_val = env
         .encode(stack.as_mut(), (STACK_BASE + STACK_SIZE) as u64)
         .unwrap();
-
-    let mut stack_file = std::fs::File::create("./stack.bin").unwrap();
-    stack_file.write_all(stack.as_ref()).unwrap();
 
     let _heap = mem
         .map_memory(0x80000000, 0x100000, Perm::READ | Perm::WRITE)

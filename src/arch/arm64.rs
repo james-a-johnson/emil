@@ -4378,14 +4378,14 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
         self.mem.write_perm(addr as usize, data)
     }
 
-    fn get_mem(&self, addrs: Range<u64>) -> Result<&[u8], Fault> {
+    fn get_mem(&self, addrs: Range<u64>, perm: Perm) -> Result<&[u8], Fault> {
         let range = (addrs.start as usize)..(addrs.end as usize);
-        self.mem.get_slice(range)
+        self.mem.get_slice(range, perm)
     }
 
-    fn get_mem_mut(&mut self, addrs: Range<u64>) -> Result<&mut [u8], Fault> {
+    fn get_mem_mut(&mut self, addrs: Range<u64>, perm: Perm) -> Result<&mut [u8], Fault> {
         let range = (addrs.start as usize)..(addrs.end as usize);
-        self.mem.get_slice_mut(range)
+        self.mem.get_slice_mut(range, perm)
     }
 
     fn get_flag(&self, id: u32) -> bool {
@@ -4453,7 +4453,9 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
             ArmIntrinsic::Stxr(dest, value, addr) => {
                 let addr = self.read_reg(*addr).extend_64() as usize;
                 let value = self.read_reg(*value);
-                let buf = self.mem.get_slice_mut(addr..addr + value.size())?;
+                let buf = self
+                    .mem
+                    .get_slice_mut(addr..addr + value.size(), Perm::WRITE)?;
                 Little::write(value, buf);
                 self.write_reg(*dest, ILVal::Word(0));
                 Ok(())
@@ -8164,7 +8166,7 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
         let ptr = regs[Arm64Reg::x1] as usize;
         let len = regs[Arm64Reg::x2] as usize;
         let data = mem
-            .get_slice_mut(ptr..ptr + len)
+            .get_slice_mut(ptr..ptr + len, Perm::WRITE)
             .expect("Reading to invalid memory");
         match self.fds.get_mut(&(fd as u32)) {
             Some(file) => {
@@ -8187,7 +8189,9 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
         let fd = regs[Arm64Reg::x0];
         let ptr = regs[Arm64Reg::x1] as usize;
         let len = regs[Arm64Reg::x2] as usize;
-        let data = mem.get_slice(ptr..ptr + len).expect("Failed to read data");
+        let data = mem
+            .get_slice(ptr..ptr + len, Perm::READ)
+            .expect("Failed to read data");
         match self.fds.get_mut(&(fd as u32)) {
             Some(file) => {
                 let res = file.write(&data);
@@ -8229,7 +8233,7 @@ impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
     fn getrandom(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
         let buf = regs[Arm64Reg::x0] as usize;
         let len = regs[Arm64Reg::x1] as usize;
-        let buffer = match mem.get_slice_mut(buf..buf + len) {
+        let buffer = match mem.get_slice_mut(buf..buf + len, Perm::WRITE) {
             Ok(s) => s,
             Err(_) => {
                 regs[Arm64Reg::x0] = (-14_i64) as u64;

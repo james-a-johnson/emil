@@ -78,10 +78,6 @@ fn main() {
         .encode(stack.as_mut(), (STACK_BASE + STACK_SIZE) as u64)
         .unwrap();
 
-    // println!("Stack pointer is {:X}", sp_val);
-    // let mut stack_file = fs::File::create("stack.bin").unwrap();
-    // stack_file.write_all(stack.as_ref()).unwrap();
-
     let _heap = mem
         .map_memory(0x80000000, 0x100000, Perm::READ | Perm::WRITE)
         .unwrap();
@@ -150,7 +146,7 @@ fn memset_hook(
     let size = state.read_reg(Arm64Reg::x2).get_quad();
     let ret = state.read_reg(Arm64Reg::lr).get_quad();
 
-    match state.get_mem_mut(src..src + size) {
+    match state.get_mem_mut(src..src + size, Perm::WRITE) {
         Ok(mem) => mem.fill(val),
         Err(e) => return HookStatus::Fault(e),
     };

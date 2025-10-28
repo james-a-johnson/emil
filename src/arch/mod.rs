@@ -4,6 +4,7 @@
 //     print(f"{name} = {reg.index}")
 // ```
 
+pub use softmew::Perm;
 pub use softmew::fault::Fault;
 
 use binaryninja::low_level_il::function::{Finalized, NonSSA};
@@ -56,29 +57,48 @@ pub trait State {
     type Endianness: Endian;
     type Intrin: Intrinsic;
 
-    /// Read a register
+    /// Read the register with the given id.
     fn read_reg(&self, id: Self::Reg) -> ILVal;
-    /// Set a register value
+    /// Set the value of the register with the given id.
     fn write_reg(&mut self, id: Self::Reg, value: ILVal);
 
-    /// Read from system memory
+    /// Read memory into a buffer.
     fn read_mem(&self, addr: u64, buf: &mut [u8]) -> Result<(), Fault>;
-    /// Write to system memory
+    /// Write memory to a specifc address.
     fn write_mem(&mut self, addr: u64, data: &[u8]) -> Result<(), Fault>;
 
     /// Get a range of addresses as a slice.
-    fn get_mem(&self, addrs: Range<u64>) -> Result<&[u8], Fault>;
+    fn get_mem(&self, addrs: Range<u64>, perm: Perm) -> Result<&[u8], Fault>;
     /// Get a range of addresses as a mutable slice.
-    fn get_mem_mut(&mut self, addrs: Range<u64>) -> Result<&mut [u8], Fault>;
+    fn get_mem_mut(&mut self, addrs: Range<u64>, perm: Perm) -> Result<&mut [u8], Fault>;
 
+    /// Read flag value with the given id.
     fn get_flag(&self, id: u32) -> bool;
+    /// Write flag value with the given id.
     fn set_flag(&mut self, val: bool, id: u32);
 
+    /// Emulate a syscall.
+    ///
+    /// `addr` is the address of the system call instruction to be emulated.
+    ///
+    /// It is up to the implementor to get the system call number from the state and then determine how to correctly
+    /// emulate that system call.
     fn syscall(&mut self, addr: u64) -> SyscallResult;
+    /// Emulate an intrinsic instruction.
     fn intrinsic(&mut self, intrin: &Self::Intrin) -> Result<(), Fault>;
 
+    /// Save the given return address.
+    ///
+    /// Different architectures will save return addresses in different ways. An x86 state should push the value onto
+    /// the stack whereas an arm state should write the value to the link register.
     fn save_ret_addr(&mut self, addr: u64) -> Result<(), Fault>;
+    /// Push data onto the stack.
+    ///
+    /// This should also update the stack pointer register.
     fn push(&mut self, val: &[u8]) -> Result<(), Fault>;
+    /// Pop data off of the stack and read it into the buffer.
+    ///
+    /// This should also update the stack pointer register.
     fn pop(&mut self, data: &mut [u8]) -> Result<(), Fault>;
 }
 
@@ -97,7 +117,7 @@ impl<T: Read + Write + Any> FileDescriptor for T {}
 
 pub trait Endian: Debug + Clone + Copy {
     fn read(data: &[u8]) -> ILVal;
-    fn write(value: ILVal, data: &mut [u8]) -> usize;
+    fn write(value: ILVal, data: &mut [u8]);
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -123,28 +143,23 @@ impl Endian for Little {
         }
     }
 
-    fn write(value: ILVal, data: &mut [u8]) -> usize {
+    fn write(value: ILVal, data: &mut [u8]) {
         match value {
             ILVal::Flag(_) => unreachable!("Can't write a flag"),
             ILVal::Byte(b) => {
                 data[0] = b;
-                1
             }
             ILVal::Short(s) => {
                 data[0..2].copy_from_slice(&s.to_le_bytes());
-                2
             }
             ILVal::Word(w) => {
                 data[0..4].copy_from_slice(&w.to_le_bytes());
-                4
             }
             ILVal::Quad(q) => {
                 data[0..8].copy_from_slice(&q.to_le_bytes());
-                8
             }
             ILVal::Simd(s) => {
                 data.copy_from_slice(&s.to_le_bytes());
-                16
             }
         }
     }
@@ -173,28 +188,23 @@ impl Endian for Big {
         }
     }
 
-    fn write(value: ILVal, data: &mut [u8]) -> usize {
+    fn write(value: ILVal, data: &mut [u8]) {
         match value {
             ILVal::Flag(_) => unreachable!("Can't write a flag"),
             ILVal::Byte(b) => {
                 data[0] = b;
-                1
             }
             ILVal::Short(s) => {
                 data[0..2].copy_from_slice(&s.to_be_bytes());
-                2
             }
             ILVal::Word(w) => {
                 data[0..4].copy_from_slice(&w.to_be_bytes());
-                4
             }
             ILVal::Quad(q) => {
                 data[0..8].copy_from_slice(&q.to_be_bytes());
-                8
             }
             ILVal::Simd(s) => {
                 data.copy_from_slice(&s.to_be_bytes());
-                16
             }
         }
     }

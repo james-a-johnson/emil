@@ -98,14 +98,14 @@ impl<S: LinuxSyscalls<Rv64State, MMU<SimplePage>>> State for LinuxRV64<S> {
         self.mem.write_perm(addr as usize, data)
     }
 
-    fn get_mem(&self, addrs: Range<u64>) -> Result<&[u8], Fault> {
+    fn get_mem(&self, addrs: Range<u64>, perm: Perm) -> Result<&[u8], Fault> {
         let range = (addrs.start as usize)..(addrs.end as usize);
-        self.mem.get_slice(range)
+        self.mem.get_slice(range, perm)
     }
 
-    fn get_mem_mut(&mut self, addrs: Range<u64>) -> Result<&mut [u8], Fault> {
+    fn get_mem_mut(&mut self, addrs: Range<u64>, perm: Perm) -> Result<&mut [u8], Fault> {
         let range = (addrs.start as usize)..(addrs.end as usize);
-        self.mem.get_slice_mut(range)
+        self.mem.get_slice_mut(range, perm)
     }
 
     fn get_flag(&self, id: u32) -> bool {

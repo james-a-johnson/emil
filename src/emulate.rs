@@ -29,15 +29,14 @@ pub enum AccessType {
     Write,
 }
 
+// TODO: Figure out a way to pass register values when hitting a watch-point.
 /// Function that can be used to hook reads or writes of specific addresses.
 ///
 /// # Parameters
-/// - Current state of the program
 /// - Address of the instruction that is doing the read or write
 /// - Address of the first byte being read or written in the current access
 /// - Data that is being written or the data that was read
-pub type WatchFn<R, E, I> =
-    fn(&mut dyn State<Reg = R, Endianness = E, Intrin = I>, u64, u64, AccessType, &mut [u8]);
+pub type WatchFn = fn(u64, u64, AccessType, &mut [u8]);
 
 /// Reason that the emulator stopped executing.
 #[derive(Clone, Debug)]
@@ -129,7 +128,7 @@ pub struct Emulator<S: State> {
     /// List of instructions that have been hooked and what index they came from.
     replaced: Vec<(Emil<S::Reg, S::Endianness, S::Intrin>, usize)>,
     /// Addresses that
-    watch: HashMap<u64, WatchFn<S::Reg, S::Endianness, S::Intrin>>,
+    watch: HashMap<u64, WatchFn>,
 }
 
 macro_rules! bin_op {
@@ -229,16 +228,12 @@ impl<S: State> Emulator<S> {
     }
 
     /// Add a single address to the set of addresses to watch.
-    pub fn add_watch_point(&mut self, addr: u64, hook: WatchFn<S::Reg, S::Endianness, S::Intrin>) {
+    pub fn add_watch_point(&mut self, addr: u64, hook: WatchFn) {
         self.watch.insert(addr, hook);
     }
 
     /// Add a range of addresses to the set of addresses to watch.
-    pub fn add_watch_addrs(
-        &mut self,
-        addrs: Range<u64>,
-        hook: WatchFn<S::Reg, S::Endianness, S::Intrin>,
-    ) {
+    pub fn add_watch_addrs(&mut self, addrs: Range<u64>, hook: WatchFn) {
         for addr in addrs {
             self.watch.insert(addr, hook);
         }
@@ -421,44 +416,35 @@ impl<S: State> Emulator<S> {
             }
             Emil::Store { value, addr, size } => {
                 let value = self.get_ilr(value);
-                assert_eq!(size as usize, value.size());
-                let mut buf = [0u8; 16];
-                let size = S::Endianness::write(value, &mut buf);
                 let addr = self.get_ilr_mut(addr).extend_64();
-                if let Some(hook) = self.watch.get(&addr) {
-                    let pc = self.curr_pc();
-                    hook(
-                        &mut self.state,
-                        pc,
-                        addr,
-                        AccessType::Write,
-                        &mut buf[0..size],
-                    );
-                }
-                let write = self.state.write_mem(addr, &buf[0..size]);
-                if let Err(f) = write {
+                let pc = self.curr_pc();
+                debug_assert_eq!(size as usize, value.size());
+                let mem = self
+                    .state
+                    .get_mem_mut(addr..addr + (size as u64), softmew::Perm::WRITE);
+                if let Err(f) = mem {
                     return ExecutionState::Exit(f.into());
+                }
+                let mem = mem.unwrap();
+                S::Endianness::write(value, mem);
+                if let Some(hook) = self.watch.get(&addr) {
+                    hook(pc, addr, AccessType::Write, mem);
                 }
             }
             Emil::Load { size, addr, dest } => {
-                // prog.rs ensures that the load size will be 8 or less
-                let mut buf = [0u8; 16];
+                let pc = self.curr_pc();
                 let addr = self.get_ilr(addr).extend_64();
-                let read = self.state.read_mem(addr, &mut buf[0..size as usize]);
-                if let Err(f) = read {
+                let data = self
+                    .state
+                    .get_mem_mut(addr..addr + (size as u64), softmew::Perm::READ);
+                if let Err(f) = data {
                     return ExecutionState::Exit(f.into());
                 }
+                let data = data.unwrap();
                 if let Some(hook) = self.watch.get(&addr) {
-                    let pc = self.curr_pc();
-                    hook(
-                        &mut self.state,
-                        pc,
-                        addr,
-                        AccessType::Read,
-                        &mut buf[0..size as usize],
-                    );
+                    hook(pc, addr, AccessType::Read, data);
                 }
-                let val = S::Endianness::read(&buf[0..size as usize]);
+                let val = S::Endianness::read(data);
                 *self.get_ilr_mut(dest) = val;
             }
             Emil::Jump(a) => {
