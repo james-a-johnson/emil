@@ -8,7 +8,7 @@ use binaryninja::low_level_il::expression::LowLevelILExpressionKind as ExprKind;
 use binaryninja::low_level_il::operation::IntrinsicOutput;
 use from_id::FromId;
 use softmew::page::SimplePage;
-use softmew::{MMU, Perm, fault::Fault};
+use softmew::{MMU, Perm};
 
 #[cfg(feature = "serde")]
 use crate::arch::Saveable;
@@ -259,4133 +259,22 @@ impl<'de, S: Serialize + Deserialize<'de> + LinuxSyscalls<Arm64State, MMU<Simple
 {
 }
 
-impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
+impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State<SimplePage> for LinuxArm64<S> {
     type Reg = Arm64Reg;
+    type Registers = Arm64State;
     type Endianness = Little;
     type Intrin = ArmIntrinsic;
 
-    fn read_reg(&self, id: Self::Reg) -> ILVal {
-        self.regs.get(id)
+    fn regs(&mut self) -> &mut Self::Registers {
+        &mut self.regs
     }
 
-    fn write_reg(&mut self, id: Self::Reg, value: ILVal) {
-        match id {
-            Arm64Reg::w0 => self.regs.gregs[0] = value.to_u32() as u64,
-            Arm64Reg::w1 => self.regs.gregs[1] = value.to_u32() as u64,
-            Arm64Reg::w2 => self.regs.gregs[2] = value.to_u32() as u64,
-            Arm64Reg::w3 => self.regs.gregs[3] = value.to_u32() as u64,
-            Arm64Reg::w4 => self.regs.gregs[4] = value.to_u32() as u64,
-            Arm64Reg::w5 => self.regs.gregs[5] = value.to_u32() as u64,
-            Arm64Reg::w6 => self.regs.gregs[6] = value.to_u32() as u64,
-            Arm64Reg::w7 => self.regs.gregs[7] = value.to_u32() as u64,
-            Arm64Reg::w8 => self.regs.gregs[8] = value.to_u32() as u64,
-            Arm64Reg::w9 => self.regs.gregs[9] = value.to_u32() as u64,
-            Arm64Reg::w10 => self.regs.gregs[10] = value.to_u32() as u64,
-            Arm64Reg::w11 => self.regs.gregs[11] = value.to_u32() as u64,
-            Arm64Reg::w12 => self.regs.gregs[12] = value.to_u32() as u64,
-            Arm64Reg::w13 => self.regs.gregs[13] = value.to_u32() as u64,
-            Arm64Reg::w14 => self.regs.gregs[14] = value.to_u32() as u64,
-            Arm64Reg::w15 => self.regs.gregs[15] = value.to_u32() as u64,
-            Arm64Reg::w16 => self.regs.gregs[16] = value.to_u32() as u64,
-            Arm64Reg::w17 => self.regs.gregs[17] = value.to_u32() as u64,
-            Arm64Reg::w18 => self.regs.gregs[18] = value.to_u32() as u64,
-            Arm64Reg::w19 => self.regs.gregs[19] = value.to_u32() as u64,
-            Arm64Reg::w20 => self.regs.gregs[20] = value.to_u32() as u64,
-            Arm64Reg::w21 => self.regs.gregs[21] = value.to_u32() as u64,
-            Arm64Reg::w22 => self.regs.gregs[22] = value.to_u32() as u64,
-            Arm64Reg::w23 => self.regs.gregs[23] = value.to_u32() as u64,
-            Arm64Reg::w24 => self.regs.gregs[24] = value.to_u32() as u64,
-            Arm64Reg::w25 => self.regs.gregs[25] = value.to_u32() as u64,
-            Arm64Reg::w26 => self.regs.gregs[26] = value.to_u32() as u64,
-            Arm64Reg::w27 => self.regs.gregs[27] = value.to_u32() as u64,
-            Arm64Reg::w28 => self.regs.gregs[28] = value.to_u32() as u64,
-            Arm64Reg::w29 => self.regs.gregs[29] = value.to_u32() as u64,
-            Arm64Reg::w30 => self.regs.gregs[30] = value.to_u32() as u64,
-            Arm64Reg::wsp => self.regs.gregs[31] = value.to_u32() as u64,
-            Arm64Reg::x0 => self.regs.gregs[0] = value.extend_64(),
-            Arm64Reg::x1 => self.regs.gregs[1] = value.extend_64(),
-            Arm64Reg::x2 => self.regs.gregs[2] = value.extend_64(),
-            Arm64Reg::x3 => self.regs.gregs[3] = value.extend_64(),
-            Arm64Reg::x4 => self.regs.gregs[4] = value.extend_64(),
-            Arm64Reg::x5 => self.regs.gregs[5] = value.extend_64(),
-            Arm64Reg::x6 => self.regs.gregs[6] = value.extend_64(),
-            Arm64Reg::x7 => self.regs.gregs[7] = value.extend_64(),
-            Arm64Reg::x8 => self.regs.gregs[8] = value.extend_64(),
-            Arm64Reg::x9 => self.regs.gregs[9] = value.extend_64(),
-            Arm64Reg::x10 => self.regs.gregs[10] = value.extend_64(),
-            Arm64Reg::x11 => self.regs.gregs[11] = value.extend_64(),
-            Arm64Reg::x12 => self.regs.gregs[12] = value.extend_64(),
-            Arm64Reg::x13 => self.regs.gregs[13] = value.extend_64(),
-            Arm64Reg::x14 => self.regs.gregs[14] = value.extend_64(),
-            Arm64Reg::x15 => self.regs.gregs[15] = value.extend_64(),
-            Arm64Reg::x16 => self.regs.gregs[16] = value.extend_64(),
-            Arm64Reg::x17 => self.regs.gregs[17] = value.extend_64(),
-            Arm64Reg::x18 => self.regs.gregs[18] = value.extend_64(),
-            Arm64Reg::x19 => self.regs.gregs[19] = value.extend_64(),
-            Arm64Reg::x20 => self.regs.gregs[20] = value.extend_64(),
-            Arm64Reg::x21 => self.regs.gregs[21] = value.extend_64(),
-            Arm64Reg::x22 => self.regs.gregs[22] = value.extend_64(),
-            Arm64Reg::x23 => self.regs.gregs[23] = value.extend_64(),
-            Arm64Reg::x24 => self.regs.gregs[24] = value.extend_64(),
-            Arm64Reg::x25 => self.regs.gregs[25] = value.extend_64(),
-            Arm64Reg::x26 => self.regs.gregs[26] = value.extend_64(),
-            Arm64Reg::x27 => self.regs.gregs[27] = value.extend_64(),
-            Arm64Reg::x28 => self.regs.gregs[28] = value.extend_64(),
-            Arm64Reg::fp => self.regs.gregs[29] = value.extend_64(),
-            Arm64Reg::lr => self.regs.gregs[30] = value.extend_64(),
-            Arm64Reg::sp => self.regs.gregs[31] = value.extend_64(),
-            Arm64Reg::syscall_info => self.regs.syscall_info = value.extend_64(),
-            Arm64Reg::d0 => self.regs.neon[0] = value.get_quad() as u128,
-            Arm64Reg::d1 => self.regs.neon[1] = value.get_quad() as u128,
-            Arm64Reg::d2 => self.regs.neon[2] = value.get_quad() as u128,
-            Arm64Reg::d3 => self.regs.neon[3] = value.get_quad() as u128,
-            Arm64Reg::d4 => self.regs.neon[4] = value.get_quad() as u128,
-            Arm64Reg::d5 => self.regs.neon[5] = value.get_quad() as u128,
-            Arm64Reg::d6 => self.regs.neon[6] = value.get_quad() as u128,
-            Arm64Reg::d7 => self.regs.neon[7] = value.get_quad() as u128,
-            Arm64Reg::d8 => self.regs.neon[8] = value.get_quad() as u128,
-            Arm64Reg::d9 => self.regs.neon[9] = value.get_quad() as u128,
-            Arm64Reg::d10 => self.regs.neon[10] = value.get_quad() as u128,
-            Arm64Reg::d11 => self.regs.neon[11] = value.get_quad() as u128,
-            Arm64Reg::d12 => self.regs.neon[12] = value.get_quad() as u128,
-            Arm64Reg::d13 => self.regs.neon[13] = value.get_quad() as u128,
-            Arm64Reg::d14 => self.regs.neon[14] = value.get_quad() as u128,
-            Arm64Reg::d15 => self.regs.neon[15] = value.get_quad() as u128,
-            Arm64Reg::d16 => self.regs.neon[16] = value.get_quad() as u128,
-            Arm64Reg::d17 => self.regs.neon[17] = value.get_quad() as u128,
-            Arm64Reg::d18 => self.regs.neon[18] = value.get_quad() as u128,
-            Arm64Reg::d19 => self.regs.neon[19] = value.get_quad() as u128,
-            Arm64Reg::d20 => self.regs.neon[20] = value.get_quad() as u128,
-            Arm64Reg::d21 => self.regs.neon[21] = value.get_quad() as u128,
-            Arm64Reg::d22 => self.regs.neon[22] = value.get_quad() as u128,
-            Arm64Reg::d23 => self.regs.neon[23] = value.get_quad() as u128,
-            Arm64Reg::d24 => self.regs.neon[24] = value.get_quad() as u128,
-            Arm64Reg::d25 => self.regs.neon[25] = value.get_quad() as u128,
-            Arm64Reg::d26 => self.regs.neon[26] = value.get_quad() as u128,
-            Arm64Reg::d27 => self.regs.neon[27] = value.get_quad() as u128,
-            Arm64Reg::d28 => self.regs.neon[28] = value.get_quad() as u128,
-            Arm64Reg::d29 => self.regs.neon[29] = value.get_quad() as u128,
-            Arm64Reg::d30 => self.regs.neon[30] = value.get_quad() as u128,
-            Arm64Reg::d31 => self.regs.neon[31] = value.get_quad() as u128,
-            Arm64Reg::s0 => {
-                self.regs.neon[0] &= 0xffffffff_u128;
-                self.regs.neon[0] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s1 => {
-                self.regs.neon[0] &= 0xffffffff_u128 << 32;
-                self.regs.neon[0] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s2 => {
-                self.regs.neon[1] &= 0xffffffff_u128;
-                self.regs.neon[1] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s3 => {
-                self.regs.neon[1] &= 0xffffffff_u128 << 32;
-                self.regs.neon[1] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s4 => {
-                self.regs.neon[2] &= 0xffffffff_u128;
-                self.regs.neon[2] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s5 => {
-                self.regs.neon[2] &= 0xffffffff_u128 << 32;
-                self.regs.neon[2] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s6 => {
-                self.regs.neon[3] &= 0xffffffff_u128;
-                self.regs.neon[3] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s7 => {
-                self.regs.neon[3] &= 0xffffffff_u128 << 32;
-                self.regs.neon[3] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s8 => {
-                self.regs.neon[4] &= 0xffffffff_u128;
-                self.regs.neon[4] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s9 => {
-                self.regs.neon[4] &= 0xffffffff_u128 << 32;
-                self.regs.neon[4] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s10 => {
-                self.regs.neon[5] &= 0xffffffff_u128;
-                self.regs.neon[5] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s11 => {
-                self.regs.neon[5] &= 0xffffffff_u128 << 32;
-                self.regs.neon[5] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s12 => {
-                self.regs.neon[6] &= 0xffffffff_u128;
-                self.regs.neon[6] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s13 => {
-                self.regs.neon[6] &= 0xffffffff_u128 << 32;
-                self.regs.neon[6] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s14 => {
-                self.regs.neon[7] &= 0xffffffff_u128;
-                self.regs.neon[7] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s15 => {
-                self.regs.neon[7] &= 0xffffffff_u128 << 32;
-                self.regs.neon[7] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s16 => {
-                self.regs.neon[8] &= 0xffffffff_u128;
-                self.regs.neon[8] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s17 => {
-                self.regs.neon[8] &= 0xffffffff_u128 << 32;
-                self.regs.neon[8] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s18 => {
-                self.regs.neon[9] &= 0xffffffff_u128;
-                self.regs.neon[9] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s19 => {
-                self.regs.neon[9] &= 0xffffffff_u128 << 32;
-                self.regs.neon[9] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s20 => {
-                self.regs.neon[10] &= 0xffffffff_u128;
-                self.regs.neon[10] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s21 => {
-                self.regs.neon[10] &= 0xffffffff_u128 << 32;
-                self.regs.neon[10] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s22 => {
-                self.regs.neon[11] &= 0xffffffff_u128;
-                self.regs.neon[11] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s23 => {
-                self.regs.neon[11] &= 0xffffffff_u128 << 32;
-                self.regs.neon[11] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s24 => {
-                self.regs.neon[12] &= 0xffffffff_u128;
-                self.regs.neon[12] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s25 => {
-                self.regs.neon[12] &= 0xffffffff_u128 << 32;
-                self.regs.neon[12] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s26 => {
-                self.regs.neon[13] &= 0xffffffff_u128;
-                self.regs.neon[13] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s27 => {
-                self.regs.neon[13] &= 0xffffffff_u128 << 32;
-                self.regs.neon[13] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s28 => {
-                self.regs.neon[14] &= 0xffffffff_u128;
-                self.regs.neon[14] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s29 => {
-                self.regs.neon[14] &= 0xffffffff_u128 << 32;
-                self.regs.neon[14] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::s30 => {
-                self.regs.neon[15] &= 0xffffffff_u128;
-                self.regs.neon[15] |= value.get_word() as u32 as u128;
-            }
-            Arm64Reg::s31 => {
-                self.regs.neon[15] &= 0xffffffff_u128 << 32;
-                self.regs.neon[15] |= (value.get_word() as u32 as u128) << 32;
-            }
-            Arm64Reg::q0 => self.regs.neon[0] = value.extend_128(),
-            Arm64Reg::q1 => self.regs.neon[1] = value.extend_128(),
-            Arm64Reg::q2 => self.regs.neon[2] = value.extend_128(),
-            Arm64Reg::q3 => self.regs.neon[3] = value.extend_128(),
-            Arm64Reg::q4 => self.regs.neon[4] = value.extend_128(),
-            Arm64Reg::q5 => self.regs.neon[5] = value.extend_128(),
-            Arm64Reg::q6 => self.regs.neon[6] = value.extend_128(),
-            Arm64Reg::q7 => self.regs.neon[7] = value.extend_128(),
-            Arm64Reg::q8 => self.regs.neon[8] = value.extend_128(),
-            Arm64Reg::q9 => self.regs.neon[9] = value.extend_128(),
-            Arm64Reg::q10 => self.regs.neon[10] = value.extend_128(),
-            Arm64Reg::q11 => self.regs.neon[11] = value.extend_128(),
-            Arm64Reg::q12 => self.regs.neon[12] = value.extend_128(),
-            Arm64Reg::q13 => self.regs.neon[13] = value.extend_128(),
-            Arm64Reg::q14 => self.regs.neon[14] = value.extend_128(),
-            Arm64Reg::q15 => self.regs.neon[15] = value.extend_128(),
-            Arm64Reg::q16 => self.regs.neon[16] = value.extend_128(),
-            Arm64Reg::q17 => self.regs.neon[17] = value.extend_128(),
-            Arm64Reg::q18 => self.regs.neon[18] = value.extend_128(),
-            Arm64Reg::q19 => self.regs.neon[19] = value.extend_128(),
-            Arm64Reg::q20 => self.regs.neon[20] = value.extend_128(),
-            Arm64Reg::q21 => self.regs.neon[21] = value.extend_128(),
-            Arm64Reg::q22 => self.regs.neon[22] = value.extend_128(),
-            Arm64Reg::q23 => self.regs.neon[23] = value.extend_128(),
-            Arm64Reg::q24 => self.regs.neon[24] = value.extend_128(),
-            Arm64Reg::q25 => self.regs.neon[25] = value.extend_128(),
-            Arm64Reg::q26 => self.regs.neon[26] = value.extend_128(),
-            Arm64Reg::q27 => self.regs.neon[27] = value.extend_128(),
-            Arm64Reg::q28 => self.regs.neon[28] = value.extend_128(),
-            Arm64Reg::q29 => self.regs.neon[29] = value.extend_128(),
-            Arm64Reg::q30 => self.regs.neon[30] = value.extend_128(),
-            Arm64Reg::q31 => self.regs.neon[31] = value.extend_128(),
-            Arm64Reg::v0b0 => {
-                self.regs.neon[0] &= !(0xff_u128 << (8 * 0));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (8 * 0);
-            }
-            Arm64Reg::v0b1 => {
-                self.regs.neon[0] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v0b2 => {
-                self.regs.neon[0] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[0] |= !(value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v0b3 => {
-                self.regs.neon[0] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v0b4 => {
-                self.regs.neon[0] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v0b5 => {
-                self.regs.neon[0] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v0b6 => {
-                self.regs.neon[0] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v0b7 => {
-                self.regs.neon[0] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v0b8 => {
-                self.regs.neon[0] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v0b9 => {
-                self.regs.neon[0] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v0b10 => {
-                self.regs.neon[0] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v0b11 => {
-                self.regs.neon[0] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v0b12 => {
-                self.regs.neon[0] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v0b13 => {
-                self.regs.neon[0] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v0b14 => {
-                self.regs.neon[0] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v0b15 => {
-                self.regs.neon[0] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[0] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v1b0 => {
-                self.regs.neon[1] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v1b1 => {
-                self.regs.neon[1] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v1b2 => {
-                self.regs.neon[1] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v1b3 => {
-                self.regs.neon[1] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v1b4 => {
-                self.regs.neon[1] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v1b5 => {
-                self.regs.neon[1] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v1b6 => {
-                self.regs.neon[1] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v1b7 => {
-                self.regs.neon[1] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v1b8 => {
-                self.regs.neon[1] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v1b9 => {
-                self.regs.neon[1] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v1b10 => {
-                self.regs.neon[1] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v1b11 => {
-                self.regs.neon[1] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v1b12 => {
-                self.regs.neon[1] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v1b13 => {
-                self.regs.neon[1] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v1b14 => {
-                self.regs.neon[1] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v1b15 => {
-                self.regs.neon[1] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[1] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v2b0 => {
-                self.regs.neon[2] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v2b1 => {
-                self.regs.neon[2] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v2b2 => {
-                self.regs.neon[2] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v2b3 => {
-                self.regs.neon[2] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v2b4 => {
-                self.regs.neon[2] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v2b5 => {
-                self.regs.neon[2] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v2b6 => {
-                self.regs.neon[2] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v2b7 => {
-                self.regs.neon[2] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v2b8 => {
-                self.regs.neon[2] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v2b9 => {
-                self.regs.neon[2] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v2b10 => {
-                self.regs.neon[2] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v2b11 => {
-                self.regs.neon[2] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v2b12 => {
-                self.regs.neon[2] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v2b13 => {
-                self.regs.neon[2] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v2b14 => {
-                self.regs.neon[2] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v2b15 => {
-                self.regs.neon[2] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[2] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v3b0 => {
-                self.regs.neon[3] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v3b1 => {
-                self.regs.neon[3] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v3b2 => {
-                self.regs.neon[3] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v3b3 => {
-                self.regs.neon[3] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v3b4 => {
-                self.regs.neon[3] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v3b5 => {
-                self.regs.neon[3] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v3b6 => {
-                self.regs.neon[3] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v3b7 => {
-                self.regs.neon[3] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v3b8 => {
-                self.regs.neon[3] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v3b9 => {
-                self.regs.neon[3] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v3b10 => {
-                self.regs.neon[3] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v3b11 => {
-                self.regs.neon[3] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v3b12 => {
-                self.regs.neon[3] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v3b13 => {
-                self.regs.neon[3] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v3b14 => {
-                self.regs.neon[3] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v3b15 => {
-                self.regs.neon[3] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[3] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v4b0 => {
-                self.regs.neon[4] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v4b1 => {
-                self.regs.neon[4] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v4b2 => {
-                self.regs.neon[4] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v4b3 => {
-                self.regs.neon[4] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v4b4 => {
-                self.regs.neon[4] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v4b5 => {
-                self.regs.neon[4] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v4b6 => {
-                self.regs.neon[4] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v4b7 => {
-                self.regs.neon[4] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v4b8 => {
-                self.regs.neon[4] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v4b9 => {
-                self.regs.neon[4] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v4b10 => {
-                self.regs.neon[4] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v4b11 => {
-                self.regs.neon[4] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v4b12 => {
-                self.regs.neon[4] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v4b13 => {
-                self.regs.neon[4] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v4b14 => {
-                self.regs.neon[4] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v4b15 => {
-                self.regs.neon[4] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[4] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v5b0 => {
-                self.regs.neon[5] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v5b1 => {
-                self.regs.neon[5] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v5b2 => {
-                self.regs.neon[5] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v5b3 => {
-                self.regs.neon[5] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v5b4 => {
-                self.regs.neon[5] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v5b5 => {
-                self.regs.neon[5] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v5b6 => {
-                self.regs.neon[5] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v5b7 => {
-                self.regs.neon[5] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v5b8 => {
-                self.regs.neon[5] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v5b9 => {
-                self.regs.neon[5] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v5b10 => {
-                self.regs.neon[5] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v5b11 => {
-                self.regs.neon[5] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v5b12 => {
-                self.regs.neon[5] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v5b13 => {
-                self.regs.neon[5] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v5b14 => {
-                self.regs.neon[5] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v5b15 => {
-                self.regs.neon[5] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[5] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v6b0 => {
-                self.regs.neon[6] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v6b1 => {
-                self.regs.neon[6] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v6b2 => {
-                self.regs.neon[6] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v6b3 => {
-                self.regs.neon[6] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v6b4 => {
-                self.regs.neon[6] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v6b5 => {
-                self.regs.neon[6] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v6b6 => {
-                self.regs.neon[6] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v6b7 => {
-                self.regs.neon[6] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v6b8 => {
-                self.regs.neon[6] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v6b9 => {
-                self.regs.neon[6] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v6b10 => {
-                self.regs.neon[6] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v6b11 => {
-                self.regs.neon[6] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v6b12 => {
-                self.regs.neon[6] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v6b13 => {
-                self.regs.neon[6] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v6b14 => {
-                self.regs.neon[6] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v6b15 => {
-                self.regs.neon[6] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[6] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v7b0 => {
-                self.regs.neon[7] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v7b1 => {
-                self.regs.neon[7] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v7b2 => {
-                self.regs.neon[7] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v7b3 => {
-                self.regs.neon[7] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v7b4 => {
-                self.regs.neon[7] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v7b5 => {
-                self.regs.neon[7] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v7b6 => {
-                self.regs.neon[7] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v7b7 => {
-                self.regs.neon[7] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v7b8 => {
-                self.regs.neon[7] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v7b9 => {
-                self.regs.neon[7] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v7b10 => {
-                self.regs.neon[7] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v7b11 => {
-                self.regs.neon[7] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v7b12 => {
-                self.regs.neon[7] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v7b13 => {
-                self.regs.neon[7] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v7b14 => {
-                self.regs.neon[7] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v7b15 => {
-                self.regs.neon[7] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[7] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v8b0 => {
-                self.regs.neon[8] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v8b1 => {
-                self.regs.neon[8] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v8b2 => {
-                self.regs.neon[8] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v8b3 => {
-                self.regs.neon[8] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v8b4 => {
-                self.regs.neon[8] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v8b5 => {
-                self.regs.neon[8] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v8b6 => {
-                self.regs.neon[8] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v8b7 => {
-                self.regs.neon[8] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v8b8 => {
-                self.regs.neon[8] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v8b9 => {
-                self.regs.neon[8] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v8b10 => {
-                self.regs.neon[8] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v8b11 => {
-                self.regs.neon[8] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v8b12 => {
-                self.regs.neon[8] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v8b13 => {
-                self.regs.neon[8] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v8b14 => {
-                self.regs.neon[8] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v8b15 => {
-                self.regs.neon[8] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[8] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v9b0 => {
-                self.regs.neon[9] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v9b1 => {
-                self.regs.neon[9] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v9b2 => {
-                self.regs.neon[9] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v9b3 => {
-                self.regs.neon[9] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v9b4 => {
-                self.regs.neon[9] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v9b5 => {
-                self.regs.neon[9] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v9b6 => {
-                self.regs.neon[9] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v9b7 => {
-                self.regs.neon[9] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v9b8 => {
-                self.regs.neon[9] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v9b9 => {
-                self.regs.neon[9] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v9b10 => {
-                self.regs.neon[9] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v9b11 => {
-                self.regs.neon[9] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v9b12 => {
-                self.regs.neon[9] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v9b13 => {
-                self.regs.neon[9] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v9b14 => {
-                self.regs.neon[9] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v9b15 => {
-                self.regs.neon[9] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[9] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v10b0 => {
-                self.regs.neon[10] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v10b1 => {
-                self.regs.neon[10] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v10b2 => {
-                self.regs.neon[10] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v10b3 => {
-                self.regs.neon[10] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v10b4 => {
-                self.regs.neon[10] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v10b5 => {
-                self.regs.neon[10] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v10b6 => {
-                self.regs.neon[10] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v10b7 => {
-                self.regs.neon[10] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v10b8 => {
-                self.regs.neon[10] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v10b9 => {
-                self.regs.neon[10] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v10b10 => {
-                self.regs.neon[10] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v10b11 => {
-                self.regs.neon[10] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v10b12 => {
-                self.regs.neon[10] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v10b13 => {
-                self.regs.neon[10] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v10b14 => {
-                self.regs.neon[10] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v10b15 => {
-                self.regs.neon[10] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[10] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v11b0 => {
-                self.regs.neon[11] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v11b1 => {
-                self.regs.neon[11] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v11b2 => {
-                self.regs.neon[11] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v11b3 => {
-                self.regs.neon[11] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v11b4 => {
-                self.regs.neon[11] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v11b5 => {
-                self.regs.neon[11] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v11b6 => {
-                self.regs.neon[11] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v11b7 => {
-                self.regs.neon[11] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v11b8 => {
-                self.regs.neon[11] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v11b9 => {
-                self.regs.neon[11] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v11b10 => {
-                self.regs.neon[11] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v11b11 => {
-                self.regs.neon[11] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v11b12 => {
-                self.regs.neon[11] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v11b13 => {
-                self.regs.neon[11] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v11b14 => {
-                self.regs.neon[11] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v11b15 => {
-                self.regs.neon[11] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[11] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v12b0 => {
-                self.regs.neon[12] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v12b1 => {
-                self.regs.neon[12] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v12b2 => {
-                self.regs.neon[12] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v12b3 => {
-                self.regs.neon[12] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v12b4 => {
-                self.regs.neon[12] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v12b5 => {
-                self.regs.neon[12] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v12b6 => {
-                self.regs.neon[12] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v12b7 => {
-                self.regs.neon[12] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v12b8 => {
-                self.regs.neon[12] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v12b9 => {
-                self.regs.neon[12] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v12b10 => {
-                self.regs.neon[12] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v12b11 => {
-                self.regs.neon[12] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v12b12 => {
-                self.regs.neon[12] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v12b13 => {
-                self.regs.neon[12] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v12b14 => {
-                self.regs.neon[12] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v12b15 => {
-                self.regs.neon[12] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[12] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v13b0 => {
-                self.regs.neon[13] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v13b1 => {
-                self.regs.neon[13] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v13b2 => {
-                self.regs.neon[13] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v13b3 => {
-                self.regs.neon[13] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v13b4 => {
-                self.regs.neon[13] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v13b5 => {
-                self.regs.neon[13] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v13b6 => {
-                self.regs.neon[13] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v13b7 => {
-                self.regs.neon[13] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v13b8 => {
-                self.regs.neon[13] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v13b9 => {
-                self.regs.neon[13] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v13b10 => {
-                self.regs.neon[13] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v13b11 => {
-                self.regs.neon[13] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v13b12 => {
-                self.regs.neon[13] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v13b13 => {
-                self.regs.neon[13] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v13b14 => {
-                self.regs.neon[13] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v13b15 => {
-                self.regs.neon[13] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[13] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v14b0 => {
-                self.regs.neon[14] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v14b1 => {
-                self.regs.neon[14] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v14b2 => {
-                self.regs.neon[14] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v14b3 => {
-                self.regs.neon[14] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v14b4 => {
-                self.regs.neon[14] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v14b5 => {
-                self.regs.neon[14] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v14b6 => {
-                self.regs.neon[14] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v14b7 => {
-                self.regs.neon[14] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v14b8 => {
-                self.regs.neon[14] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v14b9 => {
-                self.regs.neon[14] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v14b10 => {
-                self.regs.neon[14] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v14b11 => {
-                self.regs.neon[14] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v14b12 => {
-                self.regs.neon[14] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v14b13 => {
-                self.regs.neon[14] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v14b14 => {
-                self.regs.neon[14] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v14b15 => {
-                self.regs.neon[14] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[14] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v15b0 => {
-                self.regs.neon[15] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v15b1 => {
-                self.regs.neon[15] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v15b2 => {
-                self.regs.neon[15] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v15b3 => {
-                self.regs.neon[15] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v15b4 => {
-                self.regs.neon[15] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v15b5 => {
-                self.regs.neon[15] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v15b6 => {
-                self.regs.neon[15] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v15b7 => {
-                self.regs.neon[15] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v15b8 => {
-                self.regs.neon[15] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v15b9 => {
-                self.regs.neon[15] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v15b10 => {
-                self.regs.neon[15] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v15b11 => {
-                self.regs.neon[15] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v15b12 => {
-                self.regs.neon[15] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v15b13 => {
-                self.regs.neon[15] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v15b14 => {
-                self.regs.neon[15] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v15b15 => {
-                self.regs.neon[15] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[15] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v16b0 => {
-                self.regs.neon[16] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v16b1 => {
-                self.regs.neon[16] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v16b2 => {
-                self.regs.neon[16] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v16b3 => {
-                self.regs.neon[16] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v16b4 => {
-                self.regs.neon[16] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v16b5 => {
-                self.regs.neon[16] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v16b6 => {
-                self.regs.neon[16] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v16b7 => {
-                self.regs.neon[16] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v16b8 => {
-                self.regs.neon[16] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v16b9 => {
-                self.regs.neon[16] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v16b10 => {
-                self.regs.neon[16] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v16b11 => {
-                self.regs.neon[16] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v16b12 => {
-                self.regs.neon[16] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v16b13 => {
-                self.regs.neon[16] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v16b14 => {
-                self.regs.neon[16] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v16b15 => {
-                self.regs.neon[16] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[16] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v17b0 => {
-                self.regs.neon[17] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v17b1 => {
-                self.regs.neon[17] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v17b2 => {
-                self.regs.neon[17] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v17b3 => {
-                self.regs.neon[17] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v17b4 => {
-                self.regs.neon[17] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v17b5 => {
-                self.regs.neon[17] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v17b6 => {
-                self.regs.neon[17] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v17b7 => {
-                self.regs.neon[17] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v17b8 => {
-                self.regs.neon[17] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v17b9 => {
-                self.regs.neon[17] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v17b10 => {
-                self.regs.neon[17] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v17b11 => {
-                self.regs.neon[17] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v17b12 => {
-                self.regs.neon[17] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v17b13 => {
-                self.regs.neon[17] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v17b14 => {
-                self.regs.neon[17] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v17b15 => {
-                self.regs.neon[17] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[17] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v18b0 => {
-                self.regs.neon[18] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v18b1 => {
-                self.regs.neon[18] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v18b2 => {
-                self.regs.neon[18] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v18b3 => {
-                self.regs.neon[18] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v18b4 => {
-                self.regs.neon[18] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v18b5 => {
-                self.regs.neon[18] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v18b6 => {
-                self.regs.neon[18] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v18b7 => {
-                self.regs.neon[18] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v18b8 => {
-                self.regs.neon[18] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v18b9 => {
-                self.regs.neon[18] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v18b10 => {
-                self.regs.neon[18] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v18b11 => {
-                self.regs.neon[18] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v18b12 => {
-                self.regs.neon[18] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v18b13 => {
-                self.regs.neon[18] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v18b14 => {
-                self.regs.neon[18] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v18b15 => {
-                self.regs.neon[18] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[18] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v19b0 => {
-                self.regs.neon[19] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v19b1 => {
-                self.regs.neon[19] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v19b2 => {
-                self.regs.neon[19] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v19b3 => {
-                self.regs.neon[19] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v19b4 => {
-                self.regs.neon[19] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v19b5 => {
-                self.regs.neon[19] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v19b6 => {
-                self.regs.neon[19] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v19b7 => {
-                self.regs.neon[19] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v19b8 => {
-                self.regs.neon[19] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v19b9 => {
-                self.regs.neon[19] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v19b10 => {
-                self.regs.neon[19] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v19b11 => {
-                self.regs.neon[19] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v19b12 => {
-                self.regs.neon[19] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v19b13 => {
-                self.regs.neon[19] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v19b14 => {
-                self.regs.neon[19] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v19b15 => {
-                self.regs.neon[19] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[19] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v20b0 => {
-                self.regs.neon[20] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v20b1 => {
-                self.regs.neon[20] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v20b2 => {
-                self.regs.neon[20] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v20b3 => {
-                self.regs.neon[20] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v20b4 => {
-                self.regs.neon[20] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v20b5 => {
-                self.regs.neon[20] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v20b6 => {
-                self.regs.neon[20] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v20b7 => {
-                self.regs.neon[20] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v20b8 => {
-                self.regs.neon[20] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v20b9 => {
-                self.regs.neon[20] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v20b10 => {
-                self.regs.neon[20] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v20b11 => {
-                self.regs.neon[20] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v20b12 => {
-                self.regs.neon[20] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v20b13 => {
-                self.regs.neon[20] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v20b14 => {
-                self.regs.neon[20] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v20b15 => {
-                self.regs.neon[20] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[20] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v21b0 => {
-                self.regs.neon[21] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v21b1 => {
-                self.regs.neon[21] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v21b2 => {
-                self.regs.neon[21] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v21b3 => {
-                self.regs.neon[21] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v21b4 => {
-                self.regs.neon[21] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v21b5 => {
-                self.regs.neon[21] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v21b6 => {
-                self.regs.neon[21] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v21b7 => {
-                self.regs.neon[21] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v21b8 => {
-                self.regs.neon[21] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v21b9 => {
-                self.regs.neon[21] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v21b10 => {
-                self.regs.neon[21] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v21b11 => {
-                self.regs.neon[21] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v21b12 => {
-                self.regs.neon[21] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v21b13 => {
-                self.regs.neon[21] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v21b14 => {
-                self.regs.neon[21] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v21b15 => {
-                self.regs.neon[21] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[21] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v22b0 => {
-                self.regs.neon[22] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v22b1 => {
-                self.regs.neon[22] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v22b2 => {
-                self.regs.neon[22] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v22b3 => {
-                self.regs.neon[22] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v22b4 => {
-                self.regs.neon[22] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v22b5 => {
-                self.regs.neon[22] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v22b6 => {
-                self.regs.neon[22] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v22b7 => {
-                self.regs.neon[22] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v22b8 => {
-                self.regs.neon[22] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v22b9 => {
-                self.regs.neon[22] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v22b10 => {
-                self.regs.neon[22] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v22b11 => {
-                self.regs.neon[22] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v22b12 => {
-                self.regs.neon[22] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v22b13 => {
-                self.regs.neon[22] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v22b14 => {
-                self.regs.neon[22] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v22b15 => {
-                self.regs.neon[22] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[22] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v23b0 => {
-                self.regs.neon[23] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v23b1 => {
-                self.regs.neon[23] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v23b2 => {
-                self.regs.neon[23] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v23b3 => {
-                self.regs.neon[23] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v23b4 => {
-                self.regs.neon[23] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v23b5 => {
-                self.regs.neon[23] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v23b6 => {
-                self.regs.neon[23] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v23b7 => {
-                self.regs.neon[23] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v23b8 => {
-                self.regs.neon[23] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v23b9 => {
-                self.regs.neon[23] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v23b10 => {
-                self.regs.neon[23] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v23b11 => {
-                self.regs.neon[23] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v23b12 => {
-                self.regs.neon[23] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v23b13 => {
-                self.regs.neon[23] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v23b14 => {
-                self.regs.neon[23] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v23b15 => {
-                self.regs.neon[23] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[23] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v24b0 => {
-                self.regs.neon[24] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v24b1 => {
-                self.regs.neon[24] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v24b2 => {
-                self.regs.neon[24] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v24b3 => {
-                self.regs.neon[24] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v24b4 => {
-                self.regs.neon[24] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v24b5 => {
-                self.regs.neon[24] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v24b6 => {
-                self.regs.neon[24] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v24b7 => {
-                self.regs.neon[24] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v24b8 => {
-                self.regs.neon[24] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v24b9 => {
-                self.regs.neon[24] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v24b10 => {
-                self.regs.neon[24] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v24b11 => {
-                self.regs.neon[24] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v24b12 => {
-                self.regs.neon[24] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v24b13 => {
-                self.regs.neon[24] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v24b14 => {
-                self.regs.neon[24] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v24b15 => {
-                self.regs.neon[24] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[24] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v25b0 => {
-                self.regs.neon[25] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v25b1 => {
-                self.regs.neon[25] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v25b2 => {
-                self.regs.neon[25] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v25b3 => {
-                self.regs.neon[25] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v25b4 => {
-                self.regs.neon[25] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v25b5 => {
-                self.regs.neon[25] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v25b6 => {
-                self.regs.neon[25] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v25b7 => {
-                self.regs.neon[25] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v25b8 => {
-                self.regs.neon[25] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v25b9 => {
-                self.regs.neon[25] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v25b10 => {
-                self.regs.neon[25] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v25b11 => {
-                self.regs.neon[25] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v25b12 => {
-                self.regs.neon[25] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v25b13 => {
-                self.regs.neon[25] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v25b14 => {
-                self.regs.neon[25] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v25b15 => {
-                self.regs.neon[25] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[25] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v26b0 => {
-                self.regs.neon[26] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v26b1 => {
-                self.regs.neon[26] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v26b2 => {
-                self.regs.neon[26] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v26b3 => {
-                self.regs.neon[26] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v26b4 => {
-                self.regs.neon[26] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v26b5 => {
-                self.regs.neon[26] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v26b6 => {
-                self.regs.neon[26] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v26b7 => {
-                self.regs.neon[26] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v26b8 => {
-                self.regs.neon[26] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v26b9 => {
-                self.regs.neon[26] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v26b10 => {
-                self.regs.neon[26] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v26b11 => {
-                self.regs.neon[26] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v26b12 => {
-                self.regs.neon[26] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v26b13 => {
-                self.regs.neon[26] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v26b14 => {
-                self.regs.neon[26] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v26b15 => {
-                self.regs.neon[26] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[26] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v27b0 => {
-                self.regs.neon[27] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v27b1 => {
-                self.regs.neon[27] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v27b2 => {
-                self.regs.neon[27] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v27b3 => {
-                self.regs.neon[27] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v27b4 => {
-                self.regs.neon[27] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v27b5 => {
-                self.regs.neon[27] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v27b6 => {
-                self.regs.neon[27] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v27b7 => {
-                self.regs.neon[27] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v27b8 => {
-                self.regs.neon[27] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v27b9 => {
-                self.regs.neon[27] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v27b10 => {
-                self.regs.neon[27] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v27b11 => {
-                self.regs.neon[27] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v27b12 => {
-                self.regs.neon[27] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v27b13 => {
-                self.regs.neon[27] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v27b14 => {
-                self.regs.neon[27] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v27b15 => {
-                self.regs.neon[27] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[27] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v28b0 => {
-                self.regs.neon[28] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v28b1 => {
-                self.regs.neon[28] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v28b2 => {
-                self.regs.neon[28] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v28b3 => {
-                self.regs.neon[28] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v28b4 => {
-                self.regs.neon[28] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v28b5 => {
-                self.regs.neon[28] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v28b6 => {
-                self.regs.neon[28] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v28b7 => {
-                self.regs.neon[28] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v28b8 => {
-                self.regs.neon[28] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v28b9 => {
-                self.regs.neon[28] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v28b10 => {
-                self.regs.neon[28] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v28b11 => {
-                self.regs.neon[28] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v28b12 => {
-                self.regs.neon[28] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v28b13 => {
-                self.regs.neon[28] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v28b14 => {
-                self.regs.neon[28] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v28b15 => {
-                self.regs.neon[28] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[28] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v29b0 => {
-                self.regs.neon[29] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v29b1 => {
-                self.regs.neon[29] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v29b2 => {
-                self.regs.neon[29] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v29b3 => {
-                self.regs.neon[29] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v29b4 => {
-                self.regs.neon[29] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v29b5 => {
-                self.regs.neon[29] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v29b6 => {
-                self.regs.neon[29] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v29b7 => {
-                self.regs.neon[29] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v29b8 => {
-                self.regs.neon[29] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v29b9 => {
-                self.regs.neon[29] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v29b10 => {
-                self.regs.neon[29] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v29b11 => {
-                self.regs.neon[29] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v29b12 => {
-                self.regs.neon[29] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v29b13 => {
-                self.regs.neon[29] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v29b14 => {
-                self.regs.neon[29] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v29b15 => {
-                self.regs.neon[29] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[29] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v30b0 => {
-                self.regs.neon[30] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v30b1 => {
-                self.regs.neon[30] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v30b2 => {
-                self.regs.neon[30] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v30b3 => {
-                self.regs.neon[30] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v30b4 => {
-                self.regs.neon[30] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v30b5 => {
-                self.regs.neon[30] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v30b6 => {
-                self.regs.neon[30] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v30b7 => {
-                self.regs.neon[30] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v30b8 => {
-                self.regs.neon[30] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v30b9 => {
-                self.regs.neon[30] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v30b10 => {
-                self.regs.neon[30] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v30b11 => {
-                self.regs.neon[30] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v30b12 => {
-                self.regs.neon[30] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v30b13 => {
-                self.regs.neon[30] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v30b14 => {
-                self.regs.neon[30] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v30b15 => {
-                self.regs.neon[30] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[30] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v31b0 => {
-                self.regs.neon[31] &= !(0xff_u128 << (0 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (0 * 8);
-            }
-            Arm64Reg::v31b1 => {
-                self.regs.neon[31] &= !(0xff_u128 << (1 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (1 * 8);
-            }
-            Arm64Reg::v31b2 => {
-                self.regs.neon[31] &= !(0xff_u128 << (2 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (2 * 8);
-            }
-            Arm64Reg::v31b3 => {
-                self.regs.neon[31] &= !(0xff_u128 << (3 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (3 * 8);
-            }
-            Arm64Reg::v31b4 => {
-                self.regs.neon[31] &= !(0xff_u128 << (4 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (4 * 8);
-            }
-            Arm64Reg::v31b5 => {
-                self.regs.neon[31] &= !(0xff_u128 << (5 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (5 * 8);
-            }
-            Arm64Reg::v31b6 => {
-                self.regs.neon[31] &= !(0xff_u128 << (6 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (6 * 8);
-            }
-            Arm64Reg::v31b7 => {
-                self.regs.neon[31] &= !(0xff_u128 << (7 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (7 * 8);
-            }
-            Arm64Reg::v31b8 => {
-                self.regs.neon[31] &= !(0xff_u128 << (8 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (8 * 8);
-            }
-            Arm64Reg::v31b9 => {
-                self.regs.neon[31] &= !(0xff_u128 << (9 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (9 * 8);
-            }
-            Arm64Reg::v31b10 => {
-                self.regs.neon[31] &= !(0xff_u128 << (10 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (10 * 8);
-            }
-            Arm64Reg::v31b11 => {
-                self.regs.neon[31] &= !(0xff_u128 << (11 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (11 * 8);
-            }
-            Arm64Reg::v31b12 => {
-                self.regs.neon[31] &= !(0xff_u128 << (12 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (12 * 8);
-            }
-            Arm64Reg::v31b13 => {
-                self.regs.neon[31] &= !(0xff_u128 << (13 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (13 * 8);
-            }
-            Arm64Reg::v31b14 => {
-                self.regs.neon[31] &= !(0xff_u128 << (14 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (14 * 8);
-            }
-            Arm64Reg::v31b15 => {
-                self.regs.neon[31] &= !(0xff_u128 << (15 * 8));
-                self.regs.neon[31] |= (value.get_byte() as u128) << (15 * 8);
-            }
-            Arm64Reg::v0h0 => {
-                self.regs.neon[0] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[0] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v0h1 => {
-                self.regs.neon[0] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[0] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v0h2 => {
-                self.regs.neon[0] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[0] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v0h3 => {
-                self.regs.neon[0] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[0] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v0h4 => {
-                self.regs.neon[0] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[0] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v0h5 => {
-                self.regs.neon[0] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[0] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v0h6 => {
-                self.regs.neon[0] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[0] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v0h7 => {
-                self.regs.neon[0] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[0] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v1h0 => {
-                self.regs.neon[1] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[1] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v1h1 => {
-                self.regs.neon[1] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[1] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v1h2 => {
-                self.regs.neon[1] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[1] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v1h3 => {
-                self.regs.neon[1] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[1] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v1h4 => {
-                self.regs.neon[1] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[1] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v1h5 => {
-                self.regs.neon[1] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[1] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v1h6 => {
-                self.regs.neon[1] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[1] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v1h7 => {
-                self.regs.neon[1] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[1] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v2h0 => {
-                self.regs.neon[2] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[2] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v2h1 => {
-                self.regs.neon[2] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[2] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v2h2 => {
-                self.regs.neon[2] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[2] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v2h3 => {
-                self.regs.neon[2] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[2] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v2h4 => {
-                self.regs.neon[2] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[2] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v2h5 => {
-                self.regs.neon[2] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[2] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v2h6 => {
-                self.regs.neon[2] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[2] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v2h7 => {
-                self.regs.neon[2] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[2] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v3h0 => {
-                self.regs.neon[3] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[3] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v3h1 => {
-                self.regs.neon[3] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[3] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v3h2 => {
-                self.regs.neon[3] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[3] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v3h3 => {
-                self.regs.neon[3] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[3] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v3h4 => {
-                self.regs.neon[3] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[3] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v3h5 => {
-                self.regs.neon[3] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[3] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v3h6 => {
-                self.regs.neon[3] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[3] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v3h7 => {
-                self.regs.neon[3] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[3] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v4h0 => {
-                self.regs.neon[4] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[4] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v4h1 => {
-                self.regs.neon[4] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[4] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v4h2 => {
-                self.regs.neon[4] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[4] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v4h3 => {
-                self.regs.neon[4] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[4] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v4h4 => {
-                self.regs.neon[4] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[4] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v4h5 => {
-                self.regs.neon[4] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[4] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v4h6 => {
-                self.regs.neon[4] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[4] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v4h7 => {
-                self.regs.neon[4] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[4] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v5h0 => {
-                self.regs.neon[5] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[5] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v5h1 => {
-                self.regs.neon[5] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[5] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v5h2 => {
-                self.regs.neon[5] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[5] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v5h3 => {
-                self.regs.neon[5] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[5] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v5h4 => {
-                self.regs.neon[5] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[5] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v5h5 => {
-                self.regs.neon[5] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[5] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v5h6 => {
-                self.regs.neon[5] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[5] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v5h7 => {
-                self.regs.neon[5] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[5] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v6h0 => {
-                self.regs.neon[6] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[6] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v6h1 => {
-                self.regs.neon[6] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[6] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v6h2 => {
-                self.regs.neon[6] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[6] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v6h3 => {
-                self.regs.neon[6] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[6] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v6h4 => {
-                self.regs.neon[6] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[6] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v6h5 => {
-                self.regs.neon[6] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[6] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v6h6 => {
-                self.regs.neon[6] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[6] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v6h7 => {
-                self.regs.neon[6] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[6] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v7h0 => {
-                self.regs.neon[7] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[7] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v7h1 => {
-                self.regs.neon[7] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[7] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v7h2 => {
-                self.regs.neon[7] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[7] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v7h3 => {
-                self.regs.neon[7] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[7] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v7h4 => {
-                self.regs.neon[7] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[7] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v7h5 => {
-                self.regs.neon[7] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[7] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v7h6 => {
-                self.regs.neon[7] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[7] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v7h7 => {
-                self.regs.neon[7] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[7] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v8h0 => {
-                self.regs.neon[8] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[8] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v8h1 => {
-                self.regs.neon[8] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[8] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v8h2 => {
-                self.regs.neon[8] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[8] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v8h3 => {
-                self.regs.neon[8] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[8] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v8h4 => {
-                self.regs.neon[8] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[8] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v8h5 => {
-                self.regs.neon[8] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[8] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v8h6 => {
-                self.regs.neon[8] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[8] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v8h7 => {
-                self.regs.neon[8] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[8] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v9h0 => {
-                self.regs.neon[9] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[9] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v9h1 => {
-                self.regs.neon[9] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[9] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v9h2 => {
-                self.regs.neon[9] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[9] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v9h3 => {
-                self.regs.neon[9] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[9] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v9h4 => {
-                self.regs.neon[9] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[9] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v9h5 => {
-                self.regs.neon[9] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[9] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v9h6 => {
-                self.regs.neon[9] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[9] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v9h7 => {
-                self.regs.neon[9] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[9] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v10h0 => {
-                self.regs.neon[10] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[10] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v10h1 => {
-                self.regs.neon[10] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[10] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v10h2 => {
-                self.regs.neon[10] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[10] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v10h3 => {
-                self.regs.neon[10] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[10] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v10h4 => {
-                self.regs.neon[10] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[10] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v10h5 => {
-                self.regs.neon[10] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[10] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v10h6 => {
-                self.regs.neon[10] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[10] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v10h7 => {
-                self.regs.neon[10] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[10] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v11h0 => {
-                self.regs.neon[11] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[11] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v11h1 => {
-                self.regs.neon[11] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[11] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v11h2 => {
-                self.regs.neon[11] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[11] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v11h3 => {
-                self.regs.neon[11] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[11] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v11h4 => {
-                self.regs.neon[11] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[11] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v11h5 => {
-                self.regs.neon[11] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[11] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v11h6 => {
-                self.regs.neon[11] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[11] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v11h7 => {
-                self.regs.neon[11] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[11] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v12h0 => {
-                self.regs.neon[12] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[12] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v12h1 => {
-                self.regs.neon[12] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[12] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v12h2 => {
-                self.regs.neon[12] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[12] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v12h3 => {
-                self.regs.neon[12] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[12] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v12h4 => {
-                self.regs.neon[12] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[12] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v12h5 => {
-                self.regs.neon[12] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[12] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v12h6 => {
-                self.regs.neon[12] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[12] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v12h7 => {
-                self.regs.neon[12] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[12] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v13h0 => {
-                self.regs.neon[13] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[13] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v13h1 => {
-                self.regs.neon[13] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[13] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v13h2 => {
-                self.regs.neon[13] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[13] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v13h3 => {
-                self.regs.neon[13] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[13] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v13h4 => {
-                self.regs.neon[13] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[13] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v13h5 => {
-                self.regs.neon[13] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[13] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v13h6 => {
-                self.regs.neon[13] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[13] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v13h7 => {
-                self.regs.neon[13] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[13] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v14h0 => {
-                self.regs.neon[14] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[14] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v14h1 => {
-                self.regs.neon[14] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[14] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v14h2 => {
-                self.regs.neon[14] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[14] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v14h3 => {
-                self.regs.neon[14] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[14] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v14h4 => {
-                self.regs.neon[14] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[14] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v14h5 => {
-                self.regs.neon[14] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[14] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v14h6 => {
-                self.regs.neon[14] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[14] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v14h7 => {
-                self.regs.neon[14] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[14] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v15h0 => {
-                self.regs.neon[15] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[15] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v15h1 => {
-                self.regs.neon[15] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[15] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v15h2 => {
-                self.regs.neon[15] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[15] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v15h3 => {
-                self.regs.neon[15] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[15] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v15h4 => {
-                self.regs.neon[15] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[15] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v15h5 => {
-                self.regs.neon[15] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[15] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v15h6 => {
-                self.regs.neon[15] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[15] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v15h7 => {
-                self.regs.neon[15] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[15] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v16h0 => {
-                self.regs.neon[16] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[16] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v16h1 => {
-                self.regs.neon[16] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[16] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v16h2 => {
-                self.regs.neon[16] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[16] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v16h3 => {
-                self.regs.neon[16] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[16] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v16h4 => {
-                self.regs.neon[16] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[16] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v16h5 => {
-                self.regs.neon[16] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[16] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v16h6 => {
-                self.regs.neon[16] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[16] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v16h7 => {
-                self.regs.neon[16] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[16] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v17h0 => {
-                self.regs.neon[17] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[17] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v17h1 => {
-                self.regs.neon[17] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[17] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v17h2 => {
-                self.regs.neon[17] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[17] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v17h3 => {
-                self.regs.neon[17] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[17] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v17h4 => {
-                self.regs.neon[17] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[17] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v17h5 => {
-                self.regs.neon[17] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[17] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v17h6 => {
-                self.regs.neon[17] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[17] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v17h7 => {
-                self.regs.neon[17] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[17] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v18h0 => {
-                self.regs.neon[18] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[18] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v18h1 => {
-                self.regs.neon[18] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[18] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v18h2 => {
-                self.regs.neon[18] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[18] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v18h3 => {
-                self.regs.neon[18] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[18] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v18h4 => {
-                self.regs.neon[18] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[18] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v18h5 => {
-                self.regs.neon[18] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[18] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v18h6 => {
-                self.regs.neon[18] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[18] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v18h7 => {
-                self.regs.neon[18] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[18] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v19h0 => {
-                self.regs.neon[19] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[19] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v19h1 => {
-                self.regs.neon[19] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[19] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v19h2 => {
-                self.regs.neon[19] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[19] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v19h3 => {
-                self.regs.neon[19] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[19] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v19h4 => {
-                self.regs.neon[19] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[19] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v19h5 => {
-                self.regs.neon[19] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[19] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v19h6 => {
-                self.regs.neon[19] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[19] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v19h7 => {
-                self.regs.neon[19] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[19] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v20h0 => {
-                self.regs.neon[20] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[20] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v20h1 => {
-                self.regs.neon[20] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[20] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v20h2 => {
-                self.regs.neon[20] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[20] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v20h3 => {
-                self.regs.neon[20] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[20] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v20h4 => {
-                self.regs.neon[20] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[20] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v20h5 => {
-                self.regs.neon[20] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[20] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v20h6 => {
-                self.regs.neon[20] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[20] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v20h7 => {
-                self.regs.neon[20] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[20] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v21h0 => {
-                self.regs.neon[21] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[21] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v21h1 => {
-                self.regs.neon[21] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[21] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v21h2 => {
-                self.regs.neon[21] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[21] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v21h3 => {
-                self.regs.neon[21] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[21] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v21h4 => {
-                self.regs.neon[21] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[21] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v21h5 => {
-                self.regs.neon[21] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[21] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v21h6 => {
-                self.regs.neon[21] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[21] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v21h7 => {
-                self.regs.neon[21] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[21] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v22h0 => {
-                self.regs.neon[22] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[22] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v22h1 => {
-                self.regs.neon[22] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[22] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v22h2 => {
-                self.regs.neon[22] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[22] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v22h3 => {
-                self.regs.neon[22] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[22] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v22h4 => {
-                self.regs.neon[22] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[22] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v22h5 => {
-                self.regs.neon[22] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[22] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v22h6 => {
-                self.regs.neon[22] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[22] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v22h7 => {
-                self.regs.neon[22] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[22] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v23h0 => {
-                self.regs.neon[23] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[23] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v23h1 => {
-                self.regs.neon[23] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[23] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v23h2 => {
-                self.regs.neon[23] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[23] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v23h3 => {
-                self.regs.neon[23] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[23] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v23h4 => {
-                self.regs.neon[23] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[23] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v23h5 => {
-                self.regs.neon[23] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[23] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v23h6 => {
-                self.regs.neon[23] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[23] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v23h7 => {
-                self.regs.neon[23] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[23] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v24h0 => {
-                self.regs.neon[24] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[24] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v24h1 => {
-                self.regs.neon[24] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[24] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v24h2 => {
-                self.regs.neon[24] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[24] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v24h3 => {
-                self.regs.neon[24] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[24] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v24h4 => {
-                self.regs.neon[24] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[24] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v24h5 => {
-                self.regs.neon[24] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[24] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v24h6 => {
-                self.regs.neon[24] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[24] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v24h7 => {
-                self.regs.neon[24] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[24] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v25h0 => {
-                self.regs.neon[25] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[25] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v25h1 => {
-                self.regs.neon[25] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[25] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v25h2 => {
-                self.regs.neon[25] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[25] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v25h3 => {
-                self.regs.neon[25] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[25] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v25h4 => {
-                self.regs.neon[25] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[25] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v25h5 => {
-                self.regs.neon[25] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[25] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v25h6 => {
-                self.regs.neon[25] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[25] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v25h7 => {
-                self.regs.neon[25] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[25] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v26h0 => {
-                self.regs.neon[26] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[26] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v26h1 => {
-                self.regs.neon[26] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[26] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v26h2 => {
-                self.regs.neon[26] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[26] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v26h3 => {
-                self.regs.neon[26] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[26] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v26h4 => {
-                self.regs.neon[26] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[26] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v26h5 => {
-                self.regs.neon[26] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[26] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v26h6 => {
-                self.regs.neon[26] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[26] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v26h7 => {
-                self.regs.neon[26] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[26] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v27h0 => {
-                self.regs.neon[27] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[27] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v27h1 => {
-                self.regs.neon[27] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[27] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v27h2 => {
-                self.regs.neon[27] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[27] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v27h3 => {
-                self.regs.neon[27] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[27] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v27h4 => {
-                self.regs.neon[27] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[27] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v27h5 => {
-                self.regs.neon[27] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[27] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v27h6 => {
-                self.regs.neon[27] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[27] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v27h7 => {
-                self.regs.neon[27] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[27] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v28h0 => {
-                self.regs.neon[28] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[28] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v28h1 => {
-                self.regs.neon[28] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[28] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v28h2 => {
-                self.regs.neon[28] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[28] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v28h3 => {
-                self.regs.neon[28] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[28] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v28h4 => {
-                self.regs.neon[28] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[28] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v28h5 => {
-                self.regs.neon[28] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[28] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v28h6 => {
-                self.regs.neon[28] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[28] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v28h7 => {
-                self.regs.neon[28] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[28] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v29h0 => {
-                self.regs.neon[29] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[29] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v29h1 => {
-                self.regs.neon[29] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[29] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v29h2 => {
-                self.regs.neon[29] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[29] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v29h3 => {
-                self.regs.neon[29] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[29] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v29h4 => {
-                self.regs.neon[29] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[29] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v29h5 => {
-                self.regs.neon[29] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[29] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v29h6 => {
-                self.regs.neon[29] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[29] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v29h7 => {
-                self.regs.neon[29] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[29] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v30h0 => {
-                self.regs.neon[30] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[30] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v30h1 => {
-                self.regs.neon[30] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[30] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v30h2 => {
-                self.regs.neon[30] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[30] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v30h3 => {
-                self.regs.neon[30] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[30] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v30h4 => {
-                self.regs.neon[30] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[30] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v30h5 => {
-                self.regs.neon[30] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[30] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v30h6 => {
-                self.regs.neon[30] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[30] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v30h7 => {
-                self.regs.neon[30] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[30] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v31h0 => {
-                self.regs.neon[31] &= 0xffff_u128 << (16 * 0);
-                self.regs.neon[31] |= (value.get_short() as u128) << (16 * 0);
-            }
-            Arm64Reg::v31h1 => {
-                self.regs.neon[31] &= 0xffff_u128 << (16 * 1);
-                self.regs.neon[31] |= (value.get_short() as u128) << (16 * 1);
-            }
-            Arm64Reg::v31h2 => {
-                self.regs.neon[31] &= 0xffff_u128 << (16 * 2);
-                self.regs.neon[31] |= (value.get_short() as u128) << (16 * 2);
-            }
-            Arm64Reg::v31h3 => {
-                self.regs.neon[31] &= 0xffff_u128 << (16 * 3);
-                self.regs.neon[31] |= (value.get_short() as u128) << (16 * 3);
-            }
-            Arm64Reg::v31h4 => {
-                self.regs.neon[31] &= 0xffff_u128 << (16 * 4);
-                self.regs.neon[31] |= (value.get_short() as u128) << (16 * 4);
-            }
-            Arm64Reg::v31h5 => {
-                self.regs.neon[31] &= 0xffff_u128 << (16 * 5);
-                self.regs.neon[31] |= (value.get_short() as u128) << (16 * 5);
-            }
-            Arm64Reg::v31h6 => {
-                self.regs.neon[31] &= 0xffff_u128 << (16 * 6);
-                self.regs.neon[31] |= (value.get_short() as u128) << (16 * 6);
-            }
-            Arm64Reg::v31h7 => {
-                self.regs.neon[31] &= 0xffff_u128 << (16 * 7);
-                self.regs.neon[31] |= (value.get_short() as u128) << (16 * 7);
-            }
-            Arm64Reg::v0s0 => {
-                self.regs.neon[0] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[0] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v0s1 => {
-                self.regs.neon[0] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[0] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v0s2 => {
-                self.regs.neon[0] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[0] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v0s3 => {
-                self.regs.neon[0] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[0] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v1s0 => {
-                self.regs.neon[1] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[1] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v1s1 => {
-                self.regs.neon[1] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[1] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v1s2 => {
-                self.regs.neon[1] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[1] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v1s3 => {
-                self.regs.neon[1] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[1] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v2s0 => {
-                self.regs.neon[2] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[2] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v2s1 => {
-                self.regs.neon[2] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[2] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v2s2 => {
-                self.regs.neon[2] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[2] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v2s3 => {
-                self.regs.neon[2] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[2] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v3s0 => {
-                self.regs.neon[3] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[3] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v3s1 => {
-                self.regs.neon[3] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[3] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v3s2 => {
-                self.regs.neon[3] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[3] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v3s3 => {
-                self.regs.neon[3] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[3] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v4s0 => {
-                self.regs.neon[4] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[4] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v4s1 => {
-                self.regs.neon[4] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[4] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v4s2 => {
-                self.regs.neon[4] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[4] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v4s3 => {
-                self.regs.neon[4] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[4] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v5s0 => {
-                self.regs.neon[5] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[5] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v5s1 => {
-                self.regs.neon[5] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[5] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v5s2 => {
-                self.regs.neon[5] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[5] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v5s3 => {
-                self.regs.neon[5] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[5] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v6s0 => {
-                self.regs.neon[6] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[6] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v6s1 => {
-                self.regs.neon[6] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[6] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v6s2 => {
-                self.regs.neon[6] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[6] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v6s3 => {
-                self.regs.neon[6] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[6] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v7s0 => {
-                self.regs.neon[7] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[7] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v7s1 => {
-                self.regs.neon[7] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[7] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v7s2 => {
-                self.regs.neon[7] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[7] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v7s3 => {
-                self.regs.neon[7] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[7] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v8s0 => {
-                self.regs.neon[8] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[8] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v8s1 => {
-                self.regs.neon[8] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[8] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v8s2 => {
-                self.regs.neon[8] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[8] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v8s3 => {
-                self.regs.neon[8] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[8] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v9s0 => {
-                self.regs.neon[9] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[9] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v9s1 => {
-                self.regs.neon[9] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[9] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v9s2 => {
-                self.regs.neon[9] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[9] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v9s3 => {
-                self.regs.neon[9] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[9] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v10s0 => {
-                self.regs.neon[10] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[10] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v10s1 => {
-                self.regs.neon[10] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[10] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v10s2 => {
-                self.regs.neon[10] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[10] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v10s3 => {
-                self.regs.neon[10] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[10] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v11s0 => {
-                self.regs.neon[11] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[11] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v11s1 => {
-                self.regs.neon[11] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[11] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v11s2 => {
-                self.regs.neon[11] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[11] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v11s3 => {
-                self.regs.neon[11] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[11] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v12s0 => {
-                self.regs.neon[12] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[12] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v12s1 => {
-                self.regs.neon[12] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[12] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v12s2 => {
-                self.regs.neon[12] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[12] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v12s3 => {
-                self.regs.neon[12] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[12] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v13s0 => {
-                self.regs.neon[13] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[13] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v13s1 => {
-                self.regs.neon[13] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[13] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v13s2 => {
-                self.regs.neon[13] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[13] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v13s3 => {
-                self.regs.neon[13] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[13] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v14s0 => {
-                self.regs.neon[14] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[14] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v14s1 => {
-                self.regs.neon[14] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[14] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v14s2 => {
-                self.regs.neon[14] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[14] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v14s3 => {
-                self.regs.neon[14] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[14] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v15s0 => {
-                self.regs.neon[15] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[15] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v15s1 => {
-                self.regs.neon[15] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[15] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v15s2 => {
-                self.regs.neon[15] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[15] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v15s3 => {
-                self.regs.neon[15] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[15] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v16s0 => {
-                self.regs.neon[16] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[16] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v16s1 => {
-                self.regs.neon[16] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[16] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v16s2 => {
-                self.regs.neon[16] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[16] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v16s3 => {
-                self.regs.neon[16] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[16] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v17s0 => {
-                self.regs.neon[17] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[17] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v17s1 => {
-                self.regs.neon[17] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[17] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v17s2 => {
-                self.regs.neon[17] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[17] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v17s3 => {
-                self.regs.neon[17] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[17] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v18s0 => {
-                self.regs.neon[18] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[18] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v18s1 => {
-                self.regs.neon[18] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[18] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v18s2 => {
-                self.regs.neon[18] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[18] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v18s3 => {
-                self.regs.neon[18] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[18] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v19s0 => {
-                self.regs.neon[19] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[19] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v19s1 => {
-                self.regs.neon[19] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[19] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v19s2 => {
-                self.regs.neon[19] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[19] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v19s3 => {
-                self.regs.neon[19] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[19] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v20s0 => {
-                self.regs.neon[20] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[20] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v20s1 => {
-                self.regs.neon[20] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[20] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v20s2 => {
-                self.regs.neon[20] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[20] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v20s3 => {
-                self.regs.neon[20] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[20] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v21s0 => {
-                self.regs.neon[21] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[21] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v21s1 => {
-                self.regs.neon[21] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[21] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v21s2 => {
-                self.regs.neon[21] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[21] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v21s3 => {
-                self.regs.neon[21] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[21] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v22s0 => {
-                self.regs.neon[22] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[22] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v22s1 => {
-                self.regs.neon[22] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[22] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v22s2 => {
-                self.regs.neon[22] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[22] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v22s3 => {
-                self.regs.neon[22] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[22] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v23s0 => {
-                self.regs.neon[23] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[23] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v23s1 => {
-                self.regs.neon[23] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[23] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v23s2 => {
-                self.regs.neon[23] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[23] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v23s3 => {
-                self.regs.neon[23] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[23] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v24s0 => {
-                self.regs.neon[24] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[24] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v24s1 => {
-                self.regs.neon[24] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[24] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v24s2 => {
-                self.regs.neon[24] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[24] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v24s3 => {
-                self.regs.neon[24] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[24] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v25s0 => {
-                self.regs.neon[25] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[25] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v25s1 => {
-                self.regs.neon[25] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[25] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v25s2 => {
-                self.regs.neon[25] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[25] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v25s3 => {
-                self.regs.neon[25] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[25] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v26s0 => {
-                self.regs.neon[26] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[26] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v26s1 => {
-                self.regs.neon[26] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[26] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v26s2 => {
-                self.regs.neon[26] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[26] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v26s3 => {
-                self.regs.neon[26] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[26] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v27s0 => {
-                self.regs.neon[27] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[27] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v27s1 => {
-                self.regs.neon[27] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[27] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v27s2 => {
-                self.regs.neon[27] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[27] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v27s3 => {
-                self.regs.neon[27] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[27] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v28s0 => {
-                self.regs.neon[28] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[28] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v28s1 => {
-                self.regs.neon[28] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[28] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v28s2 => {
-                self.regs.neon[28] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[28] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v28s3 => {
-                self.regs.neon[28] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[28] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v29s0 => {
-                self.regs.neon[29] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[29] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v29s1 => {
-                self.regs.neon[29] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[29] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v29s2 => {
-                self.regs.neon[29] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[29] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v29s3 => {
-                self.regs.neon[29] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[29] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v30s0 => {
-                self.regs.neon[30] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[30] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v30s1 => {
-                self.regs.neon[30] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[30] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v30s2 => {
-                self.regs.neon[30] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[30] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v30s3 => {
-                self.regs.neon[30] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[30] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v31s0 => {
-                self.regs.neon[31] &= 0xffffffff_u128 << (32 * 0);
-                self.regs.neon[31] |= (value.get_word() as u128) << (32 * 0);
-            }
-            Arm64Reg::v31s1 => {
-                self.regs.neon[31] &= 0xffffffff_u128 << (32 * 1);
-                self.regs.neon[31] |= (value.get_word() as u128) << (32 * 1);
-            }
-            Arm64Reg::v31s2 => {
-                self.regs.neon[31] &= 0xffffffff_u128 << (32 * 2);
-                self.regs.neon[31] |= (value.get_word() as u128) << (32 * 2);
-            }
-            Arm64Reg::v31s3 => {
-                self.regs.neon[31] &= 0xffffffff_u128 << (32 * 3);
-                self.regs.neon[31] |= (value.get_word() as u128) << (32 * 3);
-            }
-            Arm64Reg::v0d0 => {
-                self.regs.neon[0] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[0] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v0d1 => {
-                self.regs.neon[0] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[0] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v1d0 => {
-                self.regs.neon[1] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[1] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v1d1 => {
-                self.regs.neon[1] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[1] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v2d0 => {
-                self.regs.neon[2] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[2] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v2d1 => {
-                self.regs.neon[2] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[2] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v3d0 => {
-                self.regs.neon[3] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[3] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v3d1 => {
-                self.regs.neon[3] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[3] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v4d0 => {
-                self.regs.neon[4] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[4] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v4d1 => {
-                self.regs.neon[4] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[4] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v5d0 => {
-                self.regs.neon[5] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[5] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v5d1 => {
-                self.regs.neon[5] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[5] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v6d0 => {
-                self.regs.neon[6] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[6] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v6d1 => {
-                self.regs.neon[6] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[6] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v7d0 => {
-                self.regs.neon[7] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[7] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v7d1 => {
-                self.regs.neon[7] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[7] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v8d0 => {
-                self.regs.neon[8] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[8] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v8d1 => {
-                self.regs.neon[8] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[8] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v9d0 => {
-                self.regs.neon[9] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[9] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v9d1 => {
-                self.regs.neon[9] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[9] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v10d0 => {
-                self.regs.neon[10] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[10] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v10d1 => {
-                self.regs.neon[10] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[10] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v11d0 => {
-                self.regs.neon[11] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[11] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v11d1 => {
-                self.regs.neon[11] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[11] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v12d0 => {
-                self.regs.neon[12] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[12] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v12d1 => {
-                self.regs.neon[12] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[12] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v13d0 => {
-                self.regs.neon[13] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[13] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v13d1 => {
-                self.regs.neon[13] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[13] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v14d0 => {
-                self.regs.neon[14] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[14] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v14d1 => {
-                self.regs.neon[14] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[14] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v15d0 => {
-                self.regs.neon[15] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[15] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v15d1 => {
-                self.regs.neon[15] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[15] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v16d0 => {
-                self.regs.neon[16] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[16] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v16d1 => {
-                self.regs.neon[16] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[16] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v17d0 => {
-                self.regs.neon[17] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[17] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v17d1 => {
-                self.regs.neon[17] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[17] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v18d0 => {
-                self.regs.neon[18] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[18] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v18d1 => {
-                self.regs.neon[18] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[18] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v19d0 => {
-                self.regs.neon[19] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[19] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v19d1 => {
-                self.regs.neon[19] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[19] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v20d0 => {
-                self.regs.neon[20] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[20] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v20d1 => {
-                self.regs.neon[20] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[20] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v21d0 => {
-                self.regs.neon[21] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[21] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v21d1 => {
-                self.regs.neon[21] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[21] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v22d0 => {
-                self.regs.neon[22] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[22] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v22d1 => {
-                self.regs.neon[22] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[22] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v23d0 => {
-                self.regs.neon[23] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[23] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v23d1 => {
-                self.regs.neon[23] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[23] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v24d0 => {
-                self.regs.neon[24] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[24] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v24d1 => {
-                self.regs.neon[24] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[24] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v25d0 => {
-                self.regs.neon[25] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[25] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v25d1 => {
-                self.regs.neon[25] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[25] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v26d0 => {
-                self.regs.neon[26] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[26] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v26d1 => {
-                self.regs.neon[26] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[26] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v27d0 => {
-                self.regs.neon[27] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[27] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v27d1 => {
-                self.regs.neon[27] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[27] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v28d0 => {
-                self.regs.neon[28] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[28] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v28d1 => {
-                self.regs.neon[28] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[28] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v29d0 => {
-                self.regs.neon[29] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[29] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v29d1 => {
-                self.regs.neon[29] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[29] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v30d0 => {
-                self.regs.neon[30] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[30] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v30d1 => {
-                self.regs.neon[30] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[30] |= (value.get_quad() as u128) << (64 * 1);
-            }
-            Arm64Reg::v31d0 => {
-                self.regs.neon[31] &= 0xffffffffffffffff_u128 << (64 * 0);
-                self.regs.neon[31] |= (value.get_quad() as u128) << (64 * 0);
-            }
-            Arm64Reg::v31d1 => {
-                self.regs.neon[31] &= 0xffffffffffffffff_u128 << (64 * 1);
-                self.regs.neon[31] |= (value.get_quad() as u128) << (64 * 1);
-            }
-        };
+    fn mem(&mut self) -> &mut MMU<SimplePage> {
+        &mut self.mem
     }
 
-    fn read_mem(&self, addr: u64, buf: &mut [u8]) -> Result<(), Fault> {
-        self.mem.read_perm(addr as usize, buf)
-    }
-
-    fn write_mem(&mut self, addr: u64, data: &[u8]) -> Result<(), Fault> {
-        self.mem.write_perm(addr as usize, data)
-    }
-
-    fn get_mem(&self, addrs: Range<u64>, perm: Perm) -> Result<&[u8], Fault> {
-        let range = (addrs.start as usize)..(addrs.end as usize);
-        self.mem.get_slice(range, perm)
-    }
-
-    fn get_mem_mut(&mut self, addrs: Range<u64>, perm: Perm) -> Result<&mut [u8], Fault> {
-        let range = (addrs.start as usize)..(addrs.end as usize);
-        self.mem.get_slice_mut(range, perm)
+    fn underlying(&mut self) -> (&mut Self::Registers, &mut MMU<SimplePage>) {
+        (&mut self.regs, &mut self.mem)
     }
 
     fn get_flag(&self, id: u32) -> bool {
@@ -4428,48 +317,49 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State for LinuxArm64<S> {
             ArmIntrinsic::Dmb => Ok(()),
             ArmIntrinsic::BtiHint => Ok(()),
             ArmIntrinsic::Rev(dest, src) => {
-                let val = self.read_reg(*src);
-                self.write_reg(*dest, val.byte_rev());
+                let val = self.regs.read(*src);
+                self.regs.write(*dest, val.byte_rev());
                 Ok(())
             }
             ArmIntrinsic::Rbit(dest, src) => {
-                let val = self.read_reg(*src);
-                self.write_reg(*dest, val.bit_rev());
+                let val = self.regs.read(*src);
+                self.regs.write(*dest, val.bit_rev());
                 Ok(())
             }
             ArmIntrinsic::Clz(dest, src) => {
-                let val = self.read_reg(*src);
-                self.write_reg(*dest, val.leading_zeros());
+                let val = self.regs.read(*src);
+                self.regs.write(*dest, val.leading_zeros());
                 Ok(())
             }
             ArmIntrinsic::Ldxr(dest, addr) => {
-                let addr = self.read_reg(*addr).extend_64();
+                let addr = self.regs.read(*addr).extend_64() as usize;
                 let mut buf = [0u8; 8];
-                self.read_mem(addr, &mut buf[0..dest.size()])?;
+                self.mem.read_perm(addr, &mut buf[0..dest.size()])?;
                 let val = Little::read(&buf[0..dest.size()]);
-                self.write_reg(*dest, val);
+                self.regs.write(*dest, val);
                 Ok(())
             }
             ArmIntrinsic::Stxr(dest, value, addr) => {
-                let addr = self.read_reg(*addr).extend_64() as usize;
-                let value = self.read_reg(*value);
+                let addr = self.regs.read(*addr).extend_64() as usize;
+                let value = self.regs.read(*value);
                 let buf = self
                     .mem
                     .get_slice_mut(addr..addr + value.size(), Perm::WRITE)?;
                 Little::write(value, buf);
-                self.write_reg(*dest, ILVal::Word(0));
+                self.regs.write(*dest, ILVal::Word(0));
                 Ok(())
             }
             ArmIntrinsic::ReadMSR(reg, msr) => {
                 match msr {
                     0xd807 => {
                         // DCZID_EL0 system register
-                        self.write_reg(*reg, ILVal::Quad(0b10000));
+                        self.regs.write(*reg, ILVal::Quad(0b10000));
                         Ok(())
                     }
                     0xc000 => {
                         // MIDR_EL1, Main ID Register
-                        self.write_reg(*reg, ILVal::Quad(0b00000000_0000_1111_000000000000_0000));
+                        self.regs
+                            .write(*reg, ILVal::Quad(0b00000000_0000_1111_000000000000_0000));
                         Ok(())
                     }
                     0xde82 => {
@@ -4534,8 +424,4117 @@ pub struct Arm64State {
 }
 
 impl RegState for Arm64State {
+    type RegID = Arm64Reg;
+
     fn set_syscall_return(&mut self, val: ILVal) {
         self[Arm64Reg::x0] = val.extend_64()
+    }
+
+    #[inline]
+    fn read(&self, id: Self::RegID) -> ILVal {
+        self.get(id)
+    }
+
+    fn write(&mut self, id: Self::RegID, value: ILVal) {
+        match id {
+            Arm64Reg::w0 => self.gregs[0] = value.to_u32() as u64,
+            Arm64Reg::w1 => self.gregs[1] = value.to_u32() as u64,
+            Arm64Reg::w2 => self.gregs[2] = value.to_u32() as u64,
+            Arm64Reg::w3 => self.gregs[3] = value.to_u32() as u64,
+            Arm64Reg::w4 => self.gregs[4] = value.to_u32() as u64,
+            Arm64Reg::w5 => self.gregs[5] = value.to_u32() as u64,
+            Arm64Reg::w6 => self.gregs[6] = value.to_u32() as u64,
+            Arm64Reg::w7 => self.gregs[7] = value.to_u32() as u64,
+            Arm64Reg::w8 => self.gregs[8] = value.to_u32() as u64,
+            Arm64Reg::w9 => self.gregs[9] = value.to_u32() as u64,
+            Arm64Reg::w10 => self.gregs[10] = value.to_u32() as u64,
+            Arm64Reg::w11 => self.gregs[11] = value.to_u32() as u64,
+            Arm64Reg::w12 => self.gregs[12] = value.to_u32() as u64,
+            Arm64Reg::w13 => self.gregs[13] = value.to_u32() as u64,
+            Arm64Reg::w14 => self.gregs[14] = value.to_u32() as u64,
+            Arm64Reg::w15 => self.gregs[15] = value.to_u32() as u64,
+            Arm64Reg::w16 => self.gregs[16] = value.to_u32() as u64,
+            Arm64Reg::w17 => self.gregs[17] = value.to_u32() as u64,
+            Arm64Reg::w18 => self.gregs[18] = value.to_u32() as u64,
+            Arm64Reg::w19 => self.gregs[19] = value.to_u32() as u64,
+            Arm64Reg::w20 => self.gregs[20] = value.to_u32() as u64,
+            Arm64Reg::w21 => self.gregs[21] = value.to_u32() as u64,
+            Arm64Reg::w22 => self.gregs[22] = value.to_u32() as u64,
+            Arm64Reg::w23 => self.gregs[23] = value.to_u32() as u64,
+            Arm64Reg::w24 => self.gregs[24] = value.to_u32() as u64,
+            Arm64Reg::w25 => self.gregs[25] = value.to_u32() as u64,
+            Arm64Reg::w26 => self.gregs[26] = value.to_u32() as u64,
+            Arm64Reg::w27 => self.gregs[27] = value.to_u32() as u64,
+            Arm64Reg::w28 => self.gregs[28] = value.to_u32() as u64,
+            Arm64Reg::w29 => self.gregs[29] = value.to_u32() as u64,
+            Arm64Reg::w30 => self.gregs[30] = value.to_u32() as u64,
+            Arm64Reg::wsp => self.gregs[31] = value.to_u32() as u64,
+            Arm64Reg::x0 => self.gregs[0] = value.extend_64(),
+            Arm64Reg::x1 => self.gregs[1] = value.extend_64(),
+            Arm64Reg::x2 => self.gregs[2] = value.extend_64(),
+            Arm64Reg::x3 => self.gregs[3] = value.extend_64(),
+            Arm64Reg::x4 => self.gregs[4] = value.extend_64(),
+            Arm64Reg::x5 => self.gregs[5] = value.extend_64(),
+            Arm64Reg::x6 => self.gregs[6] = value.extend_64(),
+            Arm64Reg::x7 => self.gregs[7] = value.extend_64(),
+            Arm64Reg::x8 => self.gregs[8] = value.extend_64(),
+            Arm64Reg::x9 => self.gregs[9] = value.extend_64(),
+            Arm64Reg::x10 => self.gregs[10] = value.extend_64(),
+            Arm64Reg::x11 => self.gregs[11] = value.extend_64(),
+            Arm64Reg::x12 => self.gregs[12] = value.extend_64(),
+            Arm64Reg::x13 => self.gregs[13] = value.extend_64(),
+            Arm64Reg::x14 => self.gregs[14] = value.extend_64(),
+            Arm64Reg::x15 => self.gregs[15] = value.extend_64(),
+            Arm64Reg::x16 => self.gregs[16] = value.extend_64(),
+            Arm64Reg::x17 => self.gregs[17] = value.extend_64(),
+            Arm64Reg::x18 => self.gregs[18] = value.extend_64(),
+            Arm64Reg::x19 => self.gregs[19] = value.extend_64(),
+            Arm64Reg::x20 => self.gregs[20] = value.extend_64(),
+            Arm64Reg::x21 => self.gregs[21] = value.extend_64(),
+            Arm64Reg::x22 => self.gregs[22] = value.extend_64(),
+            Arm64Reg::x23 => self.gregs[23] = value.extend_64(),
+            Arm64Reg::x24 => self.gregs[24] = value.extend_64(),
+            Arm64Reg::x25 => self.gregs[25] = value.extend_64(),
+            Arm64Reg::x26 => self.gregs[26] = value.extend_64(),
+            Arm64Reg::x27 => self.gregs[27] = value.extend_64(),
+            Arm64Reg::x28 => self.gregs[28] = value.extend_64(),
+            Arm64Reg::fp => self.gregs[29] = value.extend_64(),
+            Arm64Reg::lr => self.gregs[30] = value.extend_64(),
+            Arm64Reg::sp => self.gregs[31] = value.extend_64(),
+            Arm64Reg::syscall_info => self.syscall_info = value.extend_64(),
+            Arm64Reg::d0 => self.neon[0] = value.get_quad() as u128,
+            Arm64Reg::d1 => self.neon[1] = value.get_quad() as u128,
+            Arm64Reg::d2 => self.neon[2] = value.get_quad() as u128,
+            Arm64Reg::d3 => self.neon[3] = value.get_quad() as u128,
+            Arm64Reg::d4 => self.neon[4] = value.get_quad() as u128,
+            Arm64Reg::d5 => self.neon[5] = value.get_quad() as u128,
+            Arm64Reg::d6 => self.neon[6] = value.get_quad() as u128,
+            Arm64Reg::d7 => self.neon[7] = value.get_quad() as u128,
+            Arm64Reg::d8 => self.neon[8] = value.get_quad() as u128,
+            Arm64Reg::d9 => self.neon[9] = value.get_quad() as u128,
+            Arm64Reg::d10 => self.neon[10] = value.get_quad() as u128,
+            Arm64Reg::d11 => self.neon[11] = value.get_quad() as u128,
+            Arm64Reg::d12 => self.neon[12] = value.get_quad() as u128,
+            Arm64Reg::d13 => self.neon[13] = value.get_quad() as u128,
+            Arm64Reg::d14 => self.neon[14] = value.get_quad() as u128,
+            Arm64Reg::d15 => self.neon[15] = value.get_quad() as u128,
+            Arm64Reg::d16 => self.neon[16] = value.get_quad() as u128,
+            Arm64Reg::d17 => self.neon[17] = value.get_quad() as u128,
+            Arm64Reg::d18 => self.neon[18] = value.get_quad() as u128,
+            Arm64Reg::d19 => self.neon[19] = value.get_quad() as u128,
+            Arm64Reg::d20 => self.neon[20] = value.get_quad() as u128,
+            Arm64Reg::d21 => self.neon[21] = value.get_quad() as u128,
+            Arm64Reg::d22 => self.neon[22] = value.get_quad() as u128,
+            Arm64Reg::d23 => self.neon[23] = value.get_quad() as u128,
+            Arm64Reg::d24 => self.neon[24] = value.get_quad() as u128,
+            Arm64Reg::d25 => self.neon[25] = value.get_quad() as u128,
+            Arm64Reg::d26 => self.neon[26] = value.get_quad() as u128,
+            Arm64Reg::d27 => self.neon[27] = value.get_quad() as u128,
+            Arm64Reg::d28 => self.neon[28] = value.get_quad() as u128,
+            Arm64Reg::d29 => self.neon[29] = value.get_quad() as u128,
+            Arm64Reg::d30 => self.neon[30] = value.get_quad() as u128,
+            Arm64Reg::d31 => self.neon[31] = value.get_quad() as u128,
+            Arm64Reg::s0 => {
+                self.neon[0] &= 0xffffffff_u128;
+                self.neon[0] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s1 => {
+                self.neon[0] &= 0xffffffff_u128 << 32;
+                self.neon[0] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s2 => {
+                self.neon[1] &= 0xffffffff_u128;
+                self.neon[1] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s3 => {
+                self.neon[1] &= 0xffffffff_u128 << 32;
+                self.neon[1] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s4 => {
+                self.neon[2] &= 0xffffffff_u128;
+                self.neon[2] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s5 => {
+                self.neon[2] &= 0xffffffff_u128 << 32;
+                self.neon[2] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s6 => {
+                self.neon[3] &= 0xffffffff_u128;
+                self.neon[3] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s7 => {
+                self.neon[3] &= 0xffffffff_u128 << 32;
+                self.neon[3] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s8 => {
+                self.neon[4] &= 0xffffffff_u128;
+                self.neon[4] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s9 => {
+                self.neon[4] &= 0xffffffff_u128 << 32;
+                self.neon[4] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s10 => {
+                self.neon[5] &= 0xffffffff_u128;
+                self.neon[5] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s11 => {
+                self.neon[5] &= 0xffffffff_u128 << 32;
+                self.neon[5] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s12 => {
+                self.neon[6] &= 0xffffffff_u128;
+                self.neon[6] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s13 => {
+                self.neon[6] &= 0xffffffff_u128 << 32;
+                self.neon[6] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s14 => {
+                self.neon[7] &= 0xffffffff_u128;
+                self.neon[7] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s15 => {
+                self.neon[7] &= 0xffffffff_u128 << 32;
+                self.neon[7] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s16 => {
+                self.neon[8] &= 0xffffffff_u128;
+                self.neon[8] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s17 => {
+                self.neon[8] &= 0xffffffff_u128 << 32;
+                self.neon[8] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s18 => {
+                self.neon[9] &= 0xffffffff_u128;
+                self.neon[9] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s19 => {
+                self.neon[9] &= 0xffffffff_u128 << 32;
+                self.neon[9] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s20 => {
+                self.neon[10] &= 0xffffffff_u128;
+                self.neon[10] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s21 => {
+                self.neon[10] &= 0xffffffff_u128 << 32;
+                self.neon[10] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s22 => {
+                self.neon[11] &= 0xffffffff_u128;
+                self.neon[11] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s23 => {
+                self.neon[11] &= 0xffffffff_u128 << 32;
+                self.neon[11] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s24 => {
+                self.neon[12] &= 0xffffffff_u128;
+                self.neon[12] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s25 => {
+                self.neon[12] &= 0xffffffff_u128 << 32;
+                self.neon[12] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s26 => {
+                self.neon[13] &= 0xffffffff_u128;
+                self.neon[13] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s27 => {
+                self.neon[13] &= 0xffffffff_u128 << 32;
+                self.neon[13] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s28 => {
+                self.neon[14] &= 0xffffffff_u128;
+                self.neon[14] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s29 => {
+                self.neon[14] &= 0xffffffff_u128 << 32;
+                self.neon[14] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::s30 => {
+                self.neon[15] &= 0xffffffff_u128;
+                self.neon[15] |= value.get_word() as u32 as u128;
+            }
+            Arm64Reg::s31 => {
+                self.neon[15] &= 0xffffffff_u128 << 32;
+                self.neon[15] |= (value.get_word() as u32 as u128) << 32;
+            }
+            Arm64Reg::q0 => self.neon[0] = value.extend_128(),
+            Arm64Reg::q1 => self.neon[1] = value.extend_128(),
+            Arm64Reg::q2 => self.neon[2] = value.extend_128(),
+            Arm64Reg::q3 => self.neon[3] = value.extend_128(),
+            Arm64Reg::q4 => self.neon[4] = value.extend_128(),
+            Arm64Reg::q5 => self.neon[5] = value.extend_128(),
+            Arm64Reg::q6 => self.neon[6] = value.extend_128(),
+            Arm64Reg::q7 => self.neon[7] = value.extend_128(),
+            Arm64Reg::q8 => self.neon[8] = value.extend_128(),
+            Arm64Reg::q9 => self.neon[9] = value.extend_128(),
+            Arm64Reg::q10 => self.neon[10] = value.extend_128(),
+            Arm64Reg::q11 => self.neon[11] = value.extend_128(),
+            Arm64Reg::q12 => self.neon[12] = value.extend_128(),
+            Arm64Reg::q13 => self.neon[13] = value.extend_128(),
+            Arm64Reg::q14 => self.neon[14] = value.extend_128(),
+            Arm64Reg::q15 => self.neon[15] = value.extend_128(),
+            Arm64Reg::q16 => self.neon[16] = value.extend_128(),
+            Arm64Reg::q17 => self.neon[17] = value.extend_128(),
+            Arm64Reg::q18 => self.neon[18] = value.extend_128(),
+            Arm64Reg::q19 => self.neon[19] = value.extend_128(),
+            Arm64Reg::q20 => self.neon[20] = value.extend_128(),
+            Arm64Reg::q21 => self.neon[21] = value.extend_128(),
+            Arm64Reg::q22 => self.neon[22] = value.extend_128(),
+            Arm64Reg::q23 => self.neon[23] = value.extend_128(),
+            Arm64Reg::q24 => self.neon[24] = value.extend_128(),
+            Arm64Reg::q25 => self.neon[25] = value.extend_128(),
+            Arm64Reg::q26 => self.neon[26] = value.extend_128(),
+            Arm64Reg::q27 => self.neon[27] = value.extend_128(),
+            Arm64Reg::q28 => self.neon[28] = value.extend_128(),
+            Arm64Reg::q29 => self.neon[29] = value.extend_128(),
+            Arm64Reg::q30 => self.neon[30] = value.extend_128(),
+            Arm64Reg::q31 => self.neon[31] = value.extend_128(),
+            Arm64Reg::v0b0 => {
+                self.neon[0] &= !(0xff_u128 << (8 * 0));
+                self.neon[0] |= (value.get_byte() as u128) << (8 * 0);
+            }
+            Arm64Reg::v0b1 => {
+                self.neon[0] &= !(0xff_u128 << (1 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v0b2 => {
+                self.neon[0] &= !(0xff_u128 << (2 * 8));
+                self.neon[0] |= !(value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v0b3 => {
+                self.neon[0] &= !(0xff_u128 << (3 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v0b4 => {
+                self.neon[0] &= !(0xff_u128 << (4 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v0b5 => {
+                self.neon[0] &= !(0xff_u128 << (5 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v0b6 => {
+                self.neon[0] &= !(0xff_u128 << (6 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v0b7 => {
+                self.neon[0] &= !(0xff_u128 << (7 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v0b8 => {
+                self.neon[0] &= !(0xff_u128 << (8 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v0b9 => {
+                self.neon[0] &= !(0xff_u128 << (9 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v0b10 => {
+                self.neon[0] &= !(0xff_u128 << (10 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v0b11 => {
+                self.neon[0] &= !(0xff_u128 << (11 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v0b12 => {
+                self.neon[0] &= !(0xff_u128 << (12 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v0b13 => {
+                self.neon[0] &= !(0xff_u128 << (13 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v0b14 => {
+                self.neon[0] &= !(0xff_u128 << (14 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v0b15 => {
+                self.neon[0] &= !(0xff_u128 << (15 * 8));
+                self.neon[0] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v1b0 => {
+                self.neon[1] &= !(0xff_u128 << (0 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v1b1 => {
+                self.neon[1] &= !(0xff_u128 << (1 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v1b2 => {
+                self.neon[1] &= !(0xff_u128 << (2 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v1b3 => {
+                self.neon[1] &= !(0xff_u128 << (3 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v1b4 => {
+                self.neon[1] &= !(0xff_u128 << (4 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v1b5 => {
+                self.neon[1] &= !(0xff_u128 << (5 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v1b6 => {
+                self.neon[1] &= !(0xff_u128 << (6 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v1b7 => {
+                self.neon[1] &= !(0xff_u128 << (7 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v1b8 => {
+                self.neon[1] &= !(0xff_u128 << (8 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v1b9 => {
+                self.neon[1] &= !(0xff_u128 << (9 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v1b10 => {
+                self.neon[1] &= !(0xff_u128 << (10 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v1b11 => {
+                self.neon[1] &= !(0xff_u128 << (11 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v1b12 => {
+                self.neon[1] &= !(0xff_u128 << (12 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v1b13 => {
+                self.neon[1] &= !(0xff_u128 << (13 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v1b14 => {
+                self.neon[1] &= !(0xff_u128 << (14 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v1b15 => {
+                self.neon[1] &= !(0xff_u128 << (15 * 8));
+                self.neon[1] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v2b0 => {
+                self.neon[2] &= !(0xff_u128 << (0 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v2b1 => {
+                self.neon[2] &= !(0xff_u128 << (1 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v2b2 => {
+                self.neon[2] &= !(0xff_u128 << (2 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v2b3 => {
+                self.neon[2] &= !(0xff_u128 << (3 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v2b4 => {
+                self.neon[2] &= !(0xff_u128 << (4 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v2b5 => {
+                self.neon[2] &= !(0xff_u128 << (5 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v2b6 => {
+                self.neon[2] &= !(0xff_u128 << (6 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v2b7 => {
+                self.neon[2] &= !(0xff_u128 << (7 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v2b8 => {
+                self.neon[2] &= !(0xff_u128 << (8 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v2b9 => {
+                self.neon[2] &= !(0xff_u128 << (9 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v2b10 => {
+                self.neon[2] &= !(0xff_u128 << (10 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v2b11 => {
+                self.neon[2] &= !(0xff_u128 << (11 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v2b12 => {
+                self.neon[2] &= !(0xff_u128 << (12 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v2b13 => {
+                self.neon[2] &= !(0xff_u128 << (13 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v2b14 => {
+                self.neon[2] &= !(0xff_u128 << (14 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v2b15 => {
+                self.neon[2] &= !(0xff_u128 << (15 * 8));
+                self.neon[2] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v3b0 => {
+                self.neon[3] &= !(0xff_u128 << (0 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v3b1 => {
+                self.neon[3] &= !(0xff_u128 << (1 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v3b2 => {
+                self.neon[3] &= !(0xff_u128 << (2 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v3b3 => {
+                self.neon[3] &= !(0xff_u128 << (3 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v3b4 => {
+                self.neon[3] &= !(0xff_u128 << (4 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v3b5 => {
+                self.neon[3] &= !(0xff_u128 << (5 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v3b6 => {
+                self.neon[3] &= !(0xff_u128 << (6 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v3b7 => {
+                self.neon[3] &= !(0xff_u128 << (7 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v3b8 => {
+                self.neon[3] &= !(0xff_u128 << (8 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v3b9 => {
+                self.neon[3] &= !(0xff_u128 << (9 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v3b10 => {
+                self.neon[3] &= !(0xff_u128 << (10 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v3b11 => {
+                self.neon[3] &= !(0xff_u128 << (11 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v3b12 => {
+                self.neon[3] &= !(0xff_u128 << (12 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v3b13 => {
+                self.neon[3] &= !(0xff_u128 << (13 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v3b14 => {
+                self.neon[3] &= !(0xff_u128 << (14 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v3b15 => {
+                self.neon[3] &= !(0xff_u128 << (15 * 8));
+                self.neon[3] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v4b0 => {
+                self.neon[4] &= !(0xff_u128 << (0 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v4b1 => {
+                self.neon[4] &= !(0xff_u128 << (1 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v4b2 => {
+                self.neon[4] &= !(0xff_u128 << (2 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v4b3 => {
+                self.neon[4] &= !(0xff_u128 << (3 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v4b4 => {
+                self.neon[4] &= !(0xff_u128 << (4 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v4b5 => {
+                self.neon[4] &= !(0xff_u128 << (5 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v4b6 => {
+                self.neon[4] &= !(0xff_u128 << (6 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v4b7 => {
+                self.neon[4] &= !(0xff_u128 << (7 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v4b8 => {
+                self.neon[4] &= !(0xff_u128 << (8 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v4b9 => {
+                self.neon[4] &= !(0xff_u128 << (9 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v4b10 => {
+                self.neon[4] &= !(0xff_u128 << (10 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v4b11 => {
+                self.neon[4] &= !(0xff_u128 << (11 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v4b12 => {
+                self.neon[4] &= !(0xff_u128 << (12 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v4b13 => {
+                self.neon[4] &= !(0xff_u128 << (13 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v4b14 => {
+                self.neon[4] &= !(0xff_u128 << (14 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v4b15 => {
+                self.neon[4] &= !(0xff_u128 << (15 * 8));
+                self.neon[4] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v5b0 => {
+                self.neon[5] &= !(0xff_u128 << (0 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v5b1 => {
+                self.neon[5] &= !(0xff_u128 << (1 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v5b2 => {
+                self.neon[5] &= !(0xff_u128 << (2 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v5b3 => {
+                self.neon[5] &= !(0xff_u128 << (3 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v5b4 => {
+                self.neon[5] &= !(0xff_u128 << (4 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v5b5 => {
+                self.neon[5] &= !(0xff_u128 << (5 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v5b6 => {
+                self.neon[5] &= !(0xff_u128 << (6 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v5b7 => {
+                self.neon[5] &= !(0xff_u128 << (7 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v5b8 => {
+                self.neon[5] &= !(0xff_u128 << (8 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v5b9 => {
+                self.neon[5] &= !(0xff_u128 << (9 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v5b10 => {
+                self.neon[5] &= !(0xff_u128 << (10 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v5b11 => {
+                self.neon[5] &= !(0xff_u128 << (11 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v5b12 => {
+                self.neon[5] &= !(0xff_u128 << (12 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v5b13 => {
+                self.neon[5] &= !(0xff_u128 << (13 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v5b14 => {
+                self.neon[5] &= !(0xff_u128 << (14 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v5b15 => {
+                self.neon[5] &= !(0xff_u128 << (15 * 8));
+                self.neon[5] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v6b0 => {
+                self.neon[6] &= !(0xff_u128 << (0 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v6b1 => {
+                self.neon[6] &= !(0xff_u128 << (1 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v6b2 => {
+                self.neon[6] &= !(0xff_u128 << (2 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v6b3 => {
+                self.neon[6] &= !(0xff_u128 << (3 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v6b4 => {
+                self.neon[6] &= !(0xff_u128 << (4 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v6b5 => {
+                self.neon[6] &= !(0xff_u128 << (5 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v6b6 => {
+                self.neon[6] &= !(0xff_u128 << (6 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v6b7 => {
+                self.neon[6] &= !(0xff_u128 << (7 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v6b8 => {
+                self.neon[6] &= !(0xff_u128 << (8 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v6b9 => {
+                self.neon[6] &= !(0xff_u128 << (9 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v6b10 => {
+                self.neon[6] &= !(0xff_u128 << (10 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v6b11 => {
+                self.neon[6] &= !(0xff_u128 << (11 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v6b12 => {
+                self.neon[6] &= !(0xff_u128 << (12 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v6b13 => {
+                self.neon[6] &= !(0xff_u128 << (13 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v6b14 => {
+                self.neon[6] &= !(0xff_u128 << (14 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v6b15 => {
+                self.neon[6] &= !(0xff_u128 << (15 * 8));
+                self.neon[6] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v7b0 => {
+                self.neon[7] &= !(0xff_u128 << (0 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v7b1 => {
+                self.neon[7] &= !(0xff_u128 << (1 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v7b2 => {
+                self.neon[7] &= !(0xff_u128 << (2 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v7b3 => {
+                self.neon[7] &= !(0xff_u128 << (3 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v7b4 => {
+                self.neon[7] &= !(0xff_u128 << (4 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v7b5 => {
+                self.neon[7] &= !(0xff_u128 << (5 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v7b6 => {
+                self.neon[7] &= !(0xff_u128 << (6 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v7b7 => {
+                self.neon[7] &= !(0xff_u128 << (7 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v7b8 => {
+                self.neon[7] &= !(0xff_u128 << (8 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v7b9 => {
+                self.neon[7] &= !(0xff_u128 << (9 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v7b10 => {
+                self.neon[7] &= !(0xff_u128 << (10 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v7b11 => {
+                self.neon[7] &= !(0xff_u128 << (11 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v7b12 => {
+                self.neon[7] &= !(0xff_u128 << (12 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v7b13 => {
+                self.neon[7] &= !(0xff_u128 << (13 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v7b14 => {
+                self.neon[7] &= !(0xff_u128 << (14 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v7b15 => {
+                self.neon[7] &= !(0xff_u128 << (15 * 8));
+                self.neon[7] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v8b0 => {
+                self.neon[8] &= !(0xff_u128 << (0 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v8b1 => {
+                self.neon[8] &= !(0xff_u128 << (1 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v8b2 => {
+                self.neon[8] &= !(0xff_u128 << (2 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v8b3 => {
+                self.neon[8] &= !(0xff_u128 << (3 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v8b4 => {
+                self.neon[8] &= !(0xff_u128 << (4 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v8b5 => {
+                self.neon[8] &= !(0xff_u128 << (5 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v8b6 => {
+                self.neon[8] &= !(0xff_u128 << (6 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v8b7 => {
+                self.neon[8] &= !(0xff_u128 << (7 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v8b8 => {
+                self.neon[8] &= !(0xff_u128 << (8 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v8b9 => {
+                self.neon[8] &= !(0xff_u128 << (9 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v8b10 => {
+                self.neon[8] &= !(0xff_u128 << (10 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v8b11 => {
+                self.neon[8] &= !(0xff_u128 << (11 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v8b12 => {
+                self.neon[8] &= !(0xff_u128 << (12 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v8b13 => {
+                self.neon[8] &= !(0xff_u128 << (13 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v8b14 => {
+                self.neon[8] &= !(0xff_u128 << (14 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v8b15 => {
+                self.neon[8] &= !(0xff_u128 << (15 * 8));
+                self.neon[8] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v9b0 => {
+                self.neon[9] &= !(0xff_u128 << (0 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v9b1 => {
+                self.neon[9] &= !(0xff_u128 << (1 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v9b2 => {
+                self.neon[9] &= !(0xff_u128 << (2 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v9b3 => {
+                self.neon[9] &= !(0xff_u128 << (3 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v9b4 => {
+                self.neon[9] &= !(0xff_u128 << (4 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v9b5 => {
+                self.neon[9] &= !(0xff_u128 << (5 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v9b6 => {
+                self.neon[9] &= !(0xff_u128 << (6 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v9b7 => {
+                self.neon[9] &= !(0xff_u128 << (7 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v9b8 => {
+                self.neon[9] &= !(0xff_u128 << (8 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v9b9 => {
+                self.neon[9] &= !(0xff_u128 << (9 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v9b10 => {
+                self.neon[9] &= !(0xff_u128 << (10 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v9b11 => {
+                self.neon[9] &= !(0xff_u128 << (11 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v9b12 => {
+                self.neon[9] &= !(0xff_u128 << (12 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v9b13 => {
+                self.neon[9] &= !(0xff_u128 << (13 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v9b14 => {
+                self.neon[9] &= !(0xff_u128 << (14 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v9b15 => {
+                self.neon[9] &= !(0xff_u128 << (15 * 8));
+                self.neon[9] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v10b0 => {
+                self.neon[10] &= !(0xff_u128 << (0 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v10b1 => {
+                self.neon[10] &= !(0xff_u128 << (1 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v10b2 => {
+                self.neon[10] &= !(0xff_u128 << (2 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v10b3 => {
+                self.neon[10] &= !(0xff_u128 << (3 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v10b4 => {
+                self.neon[10] &= !(0xff_u128 << (4 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v10b5 => {
+                self.neon[10] &= !(0xff_u128 << (5 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v10b6 => {
+                self.neon[10] &= !(0xff_u128 << (6 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v10b7 => {
+                self.neon[10] &= !(0xff_u128 << (7 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v10b8 => {
+                self.neon[10] &= !(0xff_u128 << (8 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v10b9 => {
+                self.neon[10] &= !(0xff_u128 << (9 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v10b10 => {
+                self.neon[10] &= !(0xff_u128 << (10 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v10b11 => {
+                self.neon[10] &= !(0xff_u128 << (11 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v10b12 => {
+                self.neon[10] &= !(0xff_u128 << (12 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v10b13 => {
+                self.neon[10] &= !(0xff_u128 << (13 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v10b14 => {
+                self.neon[10] &= !(0xff_u128 << (14 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v10b15 => {
+                self.neon[10] &= !(0xff_u128 << (15 * 8));
+                self.neon[10] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v11b0 => {
+                self.neon[11] &= !(0xff_u128 << (0 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v11b1 => {
+                self.neon[11] &= !(0xff_u128 << (1 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v11b2 => {
+                self.neon[11] &= !(0xff_u128 << (2 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v11b3 => {
+                self.neon[11] &= !(0xff_u128 << (3 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v11b4 => {
+                self.neon[11] &= !(0xff_u128 << (4 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v11b5 => {
+                self.neon[11] &= !(0xff_u128 << (5 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v11b6 => {
+                self.neon[11] &= !(0xff_u128 << (6 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v11b7 => {
+                self.neon[11] &= !(0xff_u128 << (7 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v11b8 => {
+                self.neon[11] &= !(0xff_u128 << (8 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v11b9 => {
+                self.neon[11] &= !(0xff_u128 << (9 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v11b10 => {
+                self.neon[11] &= !(0xff_u128 << (10 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v11b11 => {
+                self.neon[11] &= !(0xff_u128 << (11 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v11b12 => {
+                self.neon[11] &= !(0xff_u128 << (12 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v11b13 => {
+                self.neon[11] &= !(0xff_u128 << (13 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v11b14 => {
+                self.neon[11] &= !(0xff_u128 << (14 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v11b15 => {
+                self.neon[11] &= !(0xff_u128 << (15 * 8));
+                self.neon[11] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v12b0 => {
+                self.neon[12] &= !(0xff_u128 << (0 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v12b1 => {
+                self.neon[12] &= !(0xff_u128 << (1 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v12b2 => {
+                self.neon[12] &= !(0xff_u128 << (2 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v12b3 => {
+                self.neon[12] &= !(0xff_u128 << (3 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v12b4 => {
+                self.neon[12] &= !(0xff_u128 << (4 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v12b5 => {
+                self.neon[12] &= !(0xff_u128 << (5 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v12b6 => {
+                self.neon[12] &= !(0xff_u128 << (6 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v12b7 => {
+                self.neon[12] &= !(0xff_u128 << (7 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v12b8 => {
+                self.neon[12] &= !(0xff_u128 << (8 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v12b9 => {
+                self.neon[12] &= !(0xff_u128 << (9 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v12b10 => {
+                self.neon[12] &= !(0xff_u128 << (10 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v12b11 => {
+                self.neon[12] &= !(0xff_u128 << (11 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v12b12 => {
+                self.neon[12] &= !(0xff_u128 << (12 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v12b13 => {
+                self.neon[12] &= !(0xff_u128 << (13 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v12b14 => {
+                self.neon[12] &= !(0xff_u128 << (14 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v12b15 => {
+                self.neon[12] &= !(0xff_u128 << (15 * 8));
+                self.neon[12] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v13b0 => {
+                self.neon[13] &= !(0xff_u128 << (0 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v13b1 => {
+                self.neon[13] &= !(0xff_u128 << (1 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v13b2 => {
+                self.neon[13] &= !(0xff_u128 << (2 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v13b3 => {
+                self.neon[13] &= !(0xff_u128 << (3 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v13b4 => {
+                self.neon[13] &= !(0xff_u128 << (4 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v13b5 => {
+                self.neon[13] &= !(0xff_u128 << (5 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v13b6 => {
+                self.neon[13] &= !(0xff_u128 << (6 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v13b7 => {
+                self.neon[13] &= !(0xff_u128 << (7 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v13b8 => {
+                self.neon[13] &= !(0xff_u128 << (8 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v13b9 => {
+                self.neon[13] &= !(0xff_u128 << (9 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v13b10 => {
+                self.neon[13] &= !(0xff_u128 << (10 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v13b11 => {
+                self.neon[13] &= !(0xff_u128 << (11 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v13b12 => {
+                self.neon[13] &= !(0xff_u128 << (12 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v13b13 => {
+                self.neon[13] &= !(0xff_u128 << (13 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v13b14 => {
+                self.neon[13] &= !(0xff_u128 << (14 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v13b15 => {
+                self.neon[13] &= !(0xff_u128 << (15 * 8));
+                self.neon[13] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v14b0 => {
+                self.neon[14] &= !(0xff_u128 << (0 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v14b1 => {
+                self.neon[14] &= !(0xff_u128 << (1 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v14b2 => {
+                self.neon[14] &= !(0xff_u128 << (2 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v14b3 => {
+                self.neon[14] &= !(0xff_u128 << (3 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v14b4 => {
+                self.neon[14] &= !(0xff_u128 << (4 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v14b5 => {
+                self.neon[14] &= !(0xff_u128 << (5 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v14b6 => {
+                self.neon[14] &= !(0xff_u128 << (6 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v14b7 => {
+                self.neon[14] &= !(0xff_u128 << (7 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v14b8 => {
+                self.neon[14] &= !(0xff_u128 << (8 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v14b9 => {
+                self.neon[14] &= !(0xff_u128 << (9 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v14b10 => {
+                self.neon[14] &= !(0xff_u128 << (10 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v14b11 => {
+                self.neon[14] &= !(0xff_u128 << (11 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v14b12 => {
+                self.neon[14] &= !(0xff_u128 << (12 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v14b13 => {
+                self.neon[14] &= !(0xff_u128 << (13 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v14b14 => {
+                self.neon[14] &= !(0xff_u128 << (14 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v14b15 => {
+                self.neon[14] &= !(0xff_u128 << (15 * 8));
+                self.neon[14] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v15b0 => {
+                self.neon[15] &= !(0xff_u128 << (0 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v15b1 => {
+                self.neon[15] &= !(0xff_u128 << (1 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v15b2 => {
+                self.neon[15] &= !(0xff_u128 << (2 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v15b3 => {
+                self.neon[15] &= !(0xff_u128 << (3 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v15b4 => {
+                self.neon[15] &= !(0xff_u128 << (4 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v15b5 => {
+                self.neon[15] &= !(0xff_u128 << (5 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v15b6 => {
+                self.neon[15] &= !(0xff_u128 << (6 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v15b7 => {
+                self.neon[15] &= !(0xff_u128 << (7 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v15b8 => {
+                self.neon[15] &= !(0xff_u128 << (8 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v15b9 => {
+                self.neon[15] &= !(0xff_u128 << (9 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v15b10 => {
+                self.neon[15] &= !(0xff_u128 << (10 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v15b11 => {
+                self.neon[15] &= !(0xff_u128 << (11 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v15b12 => {
+                self.neon[15] &= !(0xff_u128 << (12 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v15b13 => {
+                self.neon[15] &= !(0xff_u128 << (13 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v15b14 => {
+                self.neon[15] &= !(0xff_u128 << (14 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v15b15 => {
+                self.neon[15] &= !(0xff_u128 << (15 * 8));
+                self.neon[15] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v16b0 => {
+                self.neon[16] &= !(0xff_u128 << (0 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v16b1 => {
+                self.neon[16] &= !(0xff_u128 << (1 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v16b2 => {
+                self.neon[16] &= !(0xff_u128 << (2 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v16b3 => {
+                self.neon[16] &= !(0xff_u128 << (3 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v16b4 => {
+                self.neon[16] &= !(0xff_u128 << (4 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v16b5 => {
+                self.neon[16] &= !(0xff_u128 << (5 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v16b6 => {
+                self.neon[16] &= !(0xff_u128 << (6 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v16b7 => {
+                self.neon[16] &= !(0xff_u128 << (7 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v16b8 => {
+                self.neon[16] &= !(0xff_u128 << (8 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v16b9 => {
+                self.neon[16] &= !(0xff_u128 << (9 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v16b10 => {
+                self.neon[16] &= !(0xff_u128 << (10 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v16b11 => {
+                self.neon[16] &= !(0xff_u128 << (11 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v16b12 => {
+                self.neon[16] &= !(0xff_u128 << (12 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v16b13 => {
+                self.neon[16] &= !(0xff_u128 << (13 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v16b14 => {
+                self.neon[16] &= !(0xff_u128 << (14 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v16b15 => {
+                self.neon[16] &= !(0xff_u128 << (15 * 8));
+                self.neon[16] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v17b0 => {
+                self.neon[17] &= !(0xff_u128 << (0 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v17b1 => {
+                self.neon[17] &= !(0xff_u128 << (1 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v17b2 => {
+                self.neon[17] &= !(0xff_u128 << (2 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v17b3 => {
+                self.neon[17] &= !(0xff_u128 << (3 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v17b4 => {
+                self.neon[17] &= !(0xff_u128 << (4 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v17b5 => {
+                self.neon[17] &= !(0xff_u128 << (5 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v17b6 => {
+                self.neon[17] &= !(0xff_u128 << (6 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v17b7 => {
+                self.neon[17] &= !(0xff_u128 << (7 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v17b8 => {
+                self.neon[17] &= !(0xff_u128 << (8 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v17b9 => {
+                self.neon[17] &= !(0xff_u128 << (9 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v17b10 => {
+                self.neon[17] &= !(0xff_u128 << (10 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v17b11 => {
+                self.neon[17] &= !(0xff_u128 << (11 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v17b12 => {
+                self.neon[17] &= !(0xff_u128 << (12 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v17b13 => {
+                self.neon[17] &= !(0xff_u128 << (13 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v17b14 => {
+                self.neon[17] &= !(0xff_u128 << (14 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v17b15 => {
+                self.neon[17] &= !(0xff_u128 << (15 * 8));
+                self.neon[17] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v18b0 => {
+                self.neon[18] &= !(0xff_u128 << (0 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v18b1 => {
+                self.neon[18] &= !(0xff_u128 << (1 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v18b2 => {
+                self.neon[18] &= !(0xff_u128 << (2 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v18b3 => {
+                self.neon[18] &= !(0xff_u128 << (3 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v18b4 => {
+                self.neon[18] &= !(0xff_u128 << (4 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v18b5 => {
+                self.neon[18] &= !(0xff_u128 << (5 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v18b6 => {
+                self.neon[18] &= !(0xff_u128 << (6 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v18b7 => {
+                self.neon[18] &= !(0xff_u128 << (7 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v18b8 => {
+                self.neon[18] &= !(0xff_u128 << (8 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v18b9 => {
+                self.neon[18] &= !(0xff_u128 << (9 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v18b10 => {
+                self.neon[18] &= !(0xff_u128 << (10 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v18b11 => {
+                self.neon[18] &= !(0xff_u128 << (11 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v18b12 => {
+                self.neon[18] &= !(0xff_u128 << (12 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v18b13 => {
+                self.neon[18] &= !(0xff_u128 << (13 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v18b14 => {
+                self.neon[18] &= !(0xff_u128 << (14 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v18b15 => {
+                self.neon[18] &= !(0xff_u128 << (15 * 8));
+                self.neon[18] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v19b0 => {
+                self.neon[19] &= !(0xff_u128 << (0 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v19b1 => {
+                self.neon[19] &= !(0xff_u128 << (1 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v19b2 => {
+                self.neon[19] &= !(0xff_u128 << (2 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v19b3 => {
+                self.neon[19] &= !(0xff_u128 << (3 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v19b4 => {
+                self.neon[19] &= !(0xff_u128 << (4 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v19b5 => {
+                self.neon[19] &= !(0xff_u128 << (5 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v19b6 => {
+                self.neon[19] &= !(0xff_u128 << (6 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v19b7 => {
+                self.neon[19] &= !(0xff_u128 << (7 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v19b8 => {
+                self.neon[19] &= !(0xff_u128 << (8 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v19b9 => {
+                self.neon[19] &= !(0xff_u128 << (9 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v19b10 => {
+                self.neon[19] &= !(0xff_u128 << (10 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v19b11 => {
+                self.neon[19] &= !(0xff_u128 << (11 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v19b12 => {
+                self.neon[19] &= !(0xff_u128 << (12 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v19b13 => {
+                self.neon[19] &= !(0xff_u128 << (13 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v19b14 => {
+                self.neon[19] &= !(0xff_u128 << (14 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v19b15 => {
+                self.neon[19] &= !(0xff_u128 << (15 * 8));
+                self.neon[19] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v20b0 => {
+                self.neon[20] &= !(0xff_u128 << (0 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v20b1 => {
+                self.neon[20] &= !(0xff_u128 << (1 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v20b2 => {
+                self.neon[20] &= !(0xff_u128 << (2 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v20b3 => {
+                self.neon[20] &= !(0xff_u128 << (3 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v20b4 => {
+                self.neon[20] &= !(0xff_u128 << (4 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v20b5 => {
+                self.neon[20] &= !(0xff_u128 << (5 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v20b6 => {
+                self.neon[20] &= !(0xff_u128 << (6 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v20b7 => {
+                self.neon[20] &= !(0xff_u128 << (7 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v20b8 => {
+                self.neon[20] &= !(0xff_u128 << (8 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v20b9 => {
+                self.neon[20] &= !(0xff_u128 << (9 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v20b10 => {
+                self.neon[20] &= !(0xff_u128 << (10 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v20b11 => {
+                self.neon[20] &= !(0xff_u128 << (11 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v20b12 => {
+                self.neon[20] &= !(0xff_u128 << (12 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v20b13 => {
+                self.neon[20] &= !(0xff_u128 << (13 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v20b14 => {
+                self.neon[20] &= !(0xff_u128 << (14 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v20b15 => {
+                self.neon[20] &= !(0xff_u128 << (15 * 8));
+                self.neon[20] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v21b0 => {
+                self.neon[21] &= !(0xff_u128 << (0 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v21b1 => {
+                self.neon[21] &= !(0xff_u128 << (1 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v21b2 => {
+                self.neon[21] &= !(0xff_u128 << (2 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v21b3 => {
+                self.neon[21] &= !(0xff_u128 << (3 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v21b4 => {
+                self.neon[21] &= !(0xff_u128 << (4 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v21b5 => {
+                self.neon[21] &= !(0xff_u128 << (5 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v21b6 => {
+                self.neon[21] &= !(0xff_u128 << (6 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v21b7 => {
+                self.neon[21] &= !(0xff_u128 << (7 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v21b8 => {
+                self.neon[21] &= !(0xff_u128 << (8 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v21b9 => {
+                self.neon[21] &= !(0xff_u128 << (9 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v21b10 => {
+                self.neon[21] &= !(0xff_u128 << (10 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v21b11 => {
+                self.neon[21] &= !(0xff_u128 << (11 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v21b12 => {
+                self.neon[21] &= !(0xff_u128 << (12 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v21b13 => {
+                self.neon[21] &= !(0xff_u128 << (13 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v21b14 => {
+                self.neon[21] &= !(0xff_u128 << (14 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v21b15 => {
+                self.neon[21] &= !(0xff_u128 << (15 * 8));
+                self.neon[21] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v22b0 => {
+                self.neon[22] &= !(0xff_u128 << (0 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v22b1 => {
+                self.neon[22] &= !(0xff_u128 << (1 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v22b2 => {
+                self.neon[22] &= !(0xff_u128 << (2 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v22b3 => {
+                self.neon[22] &= !(0xff_u128 << (3 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v22b4 => {
+                self.neon[22] &= !(0xff_u128 << (4 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v22b5 => {
+                self.neon[22] &= !(0xff_u128 << (5 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v22b6 => {
+                self.neon[22] &= !(0xff_u128 << (6 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v22b7 => {
+                self.neon[22] &= !(0xff_u128 << (7 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v22b8 => {
+                self.neon[22] &= !(0xff_u128 << (8 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v22b9 => {
+                self.neon[22] &= !(0xff_u128 << (9 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v22b10 => {
+                self.neon[22] &= !(0xff_u128 << (10 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v22b11 => {
+                self.neon[22] &= !(0xff_u128 << (11 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v22b12 => {
+                self.neon[22] &= !(0xff_u128 << (12 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v22b13 => {
+                self.neon[22] &= !(0xff_u128 << (13 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v22b14 => {
+                self.neon[22] &= !(0xff_u128 << (14 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v22b15 => {
+                self.neon[22] &= !(0xff_u128 << (15 * 8));
+                self.neon[22] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v23b0 => {
+                self.neon[23] &= !(0xff_u128 << (0 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v23b1 => {
+                self.neon[23] &= !(0xff_u128 << (1 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v23b2 => {
+                self.neon[23] &= !(0xff_u128 << (2 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v23b3 => {
+                self.neon[23] &= !(0xff_u128 << (3 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v23b4 => {
+                self.neon[23] &= !(0xff_u128 << (4 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v23b5 => {
+                self.neon[23] &= !(0xff_u128 << (5 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v23b6 => {
+                self.neon[23] &= !(0xff_u128 << (6 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v23b7 => {
+                self.neon[23] &= !(0xff_u128 << (7 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v23b8 => {
+                self.neon[23] &= !(0xff_u128 << (8 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v23b9 => {
+                self.neon[23] &= !(0xff_u128 << (9 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v23b10 => {
+                self.neon[23] &= !(0xff_u128 << (10 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v23b11 => {
+                self.neon[23] &= !(0xff_u128 << (11 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v23b12 => {
+                self.neon[23] &= !(0xff_u128 << (12 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v23b13 => {
+                self.neon[23] &= !(0xff_u128 << (13 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v23b14 => {
+                self.neon[23] &= !(0xff_u128 << (14 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v23b15 => {
+                self.neon[23] &= !(0xff_u128 << (15 * 8));
+                self.neon[23] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v24b0 => {
+                self.neon[24] &= !(0xff_u128 << (0 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v24b1 => {
+                self.neon[24] &= !(0xff_u128 << (1 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v24b2 => {
+                self.neon[24] &= !(0xff_u128 << (2 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v24b3 => {
+                self.neon[24] &= !(0xff_u128 << (3 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v24b4 => {
+                self.neon[24] &= !(0xff_u128 << (4 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v24b5 => {
+                self.neon[24] &= !(0xff_u128 << (5 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v24b6 => {
+                self.neon[24] &= !(0xff_u128 << (6 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v24b7 => {
+                self.neon[24] &= !(0xff_u128 << (7 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v24b8 => {
+                self.neon[24] &= !(0xff_u128 << (8 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v24b9 => {
+                self.neon[24] &= !(0xff_u128 << (9 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v24b10 => {
+                self.neon[24] &= !(0xff_u128 << (10 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v24b11 => {
+                self.neon[24] &= !(0xff_u128 << (11 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v24b12 => {
+                self.neon[24] &= !(0xff_u128 << (12 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v24b13 => {
+                self.neon[24] &= !(0xff_u128 << (13 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v24b14 => {
+                self.neon[24] &= !(0xff_u128 << (14 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v24b15 => {
+                self.neon[24] &= !(0xff_u128 << (15 * 8));
+                self.neon[24] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v25b0 => {
+                self.neon[25] &= !(0xff_u128 << (0 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v25b1 => {
+                self.neon[25] &= !(0xff_u128 << (1 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v25b2 => {
+                self.neon[25] &= !(0xff_u128 << (2 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v25b3 => {
+                self.neon[25] &= !(0xff_u128 << (3 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v25b4 => {
+                self.neon[25] &= !(0xff_u128 << (4 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v25b5 => {
+                self.neon[25] &= !(0xff_u128 << (5 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v25b6 => {
+                self.neon[25] &= !(0xff_u128 << (6 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v25b7 => {
+                self.neon[25] &= !(0xff_u128 << (7 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v25b8 => {
+                self.neon[25] &= !(0xff_u128 << (8 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v25b9 => {
+                self.neon[25] &= !(0xff_u128 << (9 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v25b10 => {
+                self.neon[25] &= !(0xff_u128 << (10 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v25b11 => {
+                self.neon[25] &= !(0xff_u128 << (11 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v25b12 => {
+                self.neon[25] &= !(0xff_u128 << (12 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v25b13 => {
+                self.neon[25] &= !(0xff_u128 << (13 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v25b14 => {
+                self.neon[25] &= !(0xff_u128 << (14 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v25b15 => {
+                self.neon[25] &= !(0xff_u128 << (15 * 8));
+                self.neon[25] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v26b0 => {
+                self.neon[26] &= !(0xff_u128 << (0 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v26b1 => {
+                self.neon[26] &= !(0xff_u128 << (1 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v26b2 => {
+                self.neon[26] &= !(0xff_u128 << (2 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v26b3 => {
+                self.neon[26] &= !(0xff_u128 << (3 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v26b4 => {
+                self.neon[26] &= !(0xff_u128 << (4 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v26b5 => {
+                self.neon[26] &= !(0xff_u128 << (5 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v26b6 => {
+                self.neon[26] &= !(0xff_u128 << (6 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v26b7 => {
+                self.neon[26] &= !(0xff_u128 << (7 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v26b8 => {
+                self.neon[26] &= !(0xff_u128 << (8 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v26b9 => {
+                self.neon[26] &= !(0xff_u128 << (9 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v26b10 => {
+                self.neon[26] &= !(0xff_u128 << (10 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v26b11 => {
+                self.neon[26] &= !(0xff_u128 << (11 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v26b12 => {
+                self.neon[26] &= !(0xff_u128 << (12 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v26b13 => {
+                self.neon[26] &= !(0xff_u128 << (13 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v26b14 => {
+                self.neon[26] &= !(0xff_u128 << (14 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v26b15 => {
+                self.neon[26] &= !(0xff_u128 << (15 * 8));
+                self.neon[26] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v27b0 => {
+                self.neon[27] &= !(0xff_u128 << (0 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v27b1 => {
+                self.neon[27] &= !(0xff_u128 << (1 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v27b2 => {
+                self.neon[27] &= !(0xff_u128 << (2 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v27b3 => {
+                self.neon[27] &= !(0xff_u128 << (3 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v27b4 => {
+                self.neon[27] &= !(0xff_u128 << (4 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v27b5 => {
+                self.neon[27] &= !(0xff_u128 << (5 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v27b6 => {
+                self.neon[27] &= !(0xff_u128 << (6 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v27b7 => {
+                self.neon[27] &= !(0xff_u128 << (7 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v27b8 => {
+                self.neon[27] &= !(0xff_u128 << (8 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v27b9 => {
+                self.neon[27] &= !(0xff_u128 << (9 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v27b10 => {
+                self.neon[27] &= !(0xff_u128 << (10 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v27b11 => {
+                self.neon[27] &= !(0xff_u128 << (11 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v27b12 => {
+                self.neon[27] &= !(0xff_u128 << (12 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v27b13 => {
+                self.neon[27] &= !(0xff_u128 << (13 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v27b14 => {
+                self.neon[27] &= !(0xff_u128 << (14 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v27b15 => {
+                self.neon[27] &= !(0xff_u128 << (15 * 8));
+                self.neon[27] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v28b0 => {
+                self.neon[28] &= !(0xff_u128 << (0 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v28b1 => {
+                self.neon[28] &= !(0xff_u128 << (1 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v28b2 => {
+                self.neon[28] &= !(0xff_u128 << (2 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v28b3 => {
+                self.neon[28] &= !(0xff_u128 << (3 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v28b4 => {
+                self.neon[28] &= !(0xff_u128 << (4 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v28b5 => {
+                self.neon[28] &= !(0xff_u128 << (5 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v28b6 => {
+                self.neon[28] &= !(0xff_u128 << (6 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v28b7 => {
+                self.neon[28] &= !(0xff_u128 << (7 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v28b8 => {
+                self.neon[28] &= !(0xff_u128 << (8 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v28b9 => {
+                self.neon[28] &= !(0xff_u128 << (9 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v28b10 => {
+                self.neon[28] &= !(0xff_u128 << (10 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v28b11 => {
+                self.neon[28] &= !(0xff_u128 << (11 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v28b12 => {
+                self.neon[28] &= !(0xff_u128 << (12 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v28b13 => {
+                self.neon[28] &= !(0xff_u128 << (13 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v28b14 => {
+                self.neon[28] &= !(0xff_u128 << (14 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v28b15 => {
+                self.neon[28] &= !(0xff_u128 << (15 * 8));
+                self.neon[28] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v29b0 => {
+                self.neon[29] &= !(0xff_u128 << (0 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v29b1 => {
+                self.neon[29] &= !(0xff_u128 << (1 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v29b2 => {
+                self.neon[29] &= !(0xff_u128 << (2 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v29b3 => {
+                self.neon[29] &= !(0xff_u128 << (3 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v29b4 => {
+                self.neon[29] &= !(0xff_u128 << (4 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v29b5 => {
+                self.neon[29] &= !(0xff_u128 << (5 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v29b6 => {
+                self.neon[29] &= !(0xff_u128 << (6 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v29b7 => {
+                self.neon[29] &= !(0xff_u128 << (7 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v29b8 => {
+                self.neon[29] &= !(0xff_u128 << (8 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v29b9 => {
+                self.neon[29] &= !(0xff_u128 << (9 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v29b10 => {
+                self.neon[29] &= !(0xff_u128 << (10 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v29b11 => {
+                self.neon[29] &= !(0xff_u128 << (11 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v29b12 => {
+                self.neon[29] &= !(0xff_u128 << (12 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v29b13 => {
+                self.neon[29] &= !(0xff_u128 << (13 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v29b14 => {
+                self.neon[29] &= !(0xff_u128 << (14 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v29b15 => {
+                self.neon[29] &= !(0xff_u128 << (15 * 8));
+                self.neon[29] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v30b0 => {
+                self.neon[30] &= !(0xff_u128 << (0 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v30b1 => {
+                self.neon[30] &= !(0xff_u128 << (1 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v30b2 => {
+                self.neon[30] &= !(0xff_u128 << (2 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v30b3 => {
+                self.neon[30] &= !(0xff_u128 << (3 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v30b4 => {
+                self.neon[30] &= !(0xff_u128 << (4 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v30b5 => {
+                self.neon[30] &= !(0xff_u128 << (5 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v30b6 => {
+                self.neon[30] &= !(0xff_u128 << (6 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v30b7 => {
+                self.neon[30] &= !(0xff_u128 << (7 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v30b8 => {
+                self.neon[30] &= !(0xff_u128 << (8 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v30b9 => {
+                self.neon[30] &= !(0xff_u128 << (9 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v30b10 => {
+                self.neon[30] &= !(0xff_u128 << (10 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v30b11 => {
+                self.neon[30] &= !(0xff_u128 << (11 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v30b12 => {
+                self.neon[30] &= !(0xff_u128 << (12 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v30b13 => {
+                self.neon[30] &= !(0xff_u128 << (13 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v30b14 => {
+                self.neon[30] &= !(0xff_u128 << (14 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v30b15 => {
+                self.neon[30] &= !(0xff_u128 << (15 * 8));
+                self.neon[30] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v31b0 => {
+                self.neon[31] &= !(0xff_u128 << (0 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (0 * 8);
+            }
+            Arm64Reg::v31b1 => {
+                self.neon[31] &= !(0xff_u128 << (1 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (1 * 8);
+            }
+            Arm64Reg::v31b2 => {
+                self.neon[31] &= !(0xff_u128 << (2 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (2 * 8);
+            }
+            Arm64Reg::v31b3 => {
+                self.neon[31] &= !(0xff_u128 << (3 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (3 * 8);
+            }
+            Arm64Reg::v31b4 => {
+                self.neon[31] &= !(0xff_u128 << (4 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (4 * 8);
+            }
+            Arm64Reg::v31b5 => {
+                self.neon[31] &= !(0xff_u128 << (5 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (5 * 8);
+            }
+            Arm64Reg::v31b6 => {
+                self.neon[31] &= !(0xff_u128 << (6 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (6 * 8);
+            }
+            Arm64Reg::v31b7 => {
+                self.neon[31] &= !(0xff_u128 << (7 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (7 * 8);
+            }
+            Arm64Reg::v31b8 => {
+                self.neon[31] &= !(0xff_u128 << (8 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (8 * 8);
+            }
+            Arm64Reg::v31b9 => {
+                self.neon[31] &= !(0xff_u128 << (9 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (9 * 8);
+            }
+            Arm64Reg::v31b10 => {
+                self.neon[31] &= !(0xff_u128 << (10 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (10 * 8);
+            }
+            Arm64Reg::v31b11 => {
+                self.neon[31] &= !(0xff_u128 << (11 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (11 * 8);
+            }
+            Arm64Reg::v31b12 => {
+                self.neon[31] &= !(0xff_u128 << (12 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (12 * 8);
+            }
+            Arm64Reg::v31b13 => {
+                self.neon[31] &= !(0xff_u128 << (13 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (13 * 8);
+            }
+            Arm64Reg::v31b14 => {
+                self.neon[31] &= !(0xff_u128 << (14 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (14 * 8);
+            }
+            Arm64Reg::v31b15 => {
+                self.neon[31] &= !(0xff_u128 << (15 * 8));
+                self.neon[31] |= (value.get_byte() as u128) << (15 * 8);
+            }
+            Arm64Reg::v0h0 => {
+                self.neon[0] &= 0xffff_u128 << (16 * 0);
+                self.neon[0] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v0h1 => {
+                self.neon[0] &= 0xffff_u128 << (16 * 1);
+                self.neon[0] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v0h2 => {
+                self.neon[0] &= 0xffff_u128 << (16 * 2);
+                self.neon[0] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v0h3 => {
+                self.neon[0] &= 0xffff_u128 << (16 * 3);
+                self.neon[0] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v0h4 => {
+                self.neon[0] &= 0xffff_u128 << (16 * 4);
+                self.neon[0] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v0h5 => {
+                self.neon[0] &= 0xffff_u128 << (16 * 5);
+                self.neon[0] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v0h6 => {
+                self.neon[0] &= 0xffff_u128 << (16 * 6);
+                self.neon[0] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v0h7 => {
+                self.neon[0] &= 0xffff_u128 << (16 * 7);
+                self.neon[0] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v1h0 => {
+                self.neon[1] &= 0xffff_u128 << (16 * 0);
+                self.neon[1] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v1h1 => {
+                self.neon[1] &= 0xffff_u128 << (16 * 1);
+                self.neon[1] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v1h2 => {
+                self.neon[1] &= 0xffff_u128 << (16 * 2);
+                self.neon[1] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v1h3 => {
+                self.neon[1] &= 0xffff_u128 << (16 * 3);
+                self.neon[1] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v1h4 => {
+                self.neon[1] &= 0xffff_u128 << (16 * 4);
+                self.neon[1] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v1h5 => {
+                self.neon[1] &= 0xffff_u128 << (16 * 5);
+                self.neon[1] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v1h6 => {
+                self.neon[1] &= 0xffff_u128 << (16 * 6);
+                self.neon[1] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v1h7 => {
+                self.neon[1] &= 0xffff_u128 << (16 * 7);
+                self.neon[1] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v2h0 => {
+                self.neon[2] &= 0xffff_u128 << (16 * 0);
+                self.neon[2] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v2h1 => {
+                self.neon[2] &= 0xffff_u128 << (16 * 1);
+                self.neon[2] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v2h2 => {
+                self.neon[2] &= 0xffff_u128 << (16 * 2);
+                self.neon[2] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v2h3 => {
+                self.neon[2] &= 0xffff_u128 << (16 * 3);
+                self.neon[2] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v2h4 => {
+                self.neon[2] &= 0xffff_u128 << (16 * 4);
+                self.neon[2] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v2h5 => {
+                self.neon[2] &= 0xffff_u128 << (16 * 5);
+                self.neon[2] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v2h6 => {
+                self.neon[2] &= 0xffff_u128 << (16 * 6);
+                self.neon[2] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v2h7 => {
+                self.neon[2] &= 0xffff_u128 << (16 * 7);
+                self.neon[2] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v3h0 => {
+                self.neon[3] &= 0xffff_u128 << (16 * 0);
+                self.neon[3] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v3h1 => {
+                self.neon[3] &= 0xffff_u128 << (16 * 1);
+                self.neon[3] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v3h2 => {
+                self.neon[3] &= 0xffff_u128 << (16 * 2);
+                self.neon[3] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v3h3 => {
+                self.neon[3] &= 0xffff_u128 << (16 * 3);
+                self.neon[3] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v3h4 => {
+                self.neon[3] &= 0xffff_u128 << (16 * 4);
+                self.neon[3] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v3h5 => {
+                self.neon[3] &= 0xffff_u128 << (16 * 5);
+                self.neon[3] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v3h6 => {
+                self.neon[3] &= 0xffff_u128 << (16 * 6);
+                self.neon[3] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v3h7 => {
+                self.neon[3] &= 0xffff_u128 << (16 * 7);
+                self.neon[3] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v4h0 => {
+                self.neon[4] &= 0xffff_u128 << (16 * 0);
+                self.neon[4] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v4h1 => {
+                self.neon[4] &= 0xffff_u128 << (16 * 1);
+                self.neon[4] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v4h2 => {
+                self.neon[4] &= 0xffff_u128 << (16 * 2);
+                self.neon[4] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v4h3 => {
+                self.neon[4] &= 0xffff_u128 << (16 * 3);
+                self.neon[4] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v4h4 => {
+                self.neon[4] &= 0xffff_u128 << (16 * 4);
+                self.neon[4] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v4h5 => {
+                self.neon[4] &= 0xffff_u128 << (16 * 5);
+                self.neon[4] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v4h6 => {
+                self.neon[4] &= 0xffff_u128 << (16 * 6);
+                self.neon[4] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v4h7 => {
+                self.neon[4] &= 0xffff_u128 << (16 * 7);
+                self.neon[4] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v5h0 => {
+                self.neon[5] &= 0xffff_u128 << (16 * 0);
+                self.neon[5] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v5h1 => {
+                self.neon[5] &= 0xffff_u128 << (16 * 1);
+                self.neon[5] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v5h2 => {
+                self.neon[5] &= 0xffff_u128 << (16 * 2);
+                self.neon[5] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v5h3 => {
+                self.neon[5] &= 0xffff_u128 << (16 * 3);
+                self.neon[5] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v5h4 => {
+                self.neon[5] &= 0xffff_u128 << (16 * 4);
+                self.neon[5] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v5h5 => {
+                self.neon[5] &= 0xffff_u128 << (16 * 5);
+                self.neon[5] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v5h6 => {
+                self.neon[5] &= 0xffff_u128 << (16 * 6);
+                self.neon[5] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v5h7 => {
+                self.neon[5] &= 0xffff_u128 << (16 * 7);
+                self.neon[5] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v6h0 => {
+                self.neon[6] &= 0xffff_u128 << (16 * 0);
+                self.neon[6] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v6h1 => {
+                self.neon[6] &= 0xffff_u128 << (16 * 1);
+                self.neon[6] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v6h2 => {
+                self.neon[6] &= 0xffff_u128 << (16 * 2);
+                self.neon[6] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v6h3 => {
+                self.neon[6] &= 0xffff_u128 << (16 * 3);
+                self.neon[6] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v6h4 => {
+                self.neon[6] &= 0xffff_u128 << (16 * 4);
+                self.neon[6] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v6h5 => {
+                self.neon[6] &= 0xffff_u128 << (16 * 5);
+                self.neon[6] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v6h6 => {
+                self.neon[6] &= 0xffff_u128 << (16 * 6);
+                self.neon[6] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v6h7 => {
+                self.neon[6] &= 0xffff_u128 << (16 * 7);
+                self.neon[6] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v7h0 => {
+                self.neon[7] &= 0xffff_u128 << (16 * 0);
+                self.neon[7] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v7h1 => {
+                self.neon[7] &= 0xffff_u128 << (16 * 1);
+                self.neon[7] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v7h2 => {
+                self.neon[7] &= 0xffff_u128 << (16 * 2);
+                self.neon[7] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v7h3 => {
+                self.neon[7] &= 0xffff_u128 << (16 * 3);
+                self.neon[7] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v7h4 => {
+                self.neon[7] &= 0xffff_u128 << (16 * 4);
+                self.neon[7] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v7h5 => {
+                self.neon[7] &= 0xffff_u128 << (16 * 5);
+                self.neon[7] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v7h6 => {
+                self.neon[7] &= 0xffff_u128 << (16 * 6);
+                self.neon[7] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v7h7 => {
+                self.neon[7] &= 0xffff_u128 << (16 * 7);
+                self.neon[7] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v8h0 => {
+                self.neon[8] &= 0xffff_u128 << (16 * 0);
+                self.neon[8] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v8h1 => {
+                self.neon[8] &= 0xffff_u128 << (16 * 1);
+                self.neon[8] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v8h2 => {
+                self.neon[8] &= 0xffff_u128 << (16 * 2);
+                self.neon[8] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v8h3 => {
+                self.neon[8] &= 0xffff_u128 << (16 * 3);
+                self.neon[8] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v8h4 => {
+                self.neon[8] &= 0xffff_u128 << (16 * 4);
+                self.neon[8] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v8h5 => {
+                self.neon[8] &= 0xffff_u128 << (16 * 5);
+                self.neon[8] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v8h6 => {
+                self.neon[8] &= 0xffff_u128 << (16 * 6);
+                self.neon[8] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v8h7 => {
+                self.neon[8] &= 0xffff_u128 << (16 * 7);
+                self.neon[8] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v9h0 => {
+                self.neon[9] &= 0xffff_u128 << (16 * 0);
+                self.neon[9] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v9h1 => {
+                self.neon[9] &= 0xffff_u128 << (16 * 1);
+                self.neon[9] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v9h2 => {
+                self.neon[9] &= 0xffff_u128 << (16 * 2);
+                self.neon[9] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v9h3 => {
+                self.neon[9] &= 0xffff_u128 << (16 * 3);
+                self.neon[9] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v9h4 => {
+                self.neon[9] &= 0xffff_u128 << (16 * 4);
+                self.neon[9] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v9h5 => {
+                self.neon[9] &= 0xffff_u128 << (16 * 5);
+                self.neon[9] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v9h6 => {
+                self.neon[9] &= 0xffff_u128 << (16 * 6);
+                self.neon[9] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v9h7 => {
+                self.neon[9] &= 0xffff_u128 << (16 * 7);
+                self.neon[9] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v10h0 => {
+                self.neon[10] &= 0xffff_u128 << (16 * 0);
+                self.neon[10] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v10h1 => {
+                self.neon[10] &= 0xffff_u128 << (16 * 1);
+                self.neon[10] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v10h2 => {
+                self.neon[10] &= 0xffff_u128 << (16 * 2);
+                self.neon[10] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v10h3 => {
+                self.neon[10] &= 0xffff_u128 << (16 * 3);
+                self.neon[10] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v10h4 => {
+                self.neon[10] &= 0xffff_u128 << (16 * 4);
+                self.neon[10] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v10h5 => {
+                self.neon[10] &= 0xffff_u128 << (16 * 5);
+                self.neon[10] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v10h6 => {
+                self.neon[10] &= 0xffff_u128 << (16 * 6);
+                self.neon[10] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v10h7 => {
+                self.neon[10] &= 0xffff_u128 << (16 * 7);
+                self.neon[10] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v11h0 => {
+                self.neon[11] &= 0xffff_u128 << (16 * 0);
+                self.neon[11] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v11h1 => {
+                self.neon[11] &= 0xffff_u128 << (16 * 1);
+                self.neon[11] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v11h2 => {
+                self.neon[11] &= 0xffff_u128 << (16 * 2);
+                self.neon[11] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v11h3 => {
+                self.neon[11] &= 0xffff_u128 << (16 * 3);
+                self.neon[11] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v11h4 => {
+                self.neon[11] &= 0xffff_u128 << (16 * 4);
+                self.neon[11] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v11h5 => {
+                self.neon[11] &= 0xffff_u128 << (16 * 5);
+                self.neon[11] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v11h6 => {
+                self.neon[11] &= 0xffff_u128 << (16 * 6);
+                self.neon[11] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v11h7 => {
+                self.neon[11] &= 0xffff_u128 << (16 * 7);
+                self.neon[11] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v12h0 => {
+                self.neon[12] &= 0xffff_u128 << (16 * 0);
+                self.neon[12] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v12h1 => {
+                self.neon[12] &= 0xffff_u128 << (16 * 1);
+                self.neon[12] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v12h2 => {
+                self.neon[12] &= 0xffff_u128 << (16 * 2);
+                self.neon[12] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v12h3 => {
+                self.neon[12] &= 0xffff_u128 << (16 * 3);
+                self.neon[12] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v12h4 => {
+                self.neon[12] &= 0xffff_u128 << (16 * 4);
+                self.neon[12] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v12h5 => {
+                self.neon[12] &= 0xffff_u128 << (16 * 5);
+                self.neon[12] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v12h6 => {
+                self.neon[12] &= 0xffff_u128 << (16 * 6);
+                self.neon[12] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v12h7 => {
+                self.neon[12] &= 0xffff_u128 << (16 * 7);
+                self.neon[12] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v13h0 => {
+                self.neon[13] &= 0xffff_u128 << (16 * 0);
+                self.neon[13] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v13h1 => {
+                self.neon[13] &= 0xffff_u128 << (16 * 1);
+                self.neon[13] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v13h2 => {
+                self.neon[13] &= 0xffff_u128 << (16 * 2);
+                self.neon[13] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v13h3 => {
+                self.neon[13] &= 0xffff_u128 << (16 * 3);
+                self.neon[13] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v13h4 => {
+                self.neon[13] &= 0xffff_u128 << (16 * 4);
+                self.neon[13] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v13h5 => {
+                self.neon[13] &= 0xffff_u128 << (16 * 5);
+                self.neon[13] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v13h6 => {
+                self.neon[13] &= 0xffff_u128 << (16 * 6);
+                self.neon[13] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v13h7 => {
+                self.neon[13] &= 0xffff_u128 << (16 * 7);
+                self.neon[13] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v14h0 => {
+                self.neon[14] &= 0xffff_u128 << (16 * 0);
+                self.neon[14] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v14h1 => {
+                self.neon[14] &= 0xffff_u128 << (16 * 1);
+                self.neon[14] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v14h2 => {
+                self.neon[14] &= 0xffff_u128 << (16 * 2);
+                self.neon[14] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v14h3 => {
+                self.neon[14] &= 0xffff_u128 << (16 * 3);
+                self.neon[14] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v14h4 => {
+                self.neon[14] &= 0xffff_u128 << (16 * 4);
+                self.neon[14] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v14h5 => {
+                self.neon[14] &= 0xffff_u128 << (16 * 5);
+                self.neon[14] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v14h6 => {
+                self.neon[14] &= 0xffff_u128 << (16 * 6);
+                self.neon[14] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v14h7 => {
+                self.neon[14] &= 0xffff_u128 << (16 * 7);
+                self.neon[14] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v15h0 => {
+                self.neon[15] &= 0xffff_u128 << (16 * 0);
+                self.neon[15] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v15h1 => {
+                self.neon[15] &= 0xffff_u128 << (16 * 1);
+                self.neon[15] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v15h2 => {
+                self.neon[15] &= 0xffff_u128 << (16 * 2);
+                self.neon[15] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v15h3 => {
+                self.neon[15] &= 0xffff_u128 << (16 * 3);
+                self.neon[15] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v15h4 => {
+                self.neon[15] &= 0xffff_u128 << (16 * 4);
+                self.neon[15] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v15h5 => {
+                self.neon[15] &= 0xffff_u128 << (16 * 5);
+                self.neon[15] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v15h6 => {
+                self.neon[15] &= 0xffff_u128 << (16 * 6);
+                self.neon[15] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v15h7 => {
+                self.neon[15] &= 0xffff_u128 << (16 * 7);
+                self.neon[15] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v16h0 => {
+                self.neon[16] &= 0xffff_u128 << (16 * 0);
+                self.neon[16] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v16h1 => {
+                self.neon[16] &= 0xffff_u128 << (16 * 1);
+                self.neon[16] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v16h2 => {
+                self.neon[16] &= 0xffff_u128 << (16 * 2);
+                self.neon[16] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v16h3 => {
+                self.neon[16] &= 0xffff_u128 << (16 * 3);
+                self.neon[16] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v16h4 => {
+                self.neon[16] &= 0xffff_u128 << (16 * 4);
+                self.neon[16] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v16h5 => {
+                self.neon[16] &= 0xffff_u128 << (16 * 5);
+                self.neon[16] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v16h6 => {
+                self.neon[16] &= 0xffff_u128 << (16 * 6);
+                self.neon[16] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v16h7 => {
+                self.neon[16] &= 0xffff_u128 << (16 * 7);
+                self.neon[16] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v17h0 => {
+                self.neon[17] &= 0xffff_u128 << (16 * 0);
+                self.neon[17] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v17h1 => {
+                self.neon[17] &= 0xffff_u128 << (16 * 1);
+                self.neon[17] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v17h2 => {
+                self.neon[17] &= 0xffff_u128 << (16 * 2);
+                self.neon[17] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v17h3 => {
+                self.neon[17] &= 0xffff_u128 << (16 * 3);
+                self.neon[17] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v17h4 => {
+                self.neon[17] &= 0xffff_u128 << (16 * 4);
+                self.neon[17] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v17h5 => {
+                self.neon[17] &= 0xffff_u128 << (16 * 5);
+                self.neon[17] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v17h6 => {
+                self.neon[17] &= 0xffff_u128 << (16 * 6);
+                self.neon[17] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v17h7 => {
+                self.neon[17] &= 0xffff_u128 << (16 * 7);
+                self.neon[17] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v18h0 => {
+                self.neon[18] &= 0xffff_u128 << (16 * 0);
+                self.neon[18] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v18h1 => {
+                self.neon[18] &= 0xffff_u128 << (16 * 1);
+                self.neon[18] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v18h2 => {
+                self.neon[18] &= 0xffff_u128 << (16 * 2);
+                self.neon[18] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v18h3 => {
+                self.neon[18] &= 0xffff_u128 << (16 * 3);
+                self.neon[18] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v18h4 => {
+                self.neon[18] &= 0xffff_u128 << (16 * 4);
+                self.neon[18] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v18h5 => {
+                self.neon[18] &= 0xffff_u128 << (16 * 5);
+                self.neon[18] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v18h6 => {
+                self.neon[18] &= 0xffff_u128 << (16 * 6);
+                self.neon[18] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v18h7 => {
+                self.neon[18] &= 0xffff_u128 << (16 * 7);
+                self.neon[18] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v19h0 => {
+                self.neon[19] &= 0xffff_u128 << (16 * 0);
+                self.neon[19] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v19h1 => {
+                self.neon[19] &= 0xffff_u128 << (16 * 1);
+                self.neon[19] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v19h2 => {
+                self.neon[19] &= 0xffff_u128 << (16 * 2);
+                self.neon[19] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v19h3 => {
+                self.neon[19] &= 0xffff_u128 << (16 * 3);
+                self.neon[19] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v19h4 => {
+                self.neon[19] &= 0xffff_u128 << (16 * 4);
+                self.neon[19] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v19h5 => {
+                self.neon[19] &= 0xffff_u128 << (16 * 5);
+                self.neon[19] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v19h6 => {
+                self.neon[19] &= 0xffff_u128 << (16 * 6);
+                self.neon[19] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v19h7 => {
+                self.neon[19] &= 0xffff_u128 << (16 * 7);
+                self.neon[19] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v20h0 => {
+                self.neon[20] &= 0xffff_u128 << (16 * 0);
+                self.neon[20] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v20h1 => {
+                self.neon[20] &= 0xffff_u128 << (16 * 1);
+                self.neon[20] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v20h2 => {
+                self.neon[20] &= 0xffff_u128 << (16 * 2);
+                self.neon[20] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v20h3 => {
+                self.neon[20] &= 0xffff_u128 << (16 * 3);
+                self.neon[20] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v20h4 => {
+                self.neon[20] &= 0xffff_u128 << (16 * 4);
+                self.neon[20] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v20h5 => {
+                self.neon[20] &= 0xffff_u128 << (16 * 5);
+                self.neon[20] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v20h6 => {
+                self.neon[20] &= 0xffff_u128 << (16 * 6);
+                self.neon[20] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v20h7 => {
+                self.neon[20] &= 0xffff_u128 << (16 * 7);
+                self.neon[20] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v21h0 => {
+                self.neon[21] &= 0xffff_u128 << (16 * 0);
+                self.neon[21] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v21h1 => {
+                self.neon[21] &= 0xffff_u128 << (16 * 1);
+                self.neon[21] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v21h2 => {
+                self.neon[21] &= 0xffff_u128 << (16 * 2);
+                self.neon[21] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v21h3 => {
+                self.neon[21] &= 0xffff_u128 << (16 * 3);
+                self.neon[21] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v21h4 => {
+                self.neon[21] &= 0xffff_u128 << (16 * 4);
+                self.neon[21] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v21h5 => {
+                self.neon[21] &= 0xffff_u128 << (16 * 5);
+                self.neon[21] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v21h6 => {
+                self.neon[21] &= 0xffff_u128 << (16 * 6);
+                self.neon[21] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v21h7 => {
+                self.neon[21] &= 0xffff_u128 << (16 * 7);
+                self.neon[21] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v22h0 => {
+                self.neon[22] &= 0xffff_u128 << (16 * 0);
+                self.neon[22] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v22h1 => {
+                self.neon[22] &= 0xffff_u128 << (16 * 1);
+                self.neon[22] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v22h2 => {
+                self.neon[22] &= 0xffff_u128 << (16 * 2);
+                self.neon[22] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v22h3 => {
+                self.neon[22] &= 0xffff_u128 << (16 * 3);
+                self.neon[22] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v22h4 => {
+                self.neon[22] &= 0xffff_u128 << (16 * 4);
+                self.neon[22] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v22h5 => {
+                self.neon[22] &= 0xffff_u128 << (16 * 5);
+                self.neon[22] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v22h6 => {
+                self.neon[22] &= 0xffff_u128 << (16 * 6);
+                self.neon[22] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v22h7 => {
+                self.neon[22] &= 0xffff_u128 << (16 * 7);
+                self.neon[22] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v23h0 => {
+                self.neon[23] &= 0xffff_u128 << (16 * 0);
+                self.neon[23] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v23h1 => {
+                self.neon[23] &= 0xffff_u128 << (16 * 1);
+                self.neon[23] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v23h2 => {
+                self.neon[23] &= 0xffff_u128 << (16 * 2);
+                self.neon[23] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v23h3 => {
+                self.neon[23] &= 0xffff_u128 << (16 * 3);
+                self.neon[23] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v23h4 => {
+                self.neon[23] &= 0xffff_u128 << (16 * 4);
+                self.neon[23] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v23h5 => {
+                self.neon[23] &= 0xffff_u128 << (16 * 5);
+                self.neon[23] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v23h6 => {
+                self.neon[23] &= 0xffff_u128 << (16 * 6);
+                self.neon[23] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v23h7 => {
+                self.neon[23] &= 0xffff_u128 << (16 * 7);
+                self.neon[23] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v24h0 => {
+                self.neon[24] &= 0xffff_u128 << (16 * 0);
+                self.neon[24] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v24h1 => {
+                self.neon[24] &= 0xffff_u128 << (16 * 1);
+                self.neon[24] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v24h2 => {
+                self.neon[24] &= 0xffff_u128 << (16 * 2);
+                self.neon[24] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v24h3 => {
+                self.neon[24] &= 0xffff_u128 << (16 * 3);
+                self.neon[24] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v24h4 => {
+                self.neon[24] &= 0xffff_u128 << (16 * 4);
+                self.neon[24] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v24h5 => {
+                self.neon[24] &= 0xffff_u128 << (16 * 5);
+                self.neon[24] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v24h6 => {
+                self.neon[24] &= 0xffff_u128 << (16 * 6);
+                self.neon[24] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v24h7 => {
+                self.neon[24] &= 0xffff_u128 << (16 * 7);
+                self.neon[24] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v25h0 => {
+                self.neon[25] &= 0xffff_u128 << (16 * 0);
+                self.neon[25] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v25h1 => {
+                self.neon[25] &= 0xffff_u128 << (16 * 1);
+                self.neon[25] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v25h2 => {
+                self.neon[25] &= 0xffff_u128 << (16 * 2);
+                self.neon[25] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v25h3 => {
+                self.neon[25] &= 0xffff_u128 << (16 * 3);
+                self.neon[25] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v25h4 => {
+                self.neon[25] &= 0xffff_u128 << (16 * 4);
+                self.neon[25] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v25h5 => {
+                self.neon[25] &= 0xffff_u128 << (16 * 5);
+                self.neon[25] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v25h6 => {
+                self.neon[25] &= 0xffff_u128 << (16 * 6);
+                self.neon[25] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v25h7 => {
+                self.neon[25] &= 0xffff_u128 << (16 * 7);
+                self.neon[25] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v26h0 => {
+                self.neon[26] &= 0xffff_u128 << (16 * 0);
+                self.neon[26] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v26h1 => {
+                self.neon[26] &= 0xffff_u128 << (16 * 1);
+                self.neon[26] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v26h2 => {
+                self.neon[26] &= 0xffff_u128 << (16 * 2);
+                self.neon[26] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v26h3 => {
+                self.neon[26] &= 0xffff_u128 << (16 * 3);
+                self.neon[26] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v26h4 => {
+                self.neon[26] &= 0xffff_u128 << (16 * 4);
+                self.neon[26] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v26h5 => {
+                self.neon[26] &= 0xffff_u128 << (16 * 5);
+                self.neon[26] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v26h6 => {
+                self.neon[26] &= 0xffff_u128 << (16 * 6);
+                self.neon[26] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v26h7 => {
+                self.neon[26] &= 0xffff_u128 << (16 * 7);
+                self.neon[26] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v27h0 => {
+                self.neon[27] &= 0xffff_u128 << (16 * 0);
+                self.neon[27] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v27h1 => {
+                self.neon[27] &= 0xffff_u128 << (16 * 1);
+                self.neon[27] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v27h2 => {
+                self.neon[27] &= 0xffff_u128 << (16 * 2);
+                self.neon[27] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v27h3 => {
+                self.neon[27] &= 0xffff_u128 << (16 * 3);
+                self.neon[27] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v27h4 => {
+                self.neon[27] &= 0xffff_u128 << (16 * 4);
+                self.neon[27] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v27h5 => {
+                self.neon[27] &= 0xffff_u128 << (16 * 5);
+                self.neon[27] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v27h6 => {
+                self.neon[27] &= 0xffff_u128 << (16 * 6);
+                self.neon[27] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v27h7 => {
+                self.neon[27] &= 0xffff_u128 << (16 * 7);
+                self.neon[27] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v28h0 => {
+                self.neon[28] &= 0xffff_u128 << (16 * 0);
+                self.neon[28] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v28h1 => {
+                self.neon[28] &= 0xffff_u128 << (16 * 1);
+                self.neon[28] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v28h2 => {
+                self.neon[28] &= 0xffff_u128 << (16 * 2);
+                self.neon[28] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v28h3 => {
+                self.neon[28] &= 0xffff_u128 << (16 * 3);
+                self.neon[28] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v28h4 => {
+                self.neon[28] &= 0xffff_u128 << (16 * 4);
+                self.neon[28] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v28h5 => {
+                self.neon[28] &= 0xffff_u128 << (16 * 5);
+                self.neon[28] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v28h6 => {
+                self.neon[28] &= 0xffff_u128 << (16 * 6);
+                self.neon[28] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v28h7 => {
+                self.neon[28] &= 0xffff_u128 << (16 * 7);
+                self.neon[28] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v29h0 => {
+                self.neon[29] &= 0xffff_u128 << (16 * 0);
+                self.neon[29] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v29h1 => {
+                self.neon[29] &= 0xffff_u128 << (16 * 1);
+                self.neon[29] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v29h2 => {
+                self.neon[29] &= 0xffff_u128 << (16 * 2);
+                self.neon[29] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v29h3 => {
+                self.neon[29] &= 0xffff_u128 << (16 * 3);
+                self.neon[29] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v29h4 => {
+                self.neon[29] &= 0xffff_u128 << (16 * 4);
+                self.neon[29] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v29h5 => {
+                self.neon[29] &= 0xffff_u128 << (16 * 5);
+                self.neon[29] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v29h6 => {
+                self.neon[29] &= 0xffff_u128 << (16 * 6);
+                self.neon[29] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v29h7 => {
+                self.neon[29] &= 0xffff_u128 << (16 * 7);
+                self.neon[29] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v30h0 => {
+                self.neon[30] &= 0xffff_u128 << (16 * 0);
+                self.neon[30] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v30h1 => {
+                self.neon[30] &= 0xffff_u128 << (16 * 1);
+                self.neon[30] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v30h2 => {
+                self.neon[30] &= 0xffff_u128 << (16 * 2);
+                self.neon[30] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v30h3 => {
+                self.neon[30] &= 0xffff_u128 << (16 * 3);
+                self.neon[30] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v30h4 => {
+                self.neon[30] &= 0xffff_u128 << (16 * 4);
+                self.neon[30] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v30h5 => {
+                self.neon[30] &= 0xffff_u128 << (16 * 5);
+                self.neon[30] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v30h6 => {
+                self.neon[30] &= 0xffff_u128 << (16 * 6);
+                self.neon[30] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v30h7 => {
+                self.neon[30] &= 0xffff_u128 << (16 * 7);
+                self.neon[30] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v31h0 => {
+                self.neon[31] &= 0xffff_u128 << (16 * 0);
+                self.neon[31] |= (value.get_short() as u128) << (16 * 0);
+            }
+            Arm64Reg::v31h1 => {
+                self.neon[31] &= 0xffff_u128 << (16 * 1);
+                self.neon[31] |= (value.get_short() as u128) << (16 * 1);
+            }
+            Arm64Reg::v31h2 => {
+                self.neon[31] &= 0xffff_u128 << (16 * 2);
+                self.neon[31] |= (value.get_short() as u128) << (16 * 2);
+            }
+            Arm64Reg::v31h3 => {
+                self.neon[31] &= 0xffff_u128 << (16 * 3);
+                self.neon[31] |= (value.get_short() as u128) << (16 * 3);
+            }
+            Arm64Reg::v31h4 => {
+                self.neon[31] &= 0xffff_u128 << (16 * 4);
+                self.neon[31] |= (value.get_short() as u128) << (16 * 4);
+            }
+            Arm64Reg::v31h5 => {
+                self.neon[31] &= 0xffff_u128 << (16 * 5);
+                self.neon[31] |= (value.get_short() as u128) << (16 * 5);
+            }
+            Arm64Reg::v31h6 => {
+                self.neon[31] &= 0xffff_u128 << (16 * 6);
+                self.neon[31] |= (value.get_short() as u128) << (16 * 6);
+            }
+            Arm64Reg::v31h7 => {
+                self.neon[31] &= 0xffff_u128 << (16 * 7);
+                self.neon[31] |= (value.get_short() as u128) << (16 * 7);
+            }
+            Arm64Reg::v0s0 => {
+                self.neon[0] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[0] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v0s1 => {
+                self.neon[0] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[0] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v0s2 => {
+                self.neon[0] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[0] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v0s3 => {
+                self.neon[0] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[0] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v1s0 => {
+                self.neon[1] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[1] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v1s1 => {
+                self.neon[1] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[1] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v1s2 => {
+                self.neon[1] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[1] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v1s3 => {
+                self.neon[1] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[1] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v2s0 => {
+                self.neon[2] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[2] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v2s1 => {
+                self.neon[2] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[2] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v2s2 => {
+                self.neon[2] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[2] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v2s3 => {
+                self.neon[2] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[2] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v3s0 => {
+                self.neon[3] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[3] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v3s1 => {
+                self.neon[3] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[3] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v3s2 => {
+                self.neon[3] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[3] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v3s3 => {
+                self.neon[3] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[3] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v4s0 => {
+                self.neon[4] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[4] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v4s1 => {
+                self.neon[4] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[4] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v4s2 => {
+                self.neon[4] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[4] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v4s3 => {
+                self.neon[4] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[4] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v5s0 => {
+                self.neon[5] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[5] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v5s1 => {
+                self.neon[5] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[5] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v5s2 => {
+                self.neon[5] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[5] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v5s3 => {
+                self.neon[5] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[5] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v6s0 => {
+                self.neon[6] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[6] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v6s1 => {
+                self.neon[6] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[6] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v6s2 => {
+                self.neon[6] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[6] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v6s3 => {
+                self.neon[6] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[6] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v7s0 => {
+                self.neon[7] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[7] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v7s1 => {
+                self.neon[7] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[7] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v7s2 => {
+                self.neon[7] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[7] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v7s3 => {
+                self.neon[7] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[7] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v8s0 => {
+                self.neon[8] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[8] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v8s1 => {
+                self.neon[8] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[8] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v8s2 => {
+                self.neon[8] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[8] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v8s3 => {
+                self.neon[8] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[8] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v9s0 => {
+                self.neon[9] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[9] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v9s1 => {
+                self.neon[9] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[9] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v9s2 => {
+                self.neon[9] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[9] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v9s3 => {
+                self.neon[9] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[9] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v10s0 => {
+                self.neon[10] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[10] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v10s1 => {
+                self.neon[10] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[10] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v10s2 => {
+                self.neon[10] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[10] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v10s3 => {
+                self.neon[10] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[10] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v11s0 => {
+                self.neon[11] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[11] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v11s1 => {
+                self.neon[11] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[11] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v11s2 => {
+                self.neon[11] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[11] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v11s3 => {
+                self.neon[11] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[11] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v12s0 => {
+                self.neon[12] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[12] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v12s1 => {
+                self.neon[12] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[12] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v12s2 => {
+                self.neon[12] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[12] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v12s3 => {
+                self.neon[12] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[12] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v13s0 => {
+                self.neon[13] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[13] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v13s1 => {
+                self.neon[13] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[13] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v13s2 => {
+                self.neon[13] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[13] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v13s3 => {
+                self.neon[13] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[13] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v14s0 => {
+                self.neon[14] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[14] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v14s1 => {
+                self.neon[14] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[14] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v14s2 => {
+                self.neon[14] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[14] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v14s3 => {
+                self.neon[14] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[14] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v15s0 => {
+                self.neon[15] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[15] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v15s1 => {
+                self.neon[15] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[15] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v15s2 => {
+                self.neon[15] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[15] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v15s3 => {
+                self.neon[15] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[15] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v16s0 => {
+                self.neon[16] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[16] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v16s1 => {
+                self.neon[16] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[16] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v16s2 => {
+                self.neon[16] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[16] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v16s3 => {
+                self.neon[16] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[16] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v17s0 => {
+                self.neon[17] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[17] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v17s1 => {
+                self.neon[17] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[17] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v17s2 => {
+                self.neon[17] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[17] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v17s3 => {
+                self.neon[17] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[17] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v18s0 => {
+                self.neon[18] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[18] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v18s1 => {
+                self.neon[18] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[18] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v18s2 => {
+                self.neon[18] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[18] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v18s3 => {
+                self.neon[18] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[18] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v19s0 => {
+                self.neon[19] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[19] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v19s1 => {
+                self.neon[19] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[19] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v19s2 => {
+                self.neon[19] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[19] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v19s3 => {
+                self.neon[19] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[19] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v20s0 => {
+                self.neon[20] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[20] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v20s1 => {
+                self.neon[20] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[20] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v20s2 => {
+                self.neon[20] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[20] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v20s3 => {
+                self.neon[20] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[20] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v21s0 => {
+                self.neon[21] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[21] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v21s1 => {
+                self.neon[21] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[21] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v21s2 => {
+                self.neon[21] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[21] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v21s3 => {
+                self.neon[21] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[21] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v22s0 => {
+                self.neon[22] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[22] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v22s1 => {
+                self.neon[22] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[22] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v22s2 => {
+                self.neon[22] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[22] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v22s3 => {
+                self.neon[22] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[22] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v23s0 => {
+                self.neon[23] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[23] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v23s1 => {
+                self.neon[23] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[23] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v23s2 => {
+                self.neon[23] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[23] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v23s3 => {
+                self.neon[23] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[23] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v24s0 => {
+                self.neon[24] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[24] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v24s1 => {
+                self.neon[24] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[24] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v24s2 => {
+                self.neon[24] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[24] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v24s3 => {
+                self.neon[24] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[24] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v25s0 => {
+                self.neon[25] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[25] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v25s1 => {
+                self.neon[25] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[25] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v25s2 => {
+                self.neon[25] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[25] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v25s3 => {
+                self.neon[25] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[25] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v26s0 => {
+                self.neon[26] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[26] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v26s1 => {
+                self.neon[26] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[26] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v26s2 => {
+                self.neon[26] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[26] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v26s3 => {
+                self.neon[26] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[26] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v27s0 => {
+                self.neon[27] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[27] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v27s1 => {
+                self.neon[27] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[27] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v27s2 => {
+                self.neon[27] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[27] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v27s3 => {
+                self.neon[27] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[27] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v28s0 => {
+                self.neon[28] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[28] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v28s1 => {
+                self.neon[28] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[28] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v28s2 => {
+                self.neon[28] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[28] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v28s3 => {
+                self.neon[28] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[28] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v29s0 => {
+                self.neon[29] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[29] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v29s1 => {
+                self.neon[29] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[29] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v29s2 => {
+                self.neon[29] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[29] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v29s3 => {
+                self.neon[29] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[29] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v30s0 => {
+                self.neon[30] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[30] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v30s1 => {
+                self.neon[30] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[30] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v30s2 => {
+                self.neon[30] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[30] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v30s3 => {
+                self.neon[30] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[30] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v31s0 => {
+                self.neon[31] &= 0xffffffff_u128 << (32 * 0);
+                self.neon[31] |= (value.get_word() as u128) << (32 * 0);
+            }
+            Arm64Reg::v31s1 => {
+                self.neon[31] &= 0xffffffff_u128 << (32 * 1);
+                self.neon[31] |= (value.get_word() as u128) << (32 * 1);
+            }
+            Arm64Reg::v31s2 => {
+                self.neon[31] &= 0xffffffff_u128 << (32 * 2);
+                self.neon[31] |= (value.get_word() as u128) << (32 * 2);
+            }
+            Arm64Reg::v31s3 => {
+                self.neon[31] &= 0xffffffff_u128 << (32 * 3);
+                self.neon[31] |= (value.get_word() as u128) << (32 * 3);
+            }
+            Arm64Reg::v0d0 => {
+                self.neon[0] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[0] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v0d1 => {
+                self.neon[0] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[0] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v1d0 => {
+                self.neon[1] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[1] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v1d1 => {
+                self.neon[1] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[1] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v2d0 => {
+                self.neon[2] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[2] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v2d1 => {
+                self.neon[2] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[2] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v3d0 => {
+                self.neon[3] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[3] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v3d1 => {
+                self.neon[3] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[3] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v4d0 => {
+                self.neon[4] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[4] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v4d1 => {
+                self.neon[4] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[4] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v5d0 => {
+                self.neon[5] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[5] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v5d1 => {
+                self.neon[5] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[5] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v6d0 => {
+                self.neon[6] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[6] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v6d1 => {
+                self.neon[6] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[6] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v7d0 => {
+                self.neon[7] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[7] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v7d1 => {
+                self.neon[7] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[7] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v8d0 => {
+                self.neon[8] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[8] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v8d1 => {
+                self.neon[8] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[8] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v9d0 => {
+                self.neon[9] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[9] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v9d1 => {
+                self.neon[9] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[9] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v10d0 => {
+                self.neon[10] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[10] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v10d1 => {
+                self.neon[10] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[10] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v11d0 => {
+                self.neon[11] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[11] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v11d1 => {
+                self.neon[11] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[11] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v12d0 => {
+                self.neon[12] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[12] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v12d1 => {
+                self.neon[12] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[12] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v13d0 => {
+                self.neon[13] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[13] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v13d1 => {
+                self.neon[13] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[13] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v14d0 => {
+                self.neon[14] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[14] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v14d1 => {
+                self.neon[14] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[14] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v15d0 => {
+                self.neon[15] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[15] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v15d1 => {
+                self.neon[15] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[15] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v16d0 => {
+                self.neon[16] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[16] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v16d1 => {
+                self.neon[16] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[16] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v17d0 => {
+                self.neon[17] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[17] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v17d1 => {
+                self.neon[17] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[17] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v18d0 => {
+                self.neon[18] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[18] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v18d1 => {
+                self.neon[18] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[18] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v19d0 => {
+                self.neon[19] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[19] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v19d1 => {
+                self.neon[19] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[19] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v20d0 => {
+                self.neon[20] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[20] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v20d1 => {
+                self.neon[20] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[20] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v21d0 => {
+                self.neon[21] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[21] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v21d1 => {
+                self.neon[21] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[21] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v22d0 => {
+                self.neon[22] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[22] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v22d1 => {
+                self.neon[22] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[22] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v23d0 => {
+                self.neon[23] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[23] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v23d1 => {
+                self.neon[23] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[23] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v24d0 => {
+                self.neon[24] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[24] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v24d1 => {
+                self.neon[24] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[24] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v25d0 => {
+                self.neon[25] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[25] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v25d1 => {
+                self.neon[25] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[25] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v26d0 => {
+                self.neon[26] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[26] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v26d1 => {
+                self.neon[26] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[26] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v27d0 => {
+                self.neon[27] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[27] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v27d1 => {
+                self.neon[27] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[27] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v28d0 => {
+                self.neon[28] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[28] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v28d1 => {
+                self.neon[28] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[28] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v29d0 => {
+                self.neon[29] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[29] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v29d1 => {
+                self.neon[29] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[29] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v30d0 => {
+                self.neon[30] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[30] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v30d1 => {
+                self.neon[30] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[30] |= (value.get_quad() as u128) << (64 * 1);
+            }
+            Arm64Reg::v31d0 => {
+                self.neon[31] &= 0xffffffffffffffff_u128 << (64 * 0);
+                self.neon[31] |= (value.get_quad() as u128) << (64 * 0);
+            }
+            Arm64Reg::v31d1 => {
+                self.neon[31] &= 0xffffffffffffffff_u128 << (64 * 1);
+                self.neon[31] |= (value.get_quad() as u128) << (64 * 1);
+            }
+        };
     }
 }
 

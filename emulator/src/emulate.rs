@@ -1,4 +1,4 @@
-use crate::arch::{Endian, State, SyscallResult};
+use crate::arch::{Endian, RegState, State, SyscallResult};
 use crate::emil::{Emil, ILRef, ILVal};
 use crate::prog::Program;
 use std::cmp::Ordering;
@@ -7,6 +7,7 @@ use std::fmt::Debug;
 use std::ops::*;
 
 use softmew::fault::Fault;
+use softmew::page::Page;
 
 #[cfg(feature = "serde")]
 use crate::arch::Saveable;
@@ -21,7 +22,8 @@ use std::io::{Read, Write};
 const NUM_TEMPS: usize = 32;
 
 /// Function that can be used to hook specific instructions.
-pub type HookFn<R, E, I> = fn(&mut dyn State<Reg = R, Endianness = E, Intrin = I>) -> HookStatus;
+pub type HookFn<P, RegId, Regs, E, I> =
+    fn(&mut dyn State<P, Reg = RegId, Registers = Regs, Endianness = E, Intrin = I>) -> HookStatus;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AccessType {
@@ -114,9 +116,9 @@ impl From<Exit> for ExecutionState {
 }
 
 /// Emulator for a specific BIL graph, state, and architecture.
-pub struct Emulator<S: State> {
+pub struct Emulator<P: Page, S: State<P>> {
     /// Instructions to run.
-    prog: Program<S::Reg, S::Endianness, S::Intrin>,
+    prog: Program<P, S::Reg, S::Registers, S::Endianness, S::Intrin>,
     /// State of the device, mainly just memory.
     state: S,
     /// Intermediate language registers.
@@ -126,7 +128,10 @@ pub struct Emulator<S: State> {
     /// Address of current instruction.
     pc: usize,
     /// List of instructions that have been hooked and what index they came from.
-    replaced: Vec<(Emil<S::Reg, S::Endianness, S::Intrin>, usize)>,
+    replaced: Vec<(
+        Emil<P, S::Reg, S::Registers, S::Endianness, S::Intrin>,
+        usize,
+    )>,
     /// Addresses that
     watch: HashMap<u64, WatchFn>,
 }
@@ -140,13 +145,13 @@ macro_rules! bin_op {
     }};
 }
 
-impl<S: State> Emulator<S> {
+impl<P: Page, S: State<P>> Emulator<P, S> {
     /// Create a new emulator from the given program and state.
     ///
     /// `prog` is the actual program that is to be emulated. `state` will
     /// determine how the program interacts with its environment. It will
     /// emulate the memory accesses and system calls.
-    pub fn new(prog: Program<S::Reg, S::Endianness, S::Intrin>, state: S) -> Self {
+    pub fn new(prog: Program<P, S::Reg, S::Registers, S::Endianness, S::Intrin>, state: S) -> Self {
         Self {
             prog,
             state,
@@ -176,7 +181,7 @@ impl<S: State> Emulator<S> {
     pub fn add_hook(
         &mut self,
         addr: u64,
-        hook: HookFn<S::Reg, S::Endianness, S::Intrin>,
+        hook: HookFn<P, S::Reg, S::Registers, S::Endianness, S::Intrin>,
     ) -> Option<HookID> {
         let replaced_idx = self.replaced.len();
         let mut hook = Emil::Hook(hook, replaced_idx);
@@ -254,12 +259,14 @@ impl<S: State> Emulator<S> {
     }
 
     /// Get a reference to the underlying program.
-    pub fn get_prog(&self) -> &Program<S::Reg, S::Endianness, S::Intrin> {
+    pub fn get_prog(&self) -> &Program<P, S::Reg, S::Registers, S::Endianness, S::Intrin> {
         &self.prog
     }
 
     /// Get a mutable reference to the underlying program.
-    pub fn get_prog_mut(&mut self) -> &mut Program<S::Reg, S::Endianness, S::Intrin> {
+    pub fn get_prog_mut(
+        &mut self,
+    ) -> &mut Program<P, S::Reg, S::Registers, S::Endianness, S::Intrin> {
         &mut self.prog
     }
 
@@ -367,13 +374,16 @@ impl<S: State> Emulator<S> {
 
     /// Get the EMIL instruction at the current pc value.
     #[inline(always)]
-    fn curr_inst(&self) -> &Emil<S::Reg, S::Endianness, S::Intrin> {
+    fn curr_inst(&self) -> &Emil<P, S::Reg, S::Registers, S::Endianness, S::Intrin> {
         // SAFETY: self.pc will always be set to a valid index in the il array.
         unsafe { self.prog.il.get_unchecked(self.pc) }
     }
 
     /// Emulate a single instruction.
-    fn emulate(&mut self, inst: Emil<S::Reg, S::Endianness, S::Intrin>) -> ExecutionState {
+    fn emulate(
+        &mut self,
+        inst: Emil<P, S::Reg, S::Registers, S::Endianness, S::Intrin>,
+    ) -> ExecutionState {
         match inst {
             Emil::Nop => {}
             Emil::NoRet => return Exit::NoReturn.into(),
@@ -394,10 +404,10 @@ impl<S: State> Emulator<S> {
             }
             Emil::SetReg { reg, ilr } => {
                 let val = self.get_ilr(ilr);
-                self.state.write_reg(reg, val);
+                self.state.regs().write(reg, val);
             }
             Emil::LoadReg { reg, ilr } => {
-                let val = self.state.read_reg(reg);
+                let val = self.state.regs().read(reg);
                 *self.get_ilr_mut(ilr) = val;
             }
             Emil::SetTemp { t, ilr } => {
@@ -416,31 +426,35 @@ impl<S: State> Emulator<S> {
             }
             Emil::Store { value, addr, size } => {
                 let value = self.get_ilr(value);
-                let addr = self.get_ilr_mut(addr).extend_64();
+                let addr = self.get_ilr_mut(addr).extend_64() as usize;
                 let pc = self.curr_pc();
                 debug_assert_eq!(size as usize, value.size());
                 let mem = self
                     .state
-                    .get_mem_mut(addr..addr + (size as u64), softmew::Perm::WRITE);
+                    .mem()
+                    .get_slice_mut(addr..addr + size as usize, softmew::Perm::WRITE);
                 if let Err(f) = mem {
                     return ExecutionState::Exit(f.into());
                 }
                 let mem = mem.unwrap();
                 S::Endianness::write(value, mem);
+                let addr = addr as u64;
                 if let Some(hook) = self.watch.get(&addr) {
                     hook(pc, addr, AccessType::Write, mem);
                 }
             }
             Emil::Load { size, addr, dest } => {
                 let pc = self.curr_pc();
-                let addr = self.get_ilr(addr).extend_64();
+                let addr = self.get_ilr(addr).extend_64() as usize;
                 let data = self
                     .state
-                    .get_mem_mut(addr..addr + (size as u64), softmew::Perm::READ);
+                    .mem()
+                    .get_slice_mut(addr..addr + size as usize, softmew::Perm::READ);
                 if let Err(f) = data {
                     return ExecutionState::Exit(f.into());
                 }
                 let data = data.unwrap();
+                let addr = addr as u64;
                 if let Some(hook) = self.watch.get(&addr) {
                     hook(pc, addr, AccessType::Read, data);
                 }
@@ -673,75 +687,5 @@ impl<S: State> Emulator<S> {
         // indexing into an array of size 256 so it is not possible to index
         // past the end of the array or before the array.
         unsafe { self.ilrs.get_unchecked_mut(idx.0 as usize) }
-    }
-}
-
-pub struct SaveState<S: State> {
-    /// Instructions to run.
-    prog: Program<S::Reg, S::Endianness, S::Intrin>,
-    /// State of the target.
-    state: S,
-    /// Temporary registers used by LLIL.
-    temps: [ILVal; NUM_TEMPS],
-    /// Address of current instruction.
-    pc: usize,
-}
-
-impl<S: State> From<Emulator<S>> for SaveState<S> {
-    fn from(value: Emulator<S>) -> Self {
-        let Emulator {
-            prog,
-            state,
-            pc,
-            temps,
-            ..
-        } = value;
-        Self {
-            prog,
-            pc,
-            state,
-            temps,
-        }
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de, S: Saveable<'de>> SaveState<S>
-where
-    S::Endianness: Serialize,
-    S::Intrin: Serialize,
-    S::Reg: Serialize,
-{
-    pub fn save<W: Write>(&self, file: &mut W) -> Result<(), Box<dyn std::error::Error>> {
-        use rmp_serde::encode::Serializer;
-        let mut serializer = Serializer::new(file);
-        self.pc.serialize(&mut serializer)?;
-        self.temps.serialize(&mut serializer)?;
-        self.prog.serialize(&mut serializer)?;
-        self.state.serialize(&mut serializer)?;
-        Ok(())
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de, S: Saveable<'de>> SaveState<S>
-where
-    S::Reg: Deserialize<'de>,
-    S::Endianness: Deserialize<'de>,
-    S::Intrin: Deserialize<'de>,
-{
-    pub fn load<F: Read>(file: &'de mut F) -> Result<SaveState<S>, Box<dyn std::error::Error>> {
-        use rmp_serde::decode::Deserializer;
-        let mut deserializer = Deserializer::new(file);
-        let pc = usize::deserialize(&mut deserializer)?;
-        let temps = <[ILVal; NUM_TEMPS]>::deserialize(&mut deserializer)?;
-        let prog = Program::deserialize(&mut deserializer)?;
-        let state = S::deserialize(&mut deserializer)?;
-        Ok(Self {
-            prog,
-            temps,
-            pc,
-            state,
-        })
     }
 }

@@ -3,8 +3,7 @@ use softmew::{MMU, Perm, page::Page};
 use std::ops::Range;
 
 use crate::{
-    arch::Endian,
-    arch::{Intrinsic, Register},
+    arch::{Endian, Intrinsic, RegState, Register},
     prog::Program,
 };
 
@@ -37,8 +36,8 @@ pub fn load_sections<P: Page>(memory: &mut MMU<P>, program: &BinaryView) -> Resu
 /// Load function at a specific address to the program.
 ///
 /// Returns true if function was successfully added otherwise returns false.
-pub fn load_function<R: Register, E: Endian, I: Intrinsic>(
-    prog: &mut Program<R, E, I>,
+pub fn load_function<P: Page, R: Register, Regs: RegState, E: Endian, I: Intrinsic>(
+    prog: &mut Program<P, R, Regs, E, I>,
     bv: &BinaryView,
     addr: u64,
 ) -> Result<(), &'static str> {
@@ -63,8 +62,8 @@ pub fn load_function<R: Register, E: Endian, I: Intrinsic>(
 ///
 /// Returns the address of the first function that could not be loaded otherwise
 /// just returns unit.
-pub fn load_all_functions<R: Register, E: Endian, I: Intrinsic>(
-    prog: &mut Program<R, E, I>,
+pub fn load_all_functions<P: Page, R: Register, Regs: RegState, E: Endian, I: Intrinsic>(
+    prog: &mut Program<P, R, Regs, E, I>,
     bv: &BinaryView,
 ) -> Result<(), String> {
     for func in bv.functions().iter() {

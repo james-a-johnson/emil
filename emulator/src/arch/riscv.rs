@@ -75,39 +75,28 @@ impl<S> LinuxRV64<S> {
     }
 }
 
-impl<S: LinuxSyscalls<Rv64State, MMU<SimplePage>>> State for LinuxRV64<S> {
+impl<S: LinuxSyscalls<Rv64State, MMU<SimplePage>>> State<SimplePage> for LinuxRV64<S> {
     type Reg = Rv64Reg;
+    type Registers = Rv64State;
     type Endianness = Little;
     type Intrin = RVIntrinsic;
 
-    #[inline(always)]
-    fn read_reg(&self, id: Rv64Reg) -> ILVal {
-        ILVal::from(self.regs[id])
+    #[inline]
+    fn regs(&mut self) -> &mut Self::Registers {
+        &mut self.regs
     }
 
-    #[inline(always)]
-    fn write_reg(&mut self, id: Rv64Reg, val: ILVal) {
-        self.regs[id] = val.extend_64();
+    #[inline]
+    fn mem(&mut self) -> &mut MMU<SimplePage> {
+        &mut self.mem
     }
 
-    fn read_mem(&self, addr: u64, buf: &mut [u8]) -> Result<(), Fault> {
-        self.mem.read_perm(addr as usize, buf)
+    #[inline]
+    fn underlying(&mut self) -> (&mut Self::Registers, &mut MMU<SimplePage>) {
+        (&mut self.regs, &mut self.mem)
     }
 
-    fn write_mem(&mut self, addr: u64, data: &[u8]) -> Result<(), Fault> {
-        self.mem.write_perm(addr as usize, data)
-    }
-
-    fn get_mem(&self, addrs: Range<u64>, perm: Perm) -> Result<&[u8], Fault> {
-        let range = (addrs.start as usize)..(addrs.end as usize);
-        self.mem.get_slice(range, perm)
-    }
-
-    fn get_mem_mut(&mut self, addrs: Range<u64>, perm: Perm) -> Result<&mut [u8], Fault> {
-        let range = (addrs.start as usize)..(addrs.end as usize);
-        self.mem.get_slice_mut(range, perm)
-    }
-
+    #[inline]
     fn get_flag(&self, id: u32) -> bool {
         if id < 32 {
             ((self.flag >> id) & 0b1) != 0
@@ -188,6 +177,16 @@ pub struct Rv64State {
 }
 
 impl RegState for Rv64State {
+    type RegID = Rv64Reg;
+
+    fn read(&self, id: Self::RegID) -> ILVal {
+        ILVal::Quad(self[id])
+    }
+
+    fn write(&mut self, id: Self::RegID, val: ILVal) {
+        self[id] = val.get_quad()
+    }
+
     fn set_syscall_return(&mut self, val: ILVal) {
         self.gregs[(Rv64Reg::a0 as u32) as usize] = val.extend_64();
     }

@@ -6,14 +6,15 @@
 
 pub use softmew::Perm;
 pub use softmew::fault::Fault;
+use softmew::page::Page;
 
 use binaryninja::low_level_il::function::{Finalized, NonSSA};
 use binaryninja::low_level_il::operation::{Intrinsic as LLILIntrinsic, Operation};
+use softmew::MMU;
 
 use std::{
     any::Any,
     io::{Read, Write},
-    ops::Range,
 };
 
 #[cfg(feature = "serde")]
@@ -37,7 +38,25 @@ pub trait Register: TryFrom<u32> + Debug + Display + Clone + Copy {
     fn id(&self) -> u32;
 }
 
+/// State of all of the registers of a system.
 pub trait RegState {
+    type RegID: Register;
+
+    /// Read the register with the given ID.
+    fn read(&self, id: Self::RegID) -> ILVal;
+
+    /// Set the register to the given value.
+    ///
+    /// You may assume that the `val` has the correct size for the register.
+    /// Binary Ninja will correctly size the value for the given register
+    /// write so if the value has the wrong size then the program is invalid
+    /// and it makes sense to panic.
+    fn write(&mut self, id: Self::RegID, val: ILVal);
+
+    // TODO: This should be moved to `State`.
+    /// Set the register that holds the return value of a system call.
+    ///
+    /// This is used for some of the default implemented system calls.
     fn set_syscall_return(&mut self, val: ILVal);
 }
 
@@ -52,25 +71,19 @@ pub trait Intrinsic: Sized + Clone + Copy + Debug {
     fn parse(intrinsic: &Operation<'_, Finalized, NonSSA, LLILIntrinsic>) -> Result<Self, String>;
 }
 
-pub trait State {
+pub trait State<P: Page> {
     type Reg: Register;
+    type Registers: RegState<RegID = Self::Reg>;
     type Endianness: Endian;
     type Intrin: Intrinsic;
 
-    /// Read the register with the given id.
-    fn read_reg(&self, id: Self::Reg) -> ILVal;
-    /// Set the value of the register with the given id.
-    fn write_reg(&mut self, id: Self::Reg, value: ILVal);
+    /// Get registers from state.
+    fn regs(&mut self) -> &mut Self::Registers;
+    /// Get memory associated with the state.
+    fn mem(&mut self) -> &mut MMU<P>;
 
-    /// Read memory into a buffer.
-    fn read_mem(&self, addr: u64, buf: &mut [u8]) -> Result<(), Fault>;
-    /// Write memory to a specifc address.
-    fn write_mem(&mut self, addr: u64, data: &[u8]) -> Result<(), Fault>;
-
-    /// Get a range of addresses as a slice.
-    fn get_mem(&self, addrs: Range<u64>, perm: Perm) -> Result<&[u8], Fault>;
-    /// Get a range of addresses as a mutable slice.
-    fn get_mem_mut(&mut self, addrs: Range<u64>, perm: Perm) -> Result<&mut [u8], Fault>;
+    /// Get references to the registers and memory.
+    fn underlying(&mut self) -> (&mut Self::Registers, &mut MMU<P>);
 
     /// Read flag value with the given id.
     fn get_flag(&self, id: u32) -> bool;

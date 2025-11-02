@@ -16,13 +16,14 @@
 //! first be loaded into an ILVal. In this way, reading and writing registers or memory is
 //! essentially just treated as a side effect of the instruction.
 
-use crate::arch::{Endian, Intrinsic, Register as Reg, State};
+use crate::arch::{Endian, Intrinsic, RegState, Register as Reg, State};
 use crate::emulate::HookStatus;
 use std::fmt::{Debug, Display, LowerHex, UpperHex};
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use softmew::page::Page;
 
 /// Reference to an [`ILVal`].
 ///
@@ -797,9 +798,8 @@ impl Shr for ILVal {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum Emil<R: Reg, E: Endian, I: Intrinsic> {
+pub enum Emil<P: Page, RegId: Reg, Regs: RegState, E: Endian, I: Intrinsic> {
     /// No operation instruction.
     Nop,
     /// No return.
@@ -813,9 +813,9 @@ pub enum Emil<R: Reg, E: Endian, I: Intrinsic> {
     /// Perform some kind of trap.
     Trap(u64),
     /// Set the value of an architectural register from an IL register.
-    SetReg { reg: R, ilr: ILRef },
+    SetReg { reg: RegId, ilr: ILRef },
     /// Load an architectural register into an IL register.
-    LoadReg { reg: R, ilr: ILRef },
+    LoadReg { reg: RegId, ilr: ILRef },
     /// Set a temporary register.
     SetTemp { t: u8, ilr: ILRef },
     /// Load a temporary register into an IL register.
@@ -1110,7 +1110,9 @@ pub enum Emil<R: Reg, E: Endian, I: Intrinsic> {
     /// on the current state.
     #[cfg_attr(feature = "serde", serde(skip))]
     Hook(
-        fn(&mut dyn State<Reg = R, Endianness = E, Intrin = I>) -> HookStatus,
+        fn(
+            &mut dyn State<P, Reg = RegId, Registers = Regs, Endianness = E, Intrin = I>,
+        ) -> HookStatus,
         usize,
     ),
     /// Breakpoint added by a user.
@@ -1120,4 +1122,107 @@ pub enum Emil<R: Reg, E: Endian, I: Intrinsic> {
     /// can stop at the breakpoint and then later continue through it.
     #[cfg_attr(feature = "serde", serde(skip))]
     UserBp(usize),
+}
+
+impl<P: Page, RegId: Reg, Regs: RegState, E: Endian, I: Intrinsic> Clone
+    for Emil<P, RegId, Regs, E, I>
+{
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<P: Page, RegId: Reg, Regs: RegState, E: Endian, I: Intrinsic> Copy
+    for Emil<P, RegId, Regs, E, I>
+{
+}
+
+impl<P: Page, RegId: Reg, Regs: RegState, E: Endian, I: Intrinsic> Debug
+    for Emil<P, RegId, Regs, E, I>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Nop => write!(f, "nop"),
+            Self::NoRet => write!(f, "no return"),
+            Self::Syscall => write!(f, "system call"),
+            Self::Bp => write!(f, "breakpoint"),
+            Self::Undef => write!(f, "undefined"),
+            Self::Trap(t) => write!(f, "trap {t:#x}"),
+            Self::SetReg { reg, ilr } => write!(f, "{reg:?} = {ilr:?}"),
+            Self::LoadReg { reg, ilr } => write!(f, "{ilr:?} = {reg:?}"),
+            Self::SetTemp { t, ilr } => write!(f, "temp({t}) = {ilr:?}"),
+            Self::LoadTemp { ilr, t } => write!(f, "{ilr:?} = temp({t})"),
+            Self::SetFlag(ilr, flag) => write!(f, "flag({flag}) = {ilr:?}"),
+            Self::Flag(ilr, flag) => write!(f, "{ilr:?} = flag({flag})"),
+            Self::Store { value, addr, size } => write!(f, "[{addr:?}]:{size} = {value:?}"),
+            Self::Load { size, addr, dest } => write!(f, "{dest:?} = [{addr:?}]:{size}"),
+            Self::Push(v) => write!(f, "push {v:?}"),
+            Self::Pop { dest, size } => write!(f, "{dest:?} = pop:{size}"),
+            Self::Jump(addr) => write!(f, "jump {addr:?}"),
+            Self::Goto(idx) => write!(f, "goto {idx}"),
+            Self::Call { target, .. } => write!(f, "call {target:?}"),
+            Self::TailCall { target, .. } => write!(f, "tailcall {target:?}"),
+            Self::Ret(dest) => write!(f, "return {dest:?}"),
+            Self::If {
+                condition,
+                true_target,
+                false_target,
+            } => write!(f, "if ({condition:?}) {true_target} else {false_target}"),
+            Self::Intrinsic(_) => write!(f, "intrinsic"),
+            Self::Constant { reg, value, size } => write!(f, "{reg:?} = {value}:{size}"),
+            Self::Add { out, left, right } => write!(f, "{out:?} = {left:?} + {right:?}"),
+            Self::AddOf { out, left, right } => {
+                write!(f, "{out:?} = overflow({left:?} + {right:?})")
+            }
+            Self::And { out, left, right } => write!(f, "{out:?} = {left:?} & {right:?}"),
+            Self::Sub { out, left, right } => write!(f, "{out:?} = {left:?} - {right:?}"),
+            Self::Or { out, left, right } => write!(f, "{out:?} = {left:?} | {right:?}"),
+            Self::Xor { out, left, right } => write!(f, "{out:?} = {left:?} ^ {right:?}"),
+            Self::Negate(out, src) => write!(f, "{out:?} = -{src:?}"),
+            Self::Not(out, src) => write!(f, "{out:?} = !{src:?}"),
+            Self::Truncate(out, src, size) => write!(f, "{out:?} = trunc({src:?}, {size})"),
+            Self::Lsr { out, left, right } => write!(f, "{out:?} = {left:?} >> {right:?}"),
+            Self::Asr { out, left, right } => write!(f, "{out:?} = {left:?} >>> {right:?}"),
+            Self::Lsl { out, left, right } => write!(f, "{out:?} = {left:?} << {right:?}"),
+            Self::Ror { out, left, right } => write!(f, "{out:?} = {left:?} ror {right:?}"),
+            Self::Divu { out, left, right } => write!(f, "{out:?} = {left:?} u/ {right:?}"),
+            Self::Divs { out, left, right } => write!(f, "{out:?} = {left:?} s/ {right:?}"),
+            Self::Mul { out, left, right } => write!(f, "{out:?} = {left:?} * {right:?}"),
+            Self::MuluDp { out, left, right } => write!(f, "{out:?} = {left:?} u2* {right:?}"),
+            Self::MulsDp { out, left, right } => write!(f, "{out:?} = {left:?} s2* {right:?}"),
+            Self::Modu { out, left, right } => write!(f, "{out:?} = {left:?} u% {right:?}"),
+            Self::Mods { out, left, right } => write!(f, "{out:?} = {left:?} s% {right:?}"),
+            Self::Fadd { out, left, right } => write!(f, "{out:?} = {left:?} f+ {right:?}"),
+            Self::Fsub { out, left, right } => write!(f, "{out:?} = {left:?} f- {right:?}"),
+            Self::Fmul { out, left, right } => write!(f, "{out:?} = {left:?} f* {right:?}"),
+            Self::CmpE { out, left, right } => write!(f, "{out:?} = {left:?} == {right:?}"),
+            Self::CmpNe { out, left, right } => write!(f, "{out:?} = {left:?} != {right:?}"),
+            Self::CmpSlt { out, left, right } => write!(f, "{out:?} = {left:?} s< {right:?}"),
+            Self::CmpUlt { out, left, right } => write!(f, "{out:?} = {left:?} u< {right:?}"),
+            Self::CmpSle { out, left, right } => write!(f, "{out:?} = {left:?} s<= {right:?}"),
+            Self::CmpUle { out, left, right } => write!(f, "{out:?} = {left:?} u<= {right:?}"),
+            Self::CmpSge { out, left, right } => write!(f, "{out:?} = {left:?} s>= {right:?}"),
+            Self::CmpUge { out, left, right } => write!(f, "{out:?} = {left:?} u>= {right:?}"),
+            Self::CmpSgt { out, left, right } => write!(f, "{out:?} = {left:?} s> {right:?}"),
+            Self::CmpUgt { out, left, right } => write!(f, "{out:?} = {left:?} u> {right:?}"),
+            Self::FcmpE { out, left, right } => write!(f, "{out:?} = {left:?} f== {right:?}"),
+            Self::FcmpNE { out, left, right } => write!(f, "{out:?} = {left:?} f!= {right:?}"),
+            Self::FcmpLT { out, left, right } => write!(f, "{out:?} = {left:?} f< {right:?}"),
+            Self::FcmpLE { out, left, right } => write!(f, "{out:?} = {left:?} f<= {right:?}"),
+            Self::FcmpGE { out, left, right } => write!(f, "{out:?} = {left:?} f>= {right:?}"),
+            Self::FcmpGT { out, left, right } => write!(f, "{out:?} = {left:?} f> {right:?}"),
+            Self::FcmpO { out, left, right } => write!(f, "{out:?} = {left:?} fo {right:?}"),
+            Self::FcmpUO { out, left, right } => write!(f, "{out:?} = {left:?} fuo {right:?}"),
+            Self::Fneg(out, src) => write!(f, "{out:?} = f-{src:?}"),
+            Self::Fabs(out, src) => write!(f, "{out:?} = |{src:?}|"),
+            Self::BoolToInt(out, src, size) => write!(f, "{out:?}:{size} = b2i({src:?})"),
+            Self::FloatToInt(out, src, size) => write!(f, "{out:?}:{size} = f2i({src:?})"),
+            Self::IntToFloat(out, src, size) => write!(f, "{out:?}:{size} = i2f({src:?})"),
+            Self::ExternPtr(out, val) => write!(f, "{out:?} = extern({val:#x})"),
+            Self::SignExtend(out, src, size) => write!(f, "{out:?}:{size} = sx({src:?})"),
+            Self::ZeroExtend(out, src, size) => write!(f, "{out:?}:{size} = zx({src:?})"),
+            Self::Hook(h, idx) => write!(f, "hook({h:?}, {idx})"),
+            Self::UserBp(bp) => write!(f, "bp({bp})"),
+        }
+    }
 }

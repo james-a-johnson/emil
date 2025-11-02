@@ -11,6 +11,7 @@ use emil::os::linux::{AuxVal, Environment, add_default_auxv};
 use emil::prog::Program;
 
 use softmew::Perm;
+use softmew::page::SimplePage;
 
 const STACK_BASE: usize = 0xfffffffffff00000;
 const STACK_SIZE: usize = 0x000000000007ffff;
@@ -21,7 +22,7 @@ fn main() {
         .load("../busybox-musl.bndb")
         .expect("Couldn't load test binary");
 
-    let mut prog = Program::<Arm64Reg, Little, ArmIntrinsic>::default();
+    let mut prog = Program::<SimplePage, Arm64Reg, Arm64State, Little, ArmIntrinsic>::default();
     let entry = bv
         .function_at(bv.default_platform().unwrap().as_ref(), bv.entry_point())
         .unwrap();

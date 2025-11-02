@@ -31,7 +31,7 @@ const PAGE_SIZE: usize = 64;
 /// The `read` and `write` accesses defined by this trait will always check the required permissions.
 /// If you need to initialize the backing bytes to some specific value, then use the `AsMut` trait
 /// to get the backing bytes and initialize them that way.
-pub trait Page: AsMut<[u8]> {
+pub trait Page: AsMut<[u8]> + Debug {
     /// Read data from the page into the buffer.
     ///
     /// Attempts to fill the buffer with data starting at address `addr`.
@@ -496,6 +496,17 @@ impl SimplePage {
                 reason: Reason::from(perm),
             })
         }
+    }
+}
+
+impl Debug for SimplePage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Simple Page ({:08X}, {:08X})",
+            self.addr,
+            self.addr + self.data.len()
+        )
     }
 }
 
