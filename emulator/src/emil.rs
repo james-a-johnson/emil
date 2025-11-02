@@ -16,7 +16,7 @@
 //! first be loaded into an ILVal. In this way, reading and writing registers or memory is
 //! essentially just treated as a side effect of the instruction.
 
-use crate::arch::{Endian, Intrinsic, RegState, Register as Reg, State};
+use crate::arch::{Endian, Intrinsic, RegState, State};
 use crate::emulate::HookStatus;
 use std::fmt::{Debug, Display, LowerHex, UpperHex};
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub};
@@ -799,7 +799,7 @@ impl Shr for ILVal {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum Emil<P: Page, RegId: Reg, Regs: RegState, E: Endian, I: Intrinsic> {
+pub enum Emil<P: Page, Regs: RegState, E: Endian, I: Intrinsic> {
     /// No operation instruction.
     Nop,
     /// No return.
@@ -813,9 +813,9 @@ pub enum Emil<P: Page, RegId: Reg, Regs: RegState, E: Endian, I: Intrinsic> {
     /// Perform some kind of trap.
     Trap(u64),
     /// Set the value of an architectural register from an IL register.
-    SetReg { reg: RegId, ilr: ILRef },
+    SetReg { reg: Regs::RegID, ilr: ILRef },
     /// Load an architectural register into an IL register.
-    LoadReg { reg: RegId, ilr: ILRef },
+    LoadReg { reg: Regs::RegID, ilr: ILRef },
     /// Set a temporary register.
     SetTemp { t: u8, ilr: ILRef },
     /// Load a temporary register into an IL register.
@@ -1110,9 +1110,7 @@ pub enum Emil<P: Page, RegId: Reg, Regs: RegState, E: Endian, I: Intrinsic> {
     /// on the current state.
     #[cfg_attr(feature = "serde", serde(skip))]
     Hook(
-        fn(
-            &mut dyn State<P, Reg = RegId, Registers = Regs, Endianness = E, Intrin = I>,
-        ) -> HookStatus,
+        fn(&mut dyn State<P, Registers = Regs, Endianness = E, Intrin = I>) -> HookStatus,
         usize,
     ),
     /// Breakpoint added by a user.
@@ -1124,22 +1122,15 @@ pub enum Emil<P: Page, RegId: Reg, Regs: RegState, E: Endian, I: Intrinsic> {
     UserBp(usize),
 }
 
-impl<P: Page, RegId: Reg, Regs: RegState, E: Endian, I: Intrinsic> Clone
-    for Emil<P, RegId, Regs, E, I>
-{
+impl<P: Page, Regs: RegState, E: Endian, I: Intrinsic> Clone for Emil<P, Regs, E, I> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<P: Page, RegId: Reg, Regs: RegState, E: Endian, I: Intrinsic> Copy
-    for Emil<P, RegId, Regs, E, I>
-{
-}
+impl<P: Page, Regs: RegState, E: Endian, I: Intrinsic> Copy for Emil<P, Regs, E, I> {}
 
-impl<P: Page, RegId: Reg, Regs: RegState, E: Endian, I: Intrinsic> Debug
-    for Emil<P, RegId, Regs, E, I>
-{
+impl<P: Page, Regs: RegState, E: Endian, I: Intrinsic> Debug for Emil<P, Regs, E, I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Nop => write!(f, "nop"),

@@ -23,7 +23,7 @@ fn main() {
         .load("../busybox-musl.bndb")
         .expect("Couldn't load test binary");
 
-    let mut prog = Program::<SimplePage, Arm64Reg, Arm64State, Little, ArmIntrinsic>::default();
+    let mut prog = Program::<SimplePage, Arm64State, Little, ArmIntrinsic>::default();
     let entry = bv
         .function_at(bv.default_platform().unwrap().as_ref(), bv.entry_point())
         .unwrap();

@@ -1,5 +1,5 @@
+use crate::arch::Intrinsic;
 use crate::arch::{Endian, RegState};
-use crate::arch::{Intrinsic, Register as Reg};
 use crate::emil::{Emil, ILRef};
 use binaryninja::architecture::{Flag, Register as _};
 use binaryninja::low_level_il::expression::{
@@ -29,18 +29,16 @@ type LLILExpr<'e> = Expr<'e, Finalized, NonSSA, ValueExpr>;
 const TEMP_BIT: u32 = 0b10000000_00000000_00000000_00000000;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Program<P: Page, RegID: Reg, Regs: RegState, E: Endian, I: Intrinsic> {
+pub struct Program<P: Page, Regs: RegState, E: Endian, I: Intrinsic> {
     /// List of all [`Emil`] instructions in order
-    pub(crate) il: Vec<Emil<P, RegID, Regs, E, I>>,
+    pub(crate) il: Vec<Emil<P, Regs, E, I>>,
     /// Map of architecture instruction address to index of the first IL instruction that implements it
     pub(crate) insn_map: HashMap<u64, usize>,
     /// Map of il instruction index to program address.
     pub(crate) addr_map: Vec<u64>,
 }
 
-impl<P: Page, RegID: Reg, Regs: RegState, E: Endian, I: Intrinsic> Default
-    for Program<P, RegID, Regs, E, I>
-{
+impl<P: Page, Regs: RegState, E: Endian, I: Intrinsic> Default for Program<P, Regs, E, I> {
     fn default() -> Self {
         Self {
             il: Vec::new(),
@@ -60,7 +58,7 @@ macro_rules! bin_op {
     }};
 }
 
-impl<P: Page, RegID: Reg, Regs: RegState, E: Endian, I: Intrinsic> Program<P, RegID, Regs, E, I> {
+impl<P: Page, Regs: RegState, E: Endian, I: Intrinsic> Program<P, Regs, E, I> {
     /// Add empty function at an address.
     ///
     /// This is useful for when you want a function to always be hooked. This will just add an undefined instruction at
@@ -136,7 +134,7 @@ impl<P: Page, RegID: Reg, Regs: RegState, E: Endian, I: Intrinsic> Program<P, Re
                 let ilr = self.add_expr(&sr.source_expr(), ILRef(0));
                 match sr.dest_reg() {
                     binaryninja::low_level_il::LowLevelILRegisterKind::Arch(a) => {
-                        let arch_reg = RegID::try_from(a.id().0)
+                        let arch_reg = Regs::RegID::try_from(a.id().0)
                             .map_err(|_| {
                                 format!(
                                     "Invalid id {} at {:#x}",
@@ -261,7 +259,7 @@ impl<P: Page, RegID: Reg, Regs: RegState, E: Endian, I: Intrinsic> Program<P, Re
             }
             ExprKind::Reg(r) => match r.source_reg() {
                 binaryninja::low_level_il::LowLevelILRegisterKind::Arch(a) => {
-                    let arch_reg = RegID::try_from(a.id().0)
+                    let arch_reg = Regs::RegID::try_from(a.id().0)
                         .map_err(|_| format!("Invalid id {}", r.source_reg().id().0))
                         .expect("Invalid arch register");
                     self.il.push(Emil::LoadReg { reg: arch_reg, ilr });

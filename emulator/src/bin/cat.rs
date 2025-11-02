@@ -22,7 +22,7 @@ fn main() {
         .load("../busybox-musl.bndb")
         .expect("Couldn't load test binary");
 
-    let mut prog = Program::<SimplePage, Arm64Reg, Arm64State, Little, ArmIntrinsic>::default();
+    let mut prog = Program::<SimplePage, Arm64State, Little, ArmIntrinsic>::default();
     let entry = bv
         .function_at(bv.default_platform().unwrap().as_ref(), bv.entry_point())
         .unwrap();
@@ -40,7 +40,7 @@ fn main() {
     env.args
         .push("../../repos/busybox/busybox_unstripped".into());
     env.args.push("cat".into());
-    env.args.push("./src/bin/cat.rs".into());
+    env.args.push("./emulator/src/bin/cat.rs".into());
     env.env.push("EMULATOR=1".into());
     env.env.push("LANG=en_US.UTF-8".into());
     env.aux.push(AuxVal::Phnum(6));

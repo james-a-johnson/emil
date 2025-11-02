@@ -38,7 +38,7 @@ fn main() {
         .load("./test-bins/hello-riscv")
         .expect("Couldn't load test binary");
 
-    let mut prog = Program::<SimplePage, Rv64Reg, Rv64State, Little, RVIntrinsic>::default();
+    let mut prog = Program::<SimplePage, Rv64State, Little, RVIntrinsic>::default();
     for func in &bv.functions() {
         prog.add_function(func.low_level_il().as_ref().unwrap());
     }

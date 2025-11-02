@@ -260,7 +260,6 @@ impl<'de, S: Serialize + Deserialize<'de> + LinuxSyscalls<Arm64State, MMU<Simple
 }
 
 impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State<SimplePage> for LinuxArm64<S> {
-    type Reg = Arm64Reg;
     type Registers = Arm64State;
     type Endianness = Little;
     type Intrin = ArmIntrinsic;

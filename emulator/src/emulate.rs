@@ -22,8 +22,8 @@ use std::io::{Read, Write};
 const NUM_TEMPS: usize = 32;
 
 /// Function that can be used to hook specific instructions.
-pub type HookFn<P, RegId, Regs, E, I> =
-    fn(&mut dyn State<P, Reg = RegId, Registers = Regs, Endianness = E, Intrin = I>) -> HookStatus;
+pub type HookFn<P, Regs, E, I> =
+    fn(&mut dyn State<P, Registers = Regs, Endianness = E, Intrin = I>) -> HookStatus;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AccessType {
@@ -118,7 +118,7 @@ impl From<Exit> for ExecutionState {
 /// Emulator for a specific BIL graph, state, and architecture.
 pub struct Emulator<P: Page, S: State<P>> {
     /// Instructions to run.
-    prog: Program<P, S::Reg, S::Registers, S::Endianness, S::Intrin>,
+    prog: Program<P, S::Registers, S::Endianness, S::Intrin>,
     /// State of the device, mainly just memory.
     state: S,
     /// Intermediate language registers.
@@ -128,10 +128,7 @@ pub struct Emulator<P: Page, S: State<P>> {
     /// Address of current instruction.
     pc: usize,
     /// List of instructions that have been hooked and what index they came from.
-    replaced: Vec<(
-        Emil<P, S::Reg, S::Registers, S::Endianness, S::Intrin>,
-        usize,
-    )>,
+    replaced: Vec<(Emil<P, S::Registers, S::Endianness, S::Intrin>, usize)>,
     /// Addresses that
     watch: HashMap<u64, WatchFn>,
 }
@@ -151,7 +148,7 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
     /// `prog` is the actual program that is to be emulated. `state` will
     /// determine how the program interacts with its environment. It will
     /// emulate the memory accesses and system calls.
-    pub fn new(prog: Program<P, S::Reg, S::Registers, S::Endianness, S::Intrin>, state: S) -> Self {
+    pub fn new(prog: Program<P, S::Registers, S::Endianness, S::Intrin>, state: S) -> Self {
         Self {
             prog,
             state,
@@ -181,7 +178,7 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
     pub fn add_hook(
         &mut self,
         addr: u64,
-        hook: HookFn<P, S::Reg, S::Registers, S::Endianness, S::Intrin>,
+        hook: HookFn<P, S::Registers, S::Endianness, S::Intrin>,
     ) -> Option<HookID> {
         let replaced_idx = self.replaced.len();
         let mut hook = Emil::Hook(hook, replaced_idx);
@@ -259,14 +256,12 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
     }
 
     /// Get a reference to the underlying program.
-    pub fn get_prog(&self) -> &Program<P, S::Reg, S::Registers, S::Endianness, S::Intrin> {
+    pub fn get_prog(&self) -> &Program<P, S::Registers, S::Endianness, S::Intrin> {
         &self.prog
     }
 
     /// Get a mutable reference to the underlying program.
-    pub fn get_prog_mut(
-        &mut self,
-    ) -> &mut Program<P, S::Reg, S::Registers, S::Endianness, S::Intrin> {
+    pub fn get_prog_mut(&mut self) -> &mut Program<P, S::Registers, S::Endianness, S::Intrin> {
         &mut self.prog
     }
 
@@ -374,16 +369,13 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
 
     /// Get the EMIL instruction at the current pc value.
     #[inline(always)]
-    fn curr_inst(&self) -> &Emil<P, S::Reg, S::Registers, S::Endianness, S::Intrin> {
+    fn curr_inst(&self) -> &Emil<P, S::Registers, S::Endianness, S::Intrin> {
         // SAFETY: self.pc will always be set to a valid index in the il array.
         unsafe { self.prog.il.get_unchecked(self.pc) }
     }
 
     /// Emulate a single instruction.
-    fn emulate(
-        &mut self,
-        inst: Emil<P, S::Reg, S::Registers, S::Endianness, S::Intrin>,
-    ) -> ExecutionState {
+    fn emulate(&mut self, inst: Emil<P, S::Registers, S::Endianness, S::Intrin>) -> ExecutionState {
         match inst {
             Emil::Nop => {}
             Emil::NoRet => return Exit::NoReturn.into(),

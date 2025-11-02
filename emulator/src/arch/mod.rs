@@ -72,8 +72,7 @@ pub trait Intrinsic: Sized + Clone + Copy + Debug {
 }
 
 pub trait State<P: Page> {
-    type Reg: Register;
-    type Registers: RegState<RegID = Self::Reg>;
+    type Registers: RegState;
     type Endianness: Endian;
     type Intrin: Intrinsic;
 

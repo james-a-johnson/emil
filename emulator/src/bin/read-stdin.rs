@@ -27,7 +27,7 @@ fn main() {
         .load("./test-bins/sum-stdin-arm.bndb")
         .expect("Couldn't load test binary");
 
-    let mut prog = Program::<SimplePage, Arm64Reg, Arm64State, Little, ArmIntrinsic>::default();
+    let mut prog = Program::<SimplePage, Arm64State, Little, ArmIntrinsic>::default();
     let entry = bv
         .function_at(bv.default_platform().unwrap().as_ref(), bv.entry_point())
         .unwrap();
@@ -121,13 +121,7 @@ fn main() {
 }
 
 fn strlen_hook<P: Page>(
-    state: &mut dyn State<
-        P,
-        Reg = Arm64Reg,
-        Registers = Arm64State,
-        Endianness = Little,
-        Intrin = ArmIntrinsic,
-    >,
+    state: &mut dyn State<P, Registers = Arm64State, Endianness = Little, Intrin = ArmIntrinsic>,
 ) -> HookStatus {
     let mut addr = state.regs().read(Arm64Reg::x0).extend_64() as usize;
     let ret = state.regs().read(Arm64Reg::lr).extend_64();
@@ -148,13 +142,7 @@ fn strlen_hook<P: Page>(
 }
 
 fn memset_hook<P: Page>(
-    state: &mut dyn State<
-        P,
-        Reg = Arm64Reg,
-        Registers = Arm64State,
-        Endianness = Little,
-        Intrin = ArmIntrinsic,
-    >,
+    state: &mut dyn State<P, Registers = Arm64State, Endianness = Little, Intrin = ArmIntrinsic>,
 ) -> HookStatus {
     let src = state.regs().read(Arm64Reg::x0).get_quad() as usize;
     let val = state.regs().read(Arm64Reg::w1).truncate(1).get_byte();
@@ -169,13 +157,7 @@ fn memset_hook<P: Page>(
 }
 
 fn rindex_hook<P: Page>(
-    state: &mut dyn State<
-        P,
-        Reg = Arm64Reg,
-        Registers = Arm64State,
-        Endianness = Little,
-        Intrin = ArmIntrinsic,
-    >,
+    state: &mut dyn State<P, Registers = Arm64State, Endianness = Little, Intrin = ArmIntrinsic>,
 ) -> HookStatus {
     let mut src = state.regs().read(Arm64Reg::x0).get_quad() as usize;
     let val = state.regs().read(Arm64Reg::x1).truncate(1).get_byte();
@@ -205,13 +187,7 @@ fn rindex_hook<P: Page>(
 }
 
 fn strchrnul<P: Page>(
-    state: &mut dyn State<
-        P,
-        Reg = Arm64Reg,
-        Registers = Arm64State,
-        Endianness = Little,
-        Intrin = ArmIntrinsic,
-    >,
+    state: &mut dyn State<P, Registers = Arm64State, Endianness = Little, Intrin = ArmIntrinsic>,
 ) -> HookStatus {
     let ret = state.regs().read(Arm64Reg::lr).get_quad();
     let mut str_ptr = state.regs().read(Arm64Reg::x0).get_quad() as usize;

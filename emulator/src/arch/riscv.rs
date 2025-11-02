@@ -76,7 +76,6 @@ impl<S> LinuxRV64<S> {
 }
 
 impl<S: LinuxSyscalls<Rv64State, MMU<SimplePage>>> State<SimplePage> for LinuxRV64<S> {
-    type Reg = Rv64Reg;
     type Registers = Rv64State;
     type Endianness = Little;
     type Intrin = RVIntrinsic;
