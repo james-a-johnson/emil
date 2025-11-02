@@ -1,0 +1,35 @@
+[package]
+name = "softmew"
+version = "0.7.0"
+edition = "2024"
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[features]
+serde = ["dep:serde"]
+
+[lints.clippy]
+correctness = "forbid"
+suspicious = "warn"
+perf = "deny"
+style = "deny"
+pedantic = "warn"
+
+[profile.release]
+debug = true
+panic = "abort"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.6.0", features = ["html_reports"] }
+
+[[bench]]
+name = "reset"
+harness = false
+
+[[bench]]
+name = "write"
+harness = false
