@@ -1,11 +1,11 @@
+use crate::arch::State;
+
 use std::ffi::OsString;
 
-use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
+use binaryninja::binary_view::BinaryViewExt;
+use softmew::page::Page;
 
-use crate::{
-    arch::{RegState, SyscallResult},
-    emil::ILVal,
-};
+use crate::{arch::SyscallResult, emil::ILVal};
 
 /// Auxiliary vector entries.
 #[derive(Clone, Debug)]
@@ -253,8 +253,8 @@ pub const UNIMPLEMENTED: ILVal = ILVal::Quad((-95_i64) as u64);
 
 macro_rules! define_syscall {
     ($name:ident) => {
-        fn $name(&mut self, regs: &mut R, _mem: &mut M) -> SyscallResult {
-            regs.set_syscall_return(UNIMPLEMENTED);
+        fn $name(&mut self) -> SyscallResult {
+            self.set_syscall_return(UNIMPLEMENTED);
             SyscallResult::Continue
         }
     };
@@ -269,7 +269,10 @@ macro_rules! define_syscall {
 /// returns an error saying the operation is not supported. Some syscalls have
 /// different default returns. Those will have their default implementation
 /// defined in a doc comment.
-pub trait LinuxSyscalls<R: RegState, M> {
+pub trait LinuxSyscalls {
+    /// Set the return value of the system call.
+    fn set_syscall_return(&mut self, ret: ILVal);
+
     define_syscall!(faccessat);
     define_syscall!(read);
     define_syscall!(write);
@@ -294,26 +297,26 @@ pub trait LinuxSyscalls<R: RegState, M> {
     define_syscall!(futex);
 
     /// Returns that the path could not be found on the system.
-    fn openat(&mut self, regs: &mut R, _mem: &mut M) -> SyscallResult {
-        regs.set_syscall_return(ILVal::Quad((-2_i64) as u64));
+    fn openat(&mut self) -> SyscallResult {
+        self.set_syscall_return(ILVal::Quad((-2_i64) as u64));
         SyscallResult::Continue
     }
 
     /// Causes the emulator to stop execution.
-    fn exit(&mut self, _regs: &mut R, _mem: &mut M) -> SyscallResult {
+    fn exit(&mut self) -> SyscallResult {
         SyscallResult::Exit
     }
 
     /// Causes the emulator to stop execution.
-    fn exit_group(&mut self, _regs: &mut R, _mem: &mut M) -> SyscallResult {
+    fn exit_group(&mut self) -> SyscallResult {
         SyscallResult::Exit
     }
 
     /// Close a file descriptor.
     ///
     /// Default implementation always returns success.
-    fn close(&mut self, regs: &mut R, _mem: &mut M) -> SyscallResult {
-        regs.set_syscall_return(ILVal::Quad(0));
+    fn close(&mut self) -> SyscallResult {
+        self.set_syscall_return(ILVal::Quad(0));
         SyscallResult::Continue
     }
 }

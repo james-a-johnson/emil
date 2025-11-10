@@ -142,8 +142,4 @@ impl<E: Endian> RegState for GenericRegs<E> {
     fn write(&mut self, id: Self::RegID, val: ILVal) {
         todo!();
     }
-
-    fn set_syscall_return(&mut self, val: ILVal) {
-        todo!();
-    }
 }

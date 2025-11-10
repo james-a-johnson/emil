@@ -198,29 +198,57 @@ fn get_const_from_inputs(
 const NUM_CONDS: usize = 64;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct LinuxArm64<S> {
+pub struct LinuxArm64 {
     pub regs: Arm64State,
     pub mem: MMU<SimplePage>,
     pub flags: [bool; 64],
     pub conds: [bool; NUM_CONDS],
-    pub syscalls: S,
     pub tpid: u64,
+    fds: HashMap<u32, Box<dyn FileDescriptor>>,
+    heap: Range<u64>,
+    progname: CString,
 }
 
-impl<S> LinuxArm64<S> {
+impl LinuxArm64 {
     pub const ARCH_NAME: &'static str = "aarch64";
 
-    pub fn new(syscalls: S) -> Self {
+    pub fn new(name: impl Into<CString>, heap: Range<u64>) -> Self {
         let regs = Arm64State::default();
         let mmu = MMU::new();
+        let mut map = HashMap::new();
+        let stdin: Box<dyn FileDescriptor> = Box::new(VecDeque::<u8>::new());
+        let stdout: Box<dyn FileDescriptor> = Box::new(VecDeque::<u8>::new());
+        let stderr: Box<dyn FileDescriptor> = Box::new(VecDeque::<u8>::new());
+        map.insert(0, stdin);
+        map.insert(1, stdout);
+        map.insert(2, stderr);
         Self {
+            fds: map,
+            heap,
+            progname: name.into(),
             regs,
             mem: mmu,
             flags: [false; 64],
             conds: [false; NUM_CONDS],
-            syscalls,
             tpid: 0,
         }
+    }
+
+    pub fn take_fd(&mut self, fd: u32) -> Option<Box<dyn FileDescriptor>> {
+        self.fds.remove(&fd)
+    }
+
+    pub fn set_stdin<T: FileDescriptor>(&mut self, data: T) -> Option<Box<dyn FileDescriptor>> {
+        let stdin = Box::new(data);
+        self.fds.insert(0, stdin)
+    }
+
+    pub fn get_fd(&self, fd: u32) -> Option<&dyn FileDescriptor> {
+        self.fds.get(&fd).map(|f| f.as_ref())
+    }
+
+    pub fn get_fd_mut(&mut self, fd: u32) -> Option<&mut dyn FileDescriptor> {
+        self.fds.get_mut(&fd).map(|f| f.as_mut())
     }
 
     #[inline]
@@ -247,7 +275,7 @@ impl<S> LinuxArm64<S> {
 macro_rules! syscalls {
     ($handler:ident, $sys_no:ident, $(($num:literal, $name:ident)),*) => {
         match $sys_no {
-            $($num => $handler.syscalls.$name(&mut $handler.regs, &mut $handler.mem),)*
+            $($num => $handler.$name(),)*
             no => unimplemented!("Syscall {no:#x} is not implemented"),
         }
     };
@@ -259,7 +287,7 @@ impl<'de, S: Serialize + Deserialize<'de> + LinuxSyscalls<Arm64State, MMU<Simple
 {
 }
 
-impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State<SimplePage> for LinuxArm64<S> {
+impl State<SimplePage> for LinuxArm64 {
     type Registers = Arm64State;
     type Endianness = Little;
     type Intrin = ArmIntrinsic;
@@ -414,6 +442,312 @@ impl<S: LinuxSyscalls<Arm64State, MMU<SimplePage>>> State<SimplePage> for LinuxA
     }
 }
 
+impl LinuxSyscalls for LinuxArm64 {
+    fn set_syscall_return(&mut self, val: ILVal) {
+        self.regs[Arm64Reg::x0] = val.extend_64()
+    }
+
+    fn read(&mut self) -> SyscallResult {
+        let fd = self.regs[Arm64Reg::x0];
+        let ptr = self.regs[Arm64Reg::x1] as usize;
+        let len = self.regs[Arm64Reg::x2] as usize;
+        let data = self
+            .mem
+            .get_slice_mut(ptr..ptr + len, Perm::WRITE)
+            .expect("Reading to invalid memory");
+        match self.fds.get_mut(&(fd as u32)) {
+            Some(file) => {
+                let res = file.read(data);
+                match res {
+                    Ok(b) => {
+                        self.regs[Arm64Reg::x0] = b as u64;
+                    }
+                    Err(e) => {
+                        self.regs[Arm64Reg::x0] = e.raw_os_error().unwrap_or(-9) as u64;
+                    }
+                }
+            }
+            None => self.regs[Arm64Reg::x0] = (-9_i64) as u64,
+        };
+        SyscallResult::Continue
+    }
+
+    fn write(&mut self) -> SyscallResult {
+        let fd = self.regs[Arm64Reg::x0];
+        let ptr = self.regs[Arm64Reg::x1] as usize;
+        let len = self.regs[Arm64Reg::x2] as usize;
+        let data = self
+            .mem
+            .get_slice(ptr..ptr + len, Perm::READ)
+            .expect("Failed to read data");
+        match self.fds.get_mut(&(fd as u32)) {
+            Some(file) => {
+                let res = file.write(&data);
+                match res {
+                    Ok(b) => self.regs[Arm64Reg::x0] = b as u64,
+                    Err(e) => {
+                        self.regs[Arm64Reg::x0] = e.raw_os_error().unwrap_or(-9) as u64;
+                    }
+                }
+            }
+            None => self.regs[Arm64Reg::x0] = len as u64,
+        }
+        SyscallResult::Continue
+    }
+
+    fn set_tid_address(&mut self) -> SyscallResult {
+        self.regs[Arm64Reg::x0] = 100;
+        SyscallResult::Continue
+    }
+
+    fn set_robust_list(&mut self) -> SyscallResult {
+        self.regs[Arm64Reg::x0] = 0;
+        SyscallResult::Continue
+    }
+
+    fn futex(&mut self) -> SyscallResult {
+        self.regs[Arm64Reg::x0] = 0;
+        SyscallResult::Continue
+    }
+
+    fn getrandom(&mut self) -> SyscallResult {
+        let buf = self.regs[Arm64Reg::x0] as usize;
+        let len = self.regs[Arm64Reg::x1] as usize;
+        let buffer = match self.mem.get_slice_mut(buf..buf + len, Perm::WRITE) {
+            Ok(s) => s,
+            Err(_) => {
+                self.regs[Arm64Reg::x0] = (-14_i64) as u64;
+                return SyscallResult::Continue;
+            }
+        };
+        buffer.fill(0xaa);
+        self.regs[Arm64Reg::x0] = len as u64;
+        SyscallResult::Continue
+    }
+
+    fn uname(&mut self) -> SyscallResult {
+        let addr = self.regs[Arm64Reg::x0];
+        self.regs[Arm64Reg::x0] = (-14_i64) as u64;
+        if self.mem.write_perm(addr as usize, b"Linux\x00").is_err() {
+            return SyscallResult::Continue;
+        }
+        if self
+            .mem
+            .write_perm((addr + 65) as usize, b"binja-emu\x00")
+            .is_err()
+        {
+            return SyscallResult::Continue;
+        }
+        if self
+            .mem
+            .write_perm((addr + 65 * 2) as usize, b"6.16.3-76061603-generic\x00")
+            .is_err()
+        {
+            return SyscallResult::Continue;
+        }
+        if self
+            .mem
+            .write_perm(
+                (addr + 65 * 3) as usize,
+                b"#202508231538~1758561135~22.04~171c8de\x00",
+            )
+            .is_err()
+        {
+            return SyscallResult::Continue;
+        }
+        if self
+            .mem
+            .write_perm((addr + 65 * 4) as usize, b"aarch64\x00")
+            .is_err()
+        {
+            return SyscallResult::Continue;
+        }
+        if self
+            .mem
+            .write_perm((addr + 65 * 5) as usize, b"binja.emu\x00")
+            .is_err()
+        {
+            return SyscallResult::Continue;
+        }
+        self.regs[Arm64Reg::x0] = 0;
+        SyscallResult::Continue
+    }
+
+    fn getuid(&mut self) -> SyscallResult {
+        self.regs[Arm64Reg::x0] = 1000;
+        SyscallResult::Continue
+    }
+
+    fn geteuid(&mut self) -> SyscallResult {
+        self.regs[Arm64Reg::x0] = 1000;
+        SyscallResult::Continue
+    }
+
+    fn getgid(&mut self) -> SyscallResult {
+        self.regs[Arm64Reg::x0] = 1000;
+        SyscallResult::Continue
+    }
+
+    fn getegid(&mut self) -> SyscallResult {
+        self.regs[Arm64Reg::x0] = 1000;
+        SyscallResult::Continue
+    }
+
+    fn brk(&mut self) -> SyscallResult {
+        let addr = self.regs[Arm64Reg::x0];
+        if addr < self.heap.start {
+            self.regs[Arm64Reg::x0] = self.heap.start;
+        } else if addr > self.heap.end {
+            self.regs[Arm64Reg::x0] = self.heap.end;
+        }
+        SyscallResult::Continue
+    }
+
+    fn mmap(&mut self) -> SyscallResult {
+        let addr = self.regs[Arm64Reg::x0];
+        let len = self.regs[Arm64Reg::x1];
+
+        if addr == 0 {
+            // Just map at any address that has the required size
+            let range = self.mem.gaps().find(|r| r.size() >= len as usize);
+            if let Some(addrs) = range {
+                let page = self
+                    .mem
+                    .map_memory(addrs.start, len as usize, Perm::READ | Perm::WRITE);
+                if page.is_ok() {
+                    self.regs[Arm64Reg::x0] = addrs.start as u64;
+                    return SyscallResult::Continue;
+                }
+            }
+            self.regs[Arm64Reg::x0] = u64::MAX;
+            return SyscallResult::Continue;
+        } else {
+            let page = self
+                .mem
+                .map_memory(addr as usize, len as usize, Perm::READ | Perm::WRITE);
+            if page.is_ok() {
+                self.regs[Arm64Reg::x0] = addr;
+                return SyscallResult::Continue;
+            }
+            self.regs[Arm64Reg::x0] = u64::MAX;
+            return SyscallResult::Continue;
+        }
+    }
+
+    fn mprotect(&mut self) -> SyscallResult {
+        self.regs[Arm64Reg::x0] = 0;
+        SyscallResult::Continue
+    }
+
+    fn writev(&mut self) -> SyscallResult {
+        let _fd = self.regs[Arm64Reg::x0];
+        let _iov = self.regs[Arm64Reg::x1];
+        let _iocnt = self.regs[Arm64Reg::x2];
+        SyscallResult::Continue
+    }
+
+    fn readlinkat(&mut self) -> SyscallResult {
+        let mut path_addr = self.regs[Arm64Reg::x1];
+        let mut path = Vec::new();
+        let mut buf = [0u8];
+        let bufsize = self.regs[Arm64Reg::x2] as usize;
+        let copy_size = bufsize.min(self.progname.count_bytes());
+        let link_buf = self.regs[Arm64Reg::x2];
+        loop {
+            if self.mem.read_perm(path_addr as usize, &mut buf).is_err() {
+                self.regs[Arm64Reg::x0] = (-14_i64) as u64;
+                return SyscallResult::Continue;
+            }
+            if buf[0] == 0 {
+                break;
+            }
+            path.push(buf[0]);
+            path_addr += 1;
+        }
+        match <Vec<u8> as AsRef<[u8]>>::as_ref(&path) {
+            b"/proc/self/exe" => {
+                match self
+                    .mem
+                    .write_perm(link_buf as usize, &self.progname.as_bytes()[..copy_size])
+                {
+                    Ok(_) => self.regs[Arm64Reg::x0] = copy_size as u64,
+                    Err(_) => self.regs[Arm64Reg::x0] = (-14_i16) as u64,
+                };
+            }
+            _ => self.regs[Arm64Reg::x0] = (-2_i64) as u64,
+        }
+        SyscallResult::Continue
+    }
+
+    fn openat(&mut self) -> SyscallResult {
+        let mut path_addr = self.regs[Arm64Reg::x1];
+        let options = self.regs[Arm64Reg::x2] & 0xffffffff;
+        let mut path = Vec::new();
+        let mut buf = [0u8];
+        loop {
+            if self.mem.read_perm(path_addr as usize, &mut buf).is_err() {
+                self.regs[Arm64Reg::x0] = (-14_i64) as u64;
+                return SyscallResult::Continue;
+            }
+            if buf[0] == 0 {
+                break;
+            }
+            path.push(buf[0]);
+            path_addr += 1;
+        }
+
+        let string = OsString::from_vec(path);
+        let path = PathBuf::from(string);
+
+        let mut open_options = OpenOptions::new();
+        match options & 0b11 {
+            0 => open_options.read(true),
+            1 => open_options.write(true),
+            2 => open_options.read(true).write(true),
+            _ => panic!("Invalid open options"),
+        };
+
+        let path = path.canonicalize();
+        match path {
+            Ok(p) => match open_options.open(p) {
+                Ok(f) => {
+                    let fd: Box<dyn FileDescriptor> = Box::new(f);
+                    let num = self.fds.len();
+                    self.fds.insert(num.try_into().unwrap(), fd);
+                    self.regs[Arm64Reg::x0] = num as u64;
+                }
+                Err(e) => {
+                    let errno = e.raw_os_error().unwrap_or(-2);
+                    self.regs[Arm64Reg::x0] = errno as i64 as u64;
+                }
+            },
+            Err(e) => {
+                let errno = e.raw_os_error().unwrap_or(-2);
+                self.regs[Arm64Reg::x0] = errno as i64 as u64;
+            }
+        };
+
+        SyscallResult::Continue
+    }
+
+    fn close(&mut self) -> SyscallResult {
+        let fd = self.regs[Arm64Reg::x0] as u32;
+        if self.fds.contains_key(&fd) {
+            // Don't actually close here because user of the emulator might want to get the file and look at it
+            // themselves.
+            self.regs[Arm64Reg::x0] = 0;
+        } else {
+            self.regs[Arm64Reg::x0] = (-77_i64) as u64;
+        }
+        SyscallResult::Continue
+    }
+
+    fn newfstatat(&mut self) -> SyscallResult {
+        self.regs[Arm64Reg::x0] = (-2_i64) as u64;
+        SyscallResult::Continue
+    }
+}
+
 #[derive(Default, Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Arm64State {
@@ -424,10 +758,6 @@ pub struct Arm64State {
 
 impl RegState for Arm64State {
     type RegID = Arm64Reg;
-
-    fn set_syscall_return(&mut self, val: ILVal) {
-        self[Arm64Reg::x0] = val.extend_64()
-    }
 
     #[inline]
     fn read(&self, id: Self::RegID) -> ILVal {
@@ -8106,356 +8436,5 @@ impl Register for Arm64Reg {
 impl std::fmt::Display for Arm64Reg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{self:?}")
-    }
-}
-
-/// Basic linux state for an Arm64 machine.
-///
-/// Implements the basic system calls and will keep track of stdin, stdout, and stderr state.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ArmMachine {
-    #[cfg_attr(feature = "serde", serde(skip))]
-    fds: HashMap<u32, Box<dyn FileDescriptor>>,
-    heap: Range<u64>,
-    progname: CString,
-}
-
-impl ArmMachine {
-    /// Create a new machine with initially empty stdin, stdout, and stderr.
-    ///
-    /// `heap` is the range of addresses that should be used for the heap. Those addresses are used to set return values for
-    /// the brk syscall.
-    pub fn new(name: impl Into<CString>, heap: Range<u64>) -> Self {
-        let mut map = HashMap::new();
-        let stdin: Box<dyn FileDescriptor> = Box::new(VecDeque::<u8>::new());
-        let stdout: Box<dyn FileDescriptor> = Box::new(VecDeque::<u8>::new());
-        let stderr: Box<dyn FileDescriptor> = Box::new(VecDeque::<u8>::new());
-        map.insert(0, stdin);
-        map.insert(1, stdout);
-        map.insert(2, stderr);
-        Self {
-            fds: map,
-            heap,
-            progname: name.into(),
-        }
-    }
-
-    pub fn take_fd(&mut self, fd: u32) -> Option<Box<dyn FileDescriptor>> {
-        self.fds.remove(&fd)
-    }
-
-    pub fn set_stdin<T: FileDescriptor>(&mut self, data: T) -> Option<Box<dyn FileDescriptor>> {
-        let stdin = Box::new(data);
-        self.fds.insert(0, stdin)
-    }
-
-    pub fn get_fd(&self, fd: u32) -> Option<&dyn FileDescriptor> {
-        self.fds.get(&fd).map(|f| f.as_ref())
-    }
-
-    pub fn get_fd_mut(&mut self, fd: u32) -> Option<&mut dyn FileDescriptor> {
-        self.fds.get_mut(&fd).map(|f| f.as_mut())
-    }
-}
-
-impl LinuxSyscalls<Arm64State, MMU<SimplePage>> for ArmMachine {
-    fn read(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
-        let fd = regs[Arm64Reg::x0];
-        let ptr = regs[Arm64Reg::x1] as usize;
-        let len = regs[Arm64Reg::x2] as usize;
-        let data = mem
-            .get_slice_mut(ptr..ptr + len, Perm::WRITE)
-            .expect("Reading to invalid memory");
-        match self.fds.get_mut(&(fd as u32)) {
-            Some(file) => {
-                let res = file.read(data);
-                match res {
-                    Ok(b) => {
-                        regs[Arm64Reg::x0] = b as u64;
-                    }
-                    Err(e) => {
-                        regs[Arm64Reg::x0] = e.raw_os_error().unwrap_or(-9) as u64;
-                    }
-                }
-            }
-            None => regs[Arm64Reg::x0] = (-9_i64) as u64,
-        };
-        SyscallResult::Continue
-    }
-
-    fn write(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
-        let fd = regs[Arm64Reg::x0];
-        let ptr = regs[Arm64Reg::x1] as usize;
-        let len = regs[Arm64Reg::x2] as usize;
-        let data = mem
-            .get_slice(ptr..ptr + len, Perm::READ)
-            .expect("Failed to read data");
-        match self.fds.get_mut(&(fd as u32)) {
-            Some(file) => {
-                let res = file.write(&data);
-                match res {
-                    Ok(b) => regs[Arm64Reg::x0] = b as u64,
-                    Err(e) => {
-                        regs[Arm64Reg::x0] = e.raw_os_error().unwrap_or(-9) as u64;
-                    }
-                }
-            }
-            None => regs[Arm64Reg::x0] = len as u64,
-        }
-        SyscallResult::Continue
-    }
-
-    fn set_tid_address(
-        &mut self,
-        regs: &mut Arm64State,
-        _mem: &mut MMU<SimplePage>,
-    ) -> SyscallResult {
-        regs[Arm64Reg::x0] = 100;
-        SyscallResult::Continue
-    }
-
-    fn set_robust_list(
-        &mut self,
-        regs: &mut Arm64State,
-        _mem: &mut MMU<SimplePage>,
-    ) -> SyscallResult {
-        regs[Arm64Reg::x0] = 0;
-        SyscallResult::Continue
-    }
-
-    fn futex(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
-        regs[Arm64Reg::x0] = 0;
-        SyscallResult::Continue
-    }
-
-    fn getrandom(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
-        let buf = regs[Arm64Reg::x0] as usize;
-        let len = regs[Arm64Reg::x1] as usize;
-        let buffer = match mem.get_slice_mut(buf..buf + len, Perm::WRITE) {
-            Ok(s) => s,
-            Err(_) => {
-                regs[Arm64Reg::x0] = (-14_i64) as u64;
-                return SyscallResult::Continue;
-            }
-        };
-        buffer.fill(0xaa);
-        regs[Arm64Reg::x0] = len as u64;
-        SyscallResult::Continue
-    }
-
-    fn uname(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
-        let addr = regs[Arm64Reg::x0];
-        regs[Arm64Reg::x0] = (-14_i64) as u64;
-        if mem.write_perm(addr as usize, b"Linux\x00").is_err() {
-            println!("linux failed");
-            return SyscallResult::Continue;
-        }
-        if mem
-            .write_perm((addr + 65) as usize, b"binja-emu\x00")
-            .is_err()
-        {
-            println!("binja-emu failed");
-            return SyscallResult::Continue;
-        }
-        if mem
-            .write_perm((addr + 65 * 2) as usize, b"6.16.3-76061603-generic\x00")
-            .is_err()
-        {
-            println!("release failed");
-            return SyscallResult::Continue;
-        }
-        if mem
-            .write_perm(
-                (addr + 65 * 3) as usize,
-                b"#202508231538~1758561135~22.04~171c8de\x00",
-            )
-            .is_err()
-        {
-            println!("version failed");
-            return SyscallResult::Continue;
-        }
-        if mem
-            .write_perm((addr + 65 * 4) as usize, b"aarch64\x00")
-            .is_err()
-        {
-            println!("arch failed");
-            return SyscallResult::Continue;
-        }
-        if mem
-            .write_perm((addr + 65 * 5) as usize, b"binja.emu\x00")
-            .is_err()
-        {
-            println!("domain failed");
-            return SyscallResult::Continue;
-        }
-        regs[Arm64Reg::x0] = 0;
-        SyscallResult::Continue
-    }
-
-    fn getuid(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
-        regs[Arm64Reg::x0] = 1000;
-        SyscallResult::Continue
-    }
-
-    fn geteuid(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
-        regs[Arm64Reg::x0] = 1000;
-        SyscallResult::Continue
-    }
-
-    fn getgid(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
-        regs[Arm64Reg::x0] = 1000;
-        SyscallResult::Continue
-    }
-
-    fn getegid(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
-        regs[Arm64Reg::x0] = 1000;
-        SyscallResult::Continue
-    }
-
-    fn brk(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
-        let addr = regs[Arm64Reg::x0];
-        if addr < self.heap.start {
-            regs[Arm64Reg::x0] = self.heap.start;
-        } else if addr > self.heap.end {
-            regs[Arm64Reg::x0] = self.heap.end;
-        }
-        SyscallResult::Continue
-    }
-
-    fn mmap(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
-        let addr = regs[Arm64Reg::x0];
-        let len = regs[Arm64Reg::x1];
-
-        if addr == 0 {
-            // Just map at any address that has the required size
-            let range = mem.gaps().find(|r| r.size() >= len as usize);
-            if let Some(addrs) = range {
-                let page = mem.map_memory(addrs.start, len as usize, Perm::READ | Perm::WRITE);
-                if page.is_ok() {
-                    regs[Arm64Reg::x0] = addrs.start as u64;
-                    return SyscallResult::Continue;
-                }
-            }
-            regs[Arm64Reg::x0] = u64::MAX;
-            return SyscallResult::Continue;
-        } else {
-            let page = mem.map_memory(addr as usize, len as usize, Perm::READ | Perm::WRITE);
-            if page.is_ok() {
-                regs[Arm64Reg::x0] = addr;
-                return SyscallResult::Continue;
-            }
-            regs[Arm64Reg::x0] = u64::MAX;
-            return SyscallResult::Continue;
-        }
-    }
-
-    fn mprotect(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
-        regs[Arm64Reg::x0] = 0;
-        SyscallResult::Continue
-    }
-
-    fn writev(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
-        let _fd = regs[Arm64Reg::x0];
-        let _iov = regs[Arm64Reg::x1];
-        let _iocnt = regs[Arm64Reg::x2];
-        SyscallResult::Continue
-    }
-
-    fn readlinkat(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
-        let mut path_addr = regs[Arm64Reg::x1];
-        let mut path = Vec::new();
-        let mut buf = [0u8];
-        let bufsize = regs[Arm64Reg::x2] as usize;
-        let copy_size = bufsize.min(self.progname.count_bytes());
-        let link_buf = regs[Arm64Reg::x2];
-        loop {
-            if mem.read_perm(path_addr as usize, &mut buf).is_err() {
-                regs[Arm64Reg::x0] = (-14_i64) as u64;
-                return SyscallResult::Continue;
-            }
-            if buf[0] == 0 {
-                break;
-            }
-            path.push(buf[0]);
-            path_addr += 1;
-        }
-        match <Vec<u8> as AsRef<[u8]>>::as_ref(&path) {
-            b"/proc/self/exe" => {
-                match mem.write_perm(link_buf as usize, &self.progname.as_bytes()[..copy_size]) {
-                    Ok(_) => regs[Arm64Reg::x0] = copy_size as u64,
-                    Err(_) => regs[Arm64Reg::x0] = (-14_i16) as u64,
-                };
-            }
-            _ => regs[Arm64Reg::x0] = (-2_i64) as u64,
-        }
-        SyscallResult::Continue
-    }
-
-    fn openat(&mut self, regs: &mut Arm64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
-        let mut path_addr = regs[Arm64Reg::x1];
-        let options = regs[Arm64Reg::x2] & 0xffffffff;
-        let mut path = Vec::new();
-        let mut buf = [0u8];
-        loop {
-            if mem.read_perm(path_addr as usize, &mut buf).is_err() {
-                regs[Arm64Reg::x0] = (-14_i64) as u64;
-                return SyscallResult::Continue;
-            }
-            if buf[0] == 0 {
-                break;
-            }
-            path.push(buf[0]);
-            path_addr += 1;
-        }
-
-        let string = OsString::from_vec(path);
-        let path = PathBuf::from(string);
-
-        let mut open_options = OpenOptions::new();
-        match options & 0b11 {
-            0 => open_options.read(true),
-            1 => open_options.write(true),
-            2 => open_options.read(true).write(true),
-            _ => panic!("Invalid open options"),
-        };
-
-        let path = path.canonicalize();
-        match path {
-            Ok(p) => match open_options.open(p) {
-                Ok(f) => {
-                    let fd: Box<dyn FileDescriptor> = Box::new(f);
-                    let num = self.fds.len();
-                    self.fds.insert(num.try_into().unwrap(), fd);
-                    regs[Arm64Reg::x0] = num as u64;
-                }
-                Err(e) => {
-                    let errno = e.raw_os_error().unwrap_or(-2);
-                    regs[Arm64Reg::x0] = errno as i64 as u64;
-                }
-            },
-            Err(e) => {
-                let errno = e.raw_os_error().unwrap_or(-2);
-                regs[Arm64Reg::x0] = errno as i64 as u64;
-            }
-        };
-
-        SyscallResult::Continue
-    }
-
-    fn close(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
-        let fd = regs[Arm64Reg::x0] as u32;
-        if self.fds.contains_key(&fd) {
-            // Don't actually close here because user of the emulator might want to get the file and look at it
-            // themselves.
-            regs[Arm64Reg::x0] = 0;
-        } else {
-            regs[Arm64Reg::x0] = (-77_i64) as u64;
-        }
-        SyscallResult::Continue
-    }
-
-    fn newfstatat(&mut self, regs: &mut Arm64State, _mem: &mut MMU<SimplePage>) -> SyscallResult {
-        regs[Arm64Reg::x0] = (-2_i64) as u64;
-        SyscallResult::Continue
     }
 }

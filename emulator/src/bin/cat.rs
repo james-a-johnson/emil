@@ -29,7 +29,7 @@ fn main() {
     let llil_entry = entry.low_level_il().unwrap();
     prog.add_function(llil_entry.as_ref());
 
-    let mut state = LinuxArm64::new(ArmMachine::new(c"/usr/bin/echo", 0x80000000..0x80100000));
+    let mut state = LinuxArm64::new(c"/usr/bin/echo", 0x80000000..0x80100000);
     let mem = state.memory_mut();
     load_sections(mem, &bv).expect("Failed to load a section");
     let stack = mem
@@ -83,12 +83,12 @@ fn main() {
     println!("Stop reason: {:?}", stop_reason);
     println!("Stopped at: {:#x}", emu.curr_pc());
 
-    let stdout: Box<dyn Any> = emu.get_state_mut().syscalls.take_fd(1).unwrap();
+    let stdout: Box<dyn Any> = emu.get_state_mut().take_fd(1).unwrap();
     let mut stdout: Box<VecDeque<u8>> = stdout.downcast().unwrap();
     let message = String::from_utf8(stdout.make_contiguous().to_vec()).unwrap();
     println!("stdout: {message}");
 
-    let stderr: Box<dyn Any> = emu.get_state_mut().syscalls.take_fd(2).unwrap();
+    let stderr: Box<dyn Any> = emu.get_state_mut().take_fd(2).unwrap();
     let mut stderr: Box<VecDeque<u8>> = stderr.downcast().unwrap();
     let message = String::from_utf8(stderr.make_contiguous().to_vec()).unwrap();
     println!("stderr: {message}");

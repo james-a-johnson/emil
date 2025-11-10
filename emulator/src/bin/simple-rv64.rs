@@ -1,36 +1,14 @@
+use std::any::Any;
+use std::collections::VecDeque;
+
 use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
-use emil::arch::{Little, SyscallResult, riscv::*};
+use emil::arch::{Little, riscv::*};
 use emil::emulate::Emulator;
-use emil::os::linux::LinuxSyscalls;
 use emil::prog::Program;
+use softmew::Perm;
 use softmew::page::SimplePage;
-use softmew::{MMU, Perm};
-
-#[derive(Default)]
-pub struct RvMachine {
-    stdout: Vec<u8>,
-}
-
-impl LinuxSyscalls<Rv64State, MMU<SimplePage>> for RvMachine {
-    fn write(&mut self, regs: &mut Rv64State, mem: &mut MMU<SimplePage>) -> SyscallResult {
-        let fd = regs[Rv64Reg::a0];
-        let ptr = regs[Rv64Reg::a1];
-        let len = regs[Rv64Reg::a2];
-        let mut data = vec![0; len as usize];
-        mem.read_perm(ptr as usize, &mut data)
-            .expect("Failed to read message");
-        match fd {
-            1 => {
-                self.stdout.extend_from_slice(&data);
-                regs[Rv64Reg::a0] = len as u64;
-            }
-            _ => regs[Rv64Reg::a0] = len,
-        }
-        SyscallResult::Continue
-    }
-}
 
 fn main() {
     let headless_session = Session::new().expect("Failed to create new session");
@@ -51,7 +29,7 @@ fn main() {
         println!("\n");
     }
 
-    let mut state = LinuxRV64::new(RvMachine::default());
+    let mut state = LinuxRV64::new(0..0x1000);
     let mem = state.memory_mut();
     for segment in bv.segments().iter() {
         let mut perm = Perm::NONE;
@@ -77,6 +55,8 @@ fn main() {
     let stop_reason = emu.run(bv.entry_point());
     println!("Stopped for: {:?}", stop_reason);
 
-    let stdout = String::from_utf8_lossy(&emu.get_state().syscalls.stdout);
-    println!("{stdout}");
+    let stdout: Box<dyn Any> = emu.get_state_mut().take_fd(1).unwrap();
+    let mut stdout: Box<VecDeque<u8>> = stdout.downcast().unwrap();
+    let message = String::from_utf8(stdout.make_contiguous().to_vec()).unwrap();
+    println!("stdout: {message}");
 }

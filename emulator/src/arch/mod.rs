@@ -52,12 +52,6 @@ pub trait RegState {
     /// write so if the value has the wrong size then the program is invalid
     /// and it makes sense to panic.
     fn write(&mut self, id: Self::RegID, val: ILVal);
-
-    // TODO: This should be moved to `State`.
-    /// Set the register that holds the return value of a system call.
-    ///
-    /// This is used for some of the default implemented system calls.
-    fn set_syscall_return(&mut self, val: ILVal);
 }
 
 /// Intrinsic instruction.

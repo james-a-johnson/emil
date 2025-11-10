@@ -55,11 +55,8 @@ fn main() {
 
     let mut stdin = VecDeque::new();
     stdin.extend(b"10\n11\n12\n13\n");
-    let mut state = LinuxArm64::new(ArmMachine::new(
-        c"/home/user/read-stdin",
-        0x80000000..0x80100000,
-    ));
-    state.syscalls.set_stdin(stdin);
+    let mut state = LinuxArm64::new(c"/home/user/read-stdin", 0x80000000..0x80100000);
+    state.set_stdin(stdin);
     let mem = state.memory_mut();
     load_sections(mem, &bv).expect("Failed to load a section");
     let stack = mem
@@ -114,7 +111,7 @@ fn main() {
     println!("Stop reason: {:?}", stop_reason);
     println!("Stopped at: {:#x}", emu.curr_pc());
 
-    let stdout: Box<dyn Any> = emu.get_state_mut().syscalls.take_fd(1).unwrap();
+    let stdout: Box<dyn Any> = emu.get_state_mut().take_fd(1).unwrap();
     let mut stdout: Box<VecDeque<u8>> = stdout.downcast().unwrap();
     let message = String::from_utf8(stdout.make_contiguous().to_vec()).unwrap();
     println!("{message}");
