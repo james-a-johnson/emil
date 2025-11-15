@@ -1,9 +1,6 @@
-use crate::arch::State;
-
 use std::ffi::OsString;
 
 use binaryninja::binary_view::BinaryViewExt;
-use softmew::page::Page;
 
 use crate::{arch::SyscallResult, emil::ILVal};
 
