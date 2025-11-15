@@ -16,9 +16,6 @@ use binaryninja::low_level_il::instruction::{
 use softmew::page::Page;
 use std::collections::HashMap;
 
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
 /// Helper type to describe an LLIL function in non-ssa finalized form
 type LLILFunc = LowLevelILFunction<Finalized, NonSSA>;
 /// Helper type to describe an LLIL instruction in non-ssa finalized form
@@ -28,7 +25,6 @@ type LLILExpr<'e> = Expr<'e, Finalized, NonSSA, ValueExpr>;
 
 const TEMP_BIT: u32 = 0b10000000_00000000_00000000_00000000;
 
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Program<P: Page, Regs: RegState, E: Endian, I: Intrinsic> {
     /// List of all [`Emil`] instructions in order
     pub(crate) il: Vec<Emil<P, Regs, E, I>>,

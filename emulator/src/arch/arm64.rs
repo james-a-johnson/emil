@@ -10,10 +10,6 @@ use from_id::FromId;
 use softmew::page::SimplePage;
 use softmew::{MMU, Perm};
 
-#[cfg(feature = "serde")]
-use crate::arch::Saveable;
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::ffi::{CString, OsString};
 use std::fs::OpenOptions;
@@ -22,7 +18,6 @@ use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
 
 #[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ArmIntrinsic {
     /// Data cache operation.
     Dc,
@@ -197,7 +192,6 @@ fn get_const_from_inputs(
 /// Number of temporary flags that need to be kept track of.
 const NUM_CONDS: usize = 64;
 
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LinuxArm64 {
     pub regs: Arm64State,
     pub mem: MMU<SimplePage>,
@@ -279,12 +273,6 @@ macro_rules! syscalls {
             no => unimplemented!("Syscall {no:#x} is not implemented"),
         }
     };
-}
-
-#[cfg(feature = "serde")]
-impl<'de, S: Serialize + Deserialize<'de> + LinuxSyscalls<Arm64State, MMU<SimplePage>>>
-    Saveable<'de> for LinuxArm64<S>
-{
 }
 
 impl State<SimplePage> for LinuxArm64 {
@@ -749,7 +737,6 @@ impl LinuxSyscalls for LinuxArm64 {
 }
 
 #[derive(Default, Clone, Copy, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Arm64State {
     gregs: [u64; 32],
     neon: [u128; 32],
@@ -6170,7 +6157,6 @@ impl IndexMut<Arm64Reg> for Arm64State {
 #[allow(non_camel_case_types)]
 #[repr(u32)]
 #[derive(FromId, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Arm64Reg {
     // General purpose registers for the integer instruction set.
     w0 = 1,

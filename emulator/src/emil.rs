@@ -21,8 +21,6 @@ use crate::emulate::HookStatus;
 use std::fmt::{Debug, Display, LowerHex, UpperHex};
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub};
 
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
 use softmew::page::Page;
 
 /// Reference to an [`ILVal`].
@@ -31,7 +29,6 @@ use softmew::page::Page;
 /// instruction. There can be a maximum of 255 of them, and they are not guaranteed to be preserved between instructions.
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
 #[repr(transparent)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ILRef(pub(crate) u8);
 
 impl ILRef {
@@ -49,7 +46,6 @@ impl ILRef {
 /// It implements many arithmetic operations. Only two values of the same size can be used in an
 /// operation. Otherwise, the implementation will panic.
 #[derive(Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ILVal {
     Flag(bool),
     Byte(u8),
@@ -798,7 +794,6 @@ impl Shr for ILVal {
     }
 }
 
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Emil<P: Page, Regs: RegState, E: Endian, I: Intrinsic> {
     /// No operation instruction.
     Nop,
@@ -1108,7 +1103,6 @@ pub enum Emil<P: Page, Regs: RegState, E: Endian, I: Intrinsic> {
     /// This does not correspond to any specific instruction in LLIL. It is
     /// used to hook execution in a program so a user can run arbitrary code
     /// on the current state.
-    #[cfg_attr(feature = "serde", serde(skip))]
     Hook(
         fn(&mut dyn State<P, Registers = Regs, Endianness = E, Intrin = I>) -> HookStatus,
         usize,
@@ -1118,7 +1112,6 @@ pub enum Emil<P: Page, Regs: RegState, E: Endian, I: Intrinsic> {
     /// This is a breakpoint that was not already present in the original
     /// program. This has extra information added to it so that emulation
     /// can stop at the breakpoint and then later continue through it.
-    #[cfg_attr(feature = "serde", serde(skip))]
     UserBp(usize),
 }
 

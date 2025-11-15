@@ -8,9 +8,6 @@ use softmew::{MMU, Perm, fault::Fault, page::Page, page::SimplePage};
 use std::collections::{HashMap, VecDeque};
 use std::ops::{Index, IndexMut, Range};
 
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
 #[derive(Clone, Copy, Debug)]
 pub struct RVIntrinsic(u32);
 
@@ -393,7 +390,6 @@ impl LinuxSyscalls for LinuxRV64 {
 }
 
 #[derive(Default, Clone, Copy, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Rv64State {
     gregs: [u64; 32],
 }
@@ -502,7 +498,6 @@ impl IndexMut<Rv64Reg> for Rv64State {
 #[allow(non_camel_case_types)]
 #[repr(u32)]
 #[derive(FromId, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Rv64Reg {
     zero = 0,
     ra = 1,

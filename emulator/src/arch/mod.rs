@@ -17,9 +17,6 @@ use std::{
     io::{Read, Write},
 };
 
-#[cfg(feature = "serde")]
-use serde::{Serialize, de::Deserialize};
-
 pub mod arm64;
 pub mod generic;
 pub mod riscv;
@@ -108,9 +105,6 @@ pub trait State<P: Page> {
     fn pop(&mut self, data: &mut [u8]) -> Result<(), Fault>;
 }
 
-#[cfg(feature = "serde")]
-pub trait Saveable<'de>: State + Serialize + Deserialize<'de> {}
-
 /// Helper trait that can be used as a trait for adding a file descriptor to some target's state.
 ///
 /// Requires [`Read`] and [`Write`] so that the state can forwards reads and writes to the value.
@@ -127,7 +121,6 @@ pub trait Endian: Debug + Clone + Copy {
 }
 
 #[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Little;
 impl Endian for Little {
     fn read(data: &[u8]) -> ILVal {

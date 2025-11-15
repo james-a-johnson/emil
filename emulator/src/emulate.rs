@@ -9,13 +9,6 @@ use std::ops::*;
 use softmew::fault::Fault;
 use softmew::page::Page;
 
-#[cfg(feature = "serde")]
-use crate::arch::Saveable;
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
-use std::io::{Read, Write};
-
 /// Number of temporary registers to use.
 ///
 /// Currently the most I have seen used in a function is 17.
