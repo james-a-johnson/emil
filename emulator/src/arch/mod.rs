@@ -12,11 +12,13 @@ use binaryninja::low_level_il::function::{Finalized, NonSSA};
 use binaryninja::low_level_il::operation::{Intrinsic as LLILIntrinsic, Operation};
 use softmew::MMU;
 
+use std::error::Error;
 use std::{
     any::Any,
     io::{Read, Write},
 };
 
+pub mod amd64;
 pub mod arm64;
 pub mod generic;
 pub mod riscv;
@@ -25,10 +27,30 @@ use std::fmt::{Debug, Display};
 
 use crate::emil::ILVal;
 
+/// Result of a system call.
+///
+/// This enum will indicate to the emulator how to continue execution after the state has emulated the given
+/// system call.
 pub enum SyscallResult {
+    /// Continue executing at the next instruction.
     Continue,
+    /// Stop execution. This would be returned from `exit_group` on Linux.
     Exit,
+    /// Indicate that some memory fault occurred.
+    ///
+    /// This is unlikely to happen as most operating systems will return an error code instead of causing
+    /// execution to stop. You can choose to return this to simplify the error handling of system calls.
     Error(Fault),
+    /// Indicate that some implementation error has occurred.
+    ///
+    /// This could be some unexpected state was encountered or something is not implemented yet.
+    Panic(Box<dyn Error>),
+}
+
+impl From<Fault> for SyscallResult {
+    fn from(value: Fault) -> Self {
+        Self::Error(value)
+    }
 }
 
 pub trait Register: TryFrom<u32> + Debug + Display + Clone + Copy {

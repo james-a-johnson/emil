@@ -6,7 +6,7 @@ use binaryninja::headless::Session;
 
 use emil::arch::{Little, RegState as _, State, arm64::*};
 use emil::emil::ILVal;
-use emil::emulate::{Emulator, Exit, HookStatus};
+use emil::emulate::{Emulate, Emulator, Exit, HookStatus};
 use emil::load::*;
 use emil::os::linux::{AuxVal, Environment, add_default_auxv};
 use emil::prog::Program;

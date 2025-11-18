@@ -5,7 +5,7 @@ use binaryninja::binary_view::{BinaryViewBase, BinaryViewExt};
 use binaryninja::headless::Session;
 
 use emil::arch::{Little, riscv::*};
-use emil::emulate::Emulator;
+use emil::emulate::{Emulate, Emulator};
 use emil::prog::Program;
 use softmew::Perm;
 use softmew::page::SimplePage;

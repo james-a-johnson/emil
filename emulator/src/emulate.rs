@@ -3,6 +3,7 @@ use crate::emil::{Emil, ILRef, ILVal};
 use crate::prog::Program;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::error::Error;
 use std::fmt::Debug;
 use std::ops::*;
 
@@ -34,7 +35,7 @@ pub enum AccessType {
 pub type WatchFn = fn(u64, u64, AccessType, &mut [u8]);
 
 /// Reason that the emulator stopped executing.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum Exit {
     /// Program hit some instruction or syscall intended to stop execution.
     Exited,
@@ -67,6 +68,8 @@ pub enum Exit {
     InstructionFault(u64),
     /// Program accessed memory that did not have the correct permissions.
     Access(Fault),
+    /// State implementation encountered some unexpected state and is returning an error.
+    Panic(Box<dyn Error>),
 }
 
 impl From<Fault> for Exit {
@@ -106,6 +109,62 @@ impl From<Exit> for ExecutionState {
     fn from(e: Exit) -> Self {
         Self::Exit(e)
     }
+}
+
+/// A type that can emulate [`Emil`].
+///
+/// Right now there is only a single implementor of this, [`Emulator`]. The main purpose of this trait is so that
+/// you can make a trait object of an emulator to type erase the underlying state and other information from
+/// an [`Emulator`].
+///
+/// Therefore, any method that does not require knowing the parameterized type of the emulator should be placed in
+/// this trait.
+pub trait Emulate {
+    /// Place a breakpoint at a specific instruction in the program.
+    ///
+    /// This breakpoint will cause the emulator to exit with [`Exit::UserBreakpoint`].
+    /// There may already have been breakpoints in the program in which case
+    /// [`Exit::Breakpoint`] will be returned.
+    ///
+    /// # Return
+    /// Returns an identifier for the placed breakpoint on success. That identifier
+    /// can be used to refer to the specific breakpoint later. Otherwise, `None`
+    /// is returned.
+    fn add_breakpoint(&mut self, addr: u64) -> Option<BpID>;
+
+    /// Remove the given breakpoint from the program.
+    fn remove_breakpoint(&mut self, bp_id: BpID);
+
+    /// Get current program counter value.
+    ///
+    /// This will be a program address.
+    fn curr_pc(&self) -> u64;
+
+    /// Set the address to start emulation at.
+    ///
+    /// You can call this function and then you can can [`Emulator::proceed`]
+    /// and it will start executing at the correct address.
+    ///
+    /// # Return
+    /// Returns if the pc value was successfully updated. Updating the PC value can fail if an invalid address is
+    /// provided.
+    fn set_pc(&mut self, addr: u64) -> bool;
+
+    fn run(&mut self, addr: u64) -> Exit;
+
+    /// Continue execution at the current point in the program.
+    ///
+    /// This is equivalent to a continue operation. "continue" is a keyword in
+    /// rust so it can't be the name of a method. Instead, this is just called
+    /// proceed.
+    fn proceed(&mut self) -> Exit;
+
+    /// Run a single instruction in the program then stop.
+    ///
+    /// Emulates a single target instruction and then returns. Upon success,
+    /// [`Exit::SingleStep`] will be returned. Otherwise, one of the other exit
+    /// codes will be returned.
+    fn step(&mut self) -> Exit;
 }
 
 /// Emulator for a specific BIL graph, state, and architecture.
@@ -195,33 +254,6 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
         std::mem::swap(&mut hook.0, self.prog.il.get_mut(hook.1).unwrap());
     }
 
-    /// Place a breakpoint at a specific instruction in the program.
-    ///
-    /// This breakpoint will cause the emulator to exit with [`Exit::UserBreakpoint`].
-    /// There may already have been breakpoints in the program in which case
-    /// [`Exit::Breakpoint`] will be returned.
-    ///
-    /// # Return
-    /// Returns an identifier for the placed breakpoint on success. That identifier
-    /// can be used to refer to the specific breakpoint later. Otherwise, `None`
-    /// is returned.
-    pub fn add_breakpoint(&mut self, addr: u64) -> Option<BpID> {
-        let replaced_idx = self.replaced.len();
-        let mut bp = Emil::UserBp(replaced_idx);
-        let idx = match self.prog.insn_map.get(&addr) {
-            Some(i) => *i,
-            None => return None,
-        };
-        let inst = self
-            .prog
-            .il
-            .get_mut(idx)
-            .expect("Invalid address mapping in program");
-        std::mem::swap(&mut bp, inst);
-        self.replaced.push((bp, idx));
-        Some(BpID(replaced_idx))
-    }
-
     /// Add a single address to the set of addresses to watch.
     pub fn add_watch_point(&mut self, addr: u64, hook: WatchFn) {
         self.watch.insert(addr, hook);
@@ -232,12 +264,6 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
         for addr in addrs {
             self.watch.insert(addr, hook);
         }
-    }
-
-    /// Remove the given breakpoint from the program.
-    pub fn remove_breakpoint(&mut self, bp_id: BpID) {
-        let mut bp = self.replaced[bp_id.0];
-        std::mem::swap(&mut bp.0, self.prog.il.get_mut(bp.1).unwrap());
     }
 
     pub fn get_state(&self) -> &S {
@@ -256,94 +282,6 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
     /// Get a mutable reference to the underlying program.
     pub fn get_prog_mut(&mut self) -> &mut Program<P, S::Registers, S::Endianness, S::Intrin> {
         &mut self.prog
-    }
-
-    /// Get current program counter value.
-    ///
-    /// This will be a program address.
-    pub fn curr_pc(&self) -> u64 {
-        self.idx_to_addr(self.pc)
-    }
-
-    /// Set the address to start emulation at.
-    ///
-    /// You can call this function and then you can can [`Emulator::proceed`]
-    /// and it will start executing at the correct address.
-    ///
-    /// # Return
-    /// Returns if the pc value was successfully updated. Updating the PC value can fail if an invalid address is
-    /// provided.
-    pub fn set_pc(&mut self, addr: u64) -> bool {
-        let idx = self.prog.insn_map.get(&addr);
-        if let Some(idx) = idx {
-            self.pc = *idx;
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn run(&mut self, addr: u64) -> Exit {
-        match self.prog.insn_map.get(&addr) {
-            Some(idx) => self.pc = *idx,
-            None => return Exit::InstructionFault(addr),
-        };
-        loop {
-            match self.exec_one() {
-                ExecutionState::Exit(e) => return e,
-                ExecutionState::Continue => continue,
-                ExecutionState::Hook(_) => unreachable!("Hook can't be returned from exec_one"),
-            }
-        }
-    }
-
-    /// Continue execution at the current point in the program.
-    ///
-    /// This is equivalent to a continue operation. "continue" is a keyword in
-    /// rust so it can't be the name of a method. Instead, this is just called
-    /// proceed.
-    pub fn proceed(&mut self) -> Exit {
-        // Check if current execution is at a user breakpoint. If it is, get the instruction that
-        // replaced it, execute it, then continue to normal execution.
-        if let Emil::UserBp(idx) = self.curr_inst() {
-            let replaced = self.replaced[*idx];
-            match self.emulate(replaced.0) {
-                ExecutionState::Exit(e) => return e,
-                ExecutionState::Continue => {}
-                ExecutionState::Hook(idx) => {
-                    let replaced = self.replaced[idx];
-                    match self.emulate(replaced.0) {
-                        ExecutionState::Exit(e) => return e,
-                        ExecutionState::Continue => {}
-                        ExecutionState::Hook(_) => unreachable!("Can't hook a hook instruction"),
-                    }
-                }
-            }
-        }
-        loop {
-            match self.exec_one() {
-                ExecutionState::Exit(e) => return e,
-                ExecutionState::Continue => continue,
-                ExecutionState::Hook(_) => unreachable!("Hook can't be returned from exec_one"),
-            }
-        }
-    }
-
-    /// Run a single instruction in the program then stop.
-    ///
-    /// Emulates a single target instruction and then returns. Upon success,
-    /// [`Exit::SingleStep`] will be returned. Otherwise, one of the other exit
-    /// codes will be returned.
-    pub fn step(&mut self) -> Exit {
-        let addr = self.curr_pc();
-        while addr == self.curr_pc() {
-            match self.exec_one() {
-                ExecutionState::Exit(e) => return e,
-                ExecutionState::Continue => continue,
-                ExecutionState::Hook(_) => unreachable!("Hook can't be returned from exec_one"),
-            }
-        }
-        Exit::SingleStep
     }
 
     #[inline(always)]
@@ -375,7 +313,8 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
             Emil::Syscall => match self.state.syscall(self.curr_pc()) {
                 SyscallResult::Exit => return Exit::Exited.into(),
                 SyscallResult::Error(e) => return ExecutionState::Exit(e.into()),
-                _ => {}
+                SyscallResult::Panic(p) => return ExecutionState::Exit(Exit::Panic(p)),
+                SyscallResult::Continue => {}
             },
             Emil::Bp => return Exit::Breakpoint.into(),
             Emil::Undef => return Exit::Undefined.into(),
@@ -672,5 +611,96 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
         // indexing into an array of size 256 so it is not possible to index
         // past the end of the array or before the array.
         unsafe { self.ilrs.get_unchecked_mut(idx.0 as usize) }
+    }
+}
+
+impl<P: Page, S: State<P>> Emulate for Emulator<P, S> {
+    fn add_breakpoint(&mut self, addr: u64) -> Option<BpID> {
+        let replaced_idx = self.replaced.len();
+        let mut bp = Emil::UserBp(replaced_idx);
+        let idx = match self.prog.insn_map.get(&addr) {
+            Some(i) => *i,
+            None => return None,
+        };
+        let inst = self
+            .prog
+            .il
+            .get_mut(idx)
+            .expect("Invalid address mapping in program");
+        std::mem::swap(&mut bp, inst);
+        self.replaced.push((bp, idx));
+        Some(BpID(replaced_idx))
+    }
+
+    fn remove_breakpoint(&mut self, bp_id: BpID) {
+        let mut bp = self.replaced[bp_id.0];
+        std::mem::swap(&mut bp.0, self.prog.il.get_mut(bp.1).unwrap());
+    }
+
+    fn curr_pc(&self) -> u64 {
+        self.idx_to_addr(self.pc)
+    }
+
+    fn set_pc(&mut self, addr: u64) -> bool {
+        let idx = self.prog.insn_map.get(&addr);
+        if let Some(idx) = idx {
+            self.pc = *idx;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn run(&mut self, addr: u64) -> Exit {
+        match self.prog.insn_map.get(&addr) {
+            Some(idx) => self.pc = *idx,
+            None => return Exit::InstructionFault(addr),
+        };
+        loop {
+            match self.exec_one() {
+                ExecutionState::Exit(e) => return e,
+                ExecutionState::Continue => continue,
+                ExecutionState::Hook(_) => unreachable!("Hook can't be returned from exec_one"),
+            }
+        }
+    }
+
+    fn proceed(&mut self) -> Exit {
+        // Check if current execution is at a user breakpoint. If it is, get the instruction that
+        // replaced it, execute it, then continue to normal execution.
+        if let Emil::UserBp(idx) = self.curr_inst() {
+            let replaced = self.replaced[*idx];
+            match self.emulate(replaced.0) {
+                ExecutionState::Exit(e) => return e,
+                ExecutionState::Continue => {}
+                ExecutionState::Hook(idx) => {
+                    let replaced = self.replaced[idx];
+                    match self.emulate(replaced.0) {
+                        ExecutionState::Exit(e) => return e,
+                        ExecutionState::Continue => {}
+                        ExecutionState::Hook(_) => unreachable!("Can't hook a hook instruction"),
+                    }
+                }
+            }
+        }
+        loop {
+            match self.exec_one() {
+                ExecutionState::Exit(e) => return e,
+                ExecutionState::Continue => continue,
+                ExecutionState::Hook(_) => unreachable!("Hook can't be returned from exec_one"),
+            }
+        }
+    }
+
+    fn step(&mut self) -> Exit {
+        let addr = self.curr_pc();
+        while addr == self.curr_pc() {
+            match self.exec_one() {
+                ExecutionState::Exit(e) => return e,
+                ExecutionState::Continue => continue,
+                ExecutionState::Hook(_) => unreachable!("Hook can't be returned from exec_one"),
+            }
+        }
+        Exit::SingleStep
     }
 }
