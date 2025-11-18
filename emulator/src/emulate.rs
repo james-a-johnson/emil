@@ -10,6 +10,9 @@ use std::ops::*;
 use softmew::fault::Fault;
 use softmew::page::Page;
 
+use binaryninja::low_level_il::function::{Finalized, LowLevelILFunction, NonSSA};
+use softmew::Perm;
+
 /// Number of temporary registers to use.
 ///
 /// Currently the most I have seen used in a function is 17.
@@ -165,6 +168,20 @@ pub trait Emulate {
     /// [`Exit::SingleStep`] will be returned. Otherwise, one of the other exit
     /// codes will be returned.
     fn step(&mut self) -> Exit;
+
+    /// Add the given function to the underlying program.
+    ///
+    /// # Panics
+    /// This method assumes that the function is for the correct architecture. If it is not, this method may
+    /// panic. It could also just have really confusing behavior if the added function is ever emulated.
+    fn add_function(&mut self, func: &LowLevelILFunction<Finalized, NonSSA>);
+
+    // TODO: This shouldn't require a mutable reference
+    /// Get a reference to the memory at a specific range of addresses.
+    fn get_mem(&mut self, addrs: Range<u64>) -> Option<&[u8]>;
+
+    /// [`get_mem`] but get a mutable reference.
+    fn get_mem_mut(&mut self, addrs: Range<u64>) -> Option<&mut [u8]>;
 }
 
 /// Emulator for a specific BIL graph, state, and architecture.
@@ -702,5 +719,19 @@ impl<P: Page, S: State<P>> Emulate for Emulator<P, S> {
             }
         }
         Exit::SingleStep
+    }
+
+    fn add_function(&mut self, func: &LowLevelILFunction<Finalized, NonSSA>) {
+        self.prog.add_function(func);
+    }
+
+    fn get_mem(&mut self, addrs: Range<u64>) -> Option<&[u8]> {
+        let addrs = (addrs.start as usize)..(addrs.end as usize);
+        self.state.mem().get_slice(addrs, Perm::NONE).ok()
+    }
+
+    fn get_mem_mut(&mut self, addrs: Range<u64>) -> Option<&mut [u8]> {
+        let addrs = (addrs.start as usize)..(addrs.end as usize);
+        self.state.mem().get_slice_mut(addrs, Perm::NONE).ok()
     }
 }
