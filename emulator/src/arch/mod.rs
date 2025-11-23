@@ -25,7 +25,7 @@ pub mod riscv;
 
 use std::fmt::{Debug, Display};
 
-use crate::emil::ILVal;
+use crate::val::ILVal;
 
 /// Result of a system call.
 ///

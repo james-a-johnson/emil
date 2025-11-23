@@ -32,11 +32,11 @@ impl DerefMut for Amd64Regs {
 impl RegState for Amd64Regs {
     type RegID = RegId;
 
-    fn read(&self, id: Self::RegID) -> crate::emil::ILVal {
+    fn read(&self, id: Self::RegID) -> crate::val::ILVal {
         self.0.read(id)
     }
 
-    fn write(&mut self, id: Self::RegID, val: crate::emil::ILVal) {
+    fn write(&mut self, id: Self::RegID, val: crate::val::ILVal) {
         self.0.write(id, val);
     }
 }

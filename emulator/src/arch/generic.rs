@@ -1,5 +1,5 @@
 use crate::arch::{Big, Endian, Little, RegState};
-use crate::emil::ILVal;
+use crate::val::ILVal;
 use std::collections::HashMap;
 use std::rc::Rc;
 
