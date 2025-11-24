@@ -1,5 +1,12 @@
+//! Values that the emulator will operate on.
+//!
+//! The main type that the emulator uses is the [`ILVal`]. It supports all of the standard operations that you would
+//! expect and can represent any byte-sized value.
+
 use std::fmt::{Debug, Display, LowerHex, UpperHex};
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub};
+
+pub mod big;
 
 /// Reference to an [`ILVal`].
 ///
