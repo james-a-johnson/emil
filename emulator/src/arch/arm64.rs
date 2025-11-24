@@ -1,7 +1,7 @@
 use crate::arch::{Endian, Little};
 use crate::arch::{FileDescriptor, Intrinsic, RegState, Register, State, SyscallResult};
-use crate::val::ILVal;
 use crate::os::linux::LinuxSyscalls;
+use crate::val::{Big, ILVal};
 use binaryninja::architecture::{Intrinsic as _, Register as BNReg};
 use binaryninja::low_level_il::expression::ExpressionHandler;
 use binaryninja::low_level_il::expression::LowLevelILExpressionKind as ExprKind;
@@ -340,17 +340,17 @@ impl State<SimplePage> for LinuxArm64 {
             ArmIntrinsic::BtiHint => Ok(()),
             ArmIntrinsic::Rev(dest, src) => {
                 let val = self.regs.read(*src);
-                self.regs.write(*dest, val.byte_rev());
+                self.regs.write(*dest, &val.byte_rev());
                 Ok(())
             }
             ArmIntrinsic::Rbit(dest, src) => {
                 let val = self.regs.read(*src);
-                self.regs.write(*dest, val.bit_rev());
+                self.regs.write(*dest, &val.bit_rev());
                 Ok(())
             }
             ArmIntrinsic::Clz(dest, src) => {
                 let val = self.regs.read(*src);
-                self.regs.write(*dest, val.leading_zeros());
+                self.regs.write(*dest, &val.leading_zeros());
                 Ok(())
             }
             ArmIntrinsic::Ldxr(dest, addr) => {
@@ -358,7 +358,7 @@ impl State<SimplePage> for LinuxArm64 {
                 let mut buf = [0u8; 8];
                 self.mem.read_perm(addr, &mut buf[0..dest.size()])?;
                 let val = Little::read(&buf[0..dest.size()]);
-                self.regs.write(*dest, val);
+                self.regs.write(*dest, &val);
                 Ok(())
             }
             ArmIntrinsic::Stxr(dest, value, addr) => {
@@ -367,21 +367,21 @@ impl State<SimplePage> for LinuxArm64 {
                 let buf = self
                     .mem
                     .get_slice_mut(addr..addr + value.size(), Perm::WRITE)?;
-                Little::write(value, buf);
-                self.regs.write(*dest, ILVal::Word(0));
+                Little::write(&value, buf);
+                self.regs.write(*dest, &ILVal::Word(0));
                 Ok(())
             }
             ArmIntrinsic::ReadMSR(reg, msr) => {
                 match msr {
                     0xd807 => {
                         // DCZID_EL0 system register
-                        self.regs.write(*reg, ILVal::Quad(0b10000));
+                        self.regs.write(*reg, &ILVal::Quad(0b10000));
                         Ok(())
                     }
                     0xc000 => {
                         // MIDR_EL1, Main ID Register
                         self.regs
-                            .write(*reg, ILVal::Quad(0b00000000_0000_1111_000000000000_0000));
+                            .write(*reg, &ILVal::Quad(0b00000000_0000_1111_000000000000_0000));
                         Ok(())
                     }
                     0xde82 => {
@@ -758,7 +758,7 @@ impl RegState for Arm64State {
         self.get(id)
     }
 
-    fn write(&mut self, id: Self::RegID, value: ILVal) {
+    fn write(&mut self, id: Self::RegID, value: &ILVal) {
         match id {
             Arm64Reg::w0 => self.gregs[0] = value.to_u32() as u64,
             Arm64Reg::w1 => self.gregs[1] = value.to_u32() as u64,
@@ -985,38 +985,262 @@ impl RegState for Arm64State {
                 self.neon[15] &= 0xffffffff_u128 << 32;
                 self.neon[15] |= (value.get_word() as u32 as u128) << 32;
             }
-            Arm64Reg::q0 => self.neon[0] = value.extend_128(),
-            Arm64Reg::q1 => self.neon[1] = value.extend_128(),
-            Arm64Reg::q2 => self.neon[2] = value.extend_128(),
-            Arm64Reg::q3 => self.neon[3] = value.extend_128(),
-            Arm64Reg::q4 => self.neon[4] = value.extend_128(),
-            Arm64Reg::q5 => self.neon[5] = value.extend_128(),
-            Arm64Reg::q6 => self.neon[6] = value.extend_128(),
-            Arm64Reg::q7 => self.neon[7] = value.extend_128(),
-            Arm64Reg::q8 => self.neon[8] = value.extend_128(),
-            Arm64Reg::q9 => self.neon[9] = value.extend_128(),
-            Arm64Reg::q10 => self.neon[10] = value.extend_128(),
-            Arm64Reg::q11 => self.neon[11] = value.extend_128(),
-            Arm64Reg::q12 => self.neon[12] = value.extend_128(),
-            Arm64Reg::q13 => self.neon[13] = value.extend_128(),
-            Arm64Reg::q14 => self.neon[14] = value.extend_128(),
-            Arm64Reg::q15 => self.neon[15] = value.extend_128(),
-            Arm64Reg::q16 => self.neon[16] = value.extend_128(),
-            Arm64Reg::q17 => self.neon[17] = value.extend_128(),
-            Arm64Reg::q18 => self.neon[18] = value.extend_128(),
-            Arm64Reg::q19 => self.neon[19] = value.extend_128(),
-            Arm64Reg::q20 => self.neon[20] = value.extend_128(),
-            Arm64Reg::q21 => self.neon[21] = value.extend_128(),
-            Arm64Reg::q22 => self.neon[22] = value.extend_128(),
-            Arm64Reg::q23 => self.neon[23] = value.extend_128(),
-            Arm64Reg::q24 => self.neon[24] = value.extend_128(),
-            Arm64Reg::q25 => self.neon[25] = value.extend_128(),
-            Arm64Reg::q26 => self.neon[26] = value.extend_128(),
-            Arm64Reg::q27 => self.neon[27] = value.extend_128(),
-            Arm64Reg::q28 => self.neon[28] = value.extend_128(),
-            Arm64Reg::q29 => self.neon[29] = value.extend_128(),
-            Arm64Reg::q30 => self.neon[30] = value.extend_128(),
-            Arm64Reg::q31 => self.neon[31] = value.extend_128(),
+            Arm64Reg::q0 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[0] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q1 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[1] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q2 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[2] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q3 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[3] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q4 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[4] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q5 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[5] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q6 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[6] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q7 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[7] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q8 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[8] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q9 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[9] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q10 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[10] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q11 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[11] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q12 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[12] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q13 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[13] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q14 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[14] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q15 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[15] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q16 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[16] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q17 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[17] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q18 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[18] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q19 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[19] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q20 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[20] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q21 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[21] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q22 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[22] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q23 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[23] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q24 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[24] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q25 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[25] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q26 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[26] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q27 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[27] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q28 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[28] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q29 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[29] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q30 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[30] = u128::from_le_bytes(reg);
+            }
+            Arm64Reg::q31 => {
+                let reg: [u8; 16] = value
+                    .get_big()
+                    .bytes()
+                    .try_into()
+                    .expect("Needs to be 16 byte array");
+                self.neon[31] = u128::from_le_bytes(reg);
+            }
             Arm64Reg::v0b0 => {
                 self.neon[0] &= !(0xff_u128 << (8 * 0));
                 self.neon[0] |= (value.get_byte() as u128) << (8 * 0);
@@ -4993,38 +5217,38 @@ impl Arm64State {
             Arm64Reg::s29 => ILVal::Word((self.neon[14] >> 32) as u32),
             Arm64Reg::s30 => ILVal::Word(self.neon[15] as u32),
             Arm64Reg::s31 => ILVal::Word((self.neon[15] >> 32) as u32),
-            Arm64Reg::q0 => ILVal::Simd(self.neon[0]),
-            Arm64Reg::q1 => ILVal::Simd(self.neon[1]),
-            Arm64Reg::q2 => ILVal::Simd(self.neon[2]),
-            Arm64Reg::q3 => ILVal::Simd(self.neon[3]),
-            Arm64Reg::q4 => ILVal::Simd(self.neon[4]),
-            Arm64Reg::q5 => ILVal::Simd(self.neon[5]),
-            Arm64Reg::q6 => ILVal::Simd(self.neon[6]),
-            Arm64Reg::q7 => ILVal::Simd(self.neon[7]),
-            Arm64Reg::q8 => ILVal::Simd(self.neon[8]),
-            Arm64Reg::q9 => ILVal::Simd(self.neon[9]),
-            Arm64Reg::q10 => ILVal::Simd(self.neon[10]),
-            Arm64Reg::q11 => ILVal::Simd(self.neon[11]),
-            Arm64Reg::q12 => ILVal::Simd(self.neon[12]),
-            Arm64Reg::q13 => ILVal::Simd(self.neon[13]),
-            Arm64Reg::q14 => ILVal::Simd(self.neon[14]),
-            Arm64Reg::q15 => ILVal::Simd(self.neon[15]),
-            Arm64Reg::q16 => ILVal::Simd(self.neon[16]),
-            Arm64Reg::q17 => ILVal::Simd(self.neon[17]),
-            Arm64Reg::q18 => ILVal::Simd(self.neon[18]),
-            Arm64Reg::q19 => ILVal::Simd(self.neon[19]),
-            Arm64Reg::q20 => ILVal::Simd(self.neon[20]),
-            Arm64Reg::q21 => ILVal::Simd(self.neon[21]),
-            Arm64Reg::q22 => ILVal::Simd(self.neon[22]),
-            Arm64Reg::q23 => ILVal::Simd(self.neon[23]),
-            Arm64Reg::q24 => ILVal::Simd(self.neon[24]),
-            Arm64Reg::q25 => ILVal::Simd(self.neon[25]),
-            Arm64Reg::q26 => ILVal::Simd(self.neon[26]),
-            Arm64Reg::q27 => ILVal::Simd(self.neon[27]),
-            Arm64Reg::q28 => ILVal::Simd(self.neon[28]),
-            Arm64Reg::q29 => ILVal::Simd(self.neon[29]),
-            Arm64Reg::q30 => ILVal::Simd(self.neon[30]),
-            Arm64Reg::q31 => ILVal::Simd(self.neon[31]),
+            Arm64Reg::q0 => ILVal::Big(Big::from(self.neon[0].to_le_bytes())),
+            Arm64Reg::q1 => ILVal::Big(Big::from(self.neon[1].to_le_bytes())),
+            Arm64Reg::q2 => ILVal::Big(Big::from(self.neon[2].to_le_bytes())),
+            Arm64Reg::q3 => ILVal::Big(Big::from(self.neon[3].to_le_bytes())),
+            Arm64Reg::q4 => ILVal::Big(Big::from(self.neon[4].to_le_bytes())),
+            Arm64Reg::q5 => ILVal::Big(Big::from(self.neon[5].to_le_bytes())),
+            Arm64Reg::q6 => ILVal::Big(Big::from(self.neon[6].to_le_bytes())),
+            Arm64Reg::q7 => ILVal::Big(Big::from(self.neon[7].to_le_bytes())),
+            Arm64Reg::q8 => ILVal::Big(Big::from(self.neon[8].to_le_bytes())),
+            Arm64Reg::q9 => ILVal::Big(Big::from(self.neon[9].to_le_bytes())),
+            Arm64Reg::q10 => ILVal::Big(Big::from(self.neon[10].to_le_bytes())),
+            Arm64Reg::q11 => ILVal::Big(Big::from(self.neon[11].to_le_bytes())),
+            Arm64Reg::q12 => ILVal::Big(Big::from(self.neon[12].to_le_bytes())),
+            Arm64Reg::q13 => ILVal::Big(Big::from(self.neon[13].to_le_bytes())),
+            Arm64Reg::q14 => ILVal::Big(Big::from(self.neon[14].to_le_bytes())),
+            Arm64Reg::q15 => ILVal::Big(Big::from(self.neon[15].to_le_bytes())),
+            Arm64Reg::q16 => ILVal::Big(Big::from(self.neon[16].to_le_bytes())),
+            Arm64Reg::q17 => ILVal::Big(Big::from(self.neon[17].to_le_bytes())),
+            Arm64Reg::q18 => ILVal::Big(Big::from(self.neon[18].to_le_bytes())),
+            Arm64Reg::q19 => ILVal::Big(Big::from(self.neon[19].to_le_bytes())),
+            Arm64Reg::q20 => ILVal::Big(Big::from(self.neon[20].to_le_bytes())),
+            Arm64Reg::q21 => ILVal::Big(Big::from(self.neon[21].to_le_bytes())),
+            Arm64Reg::q22 => ILVal::Big(Big::from(self.neon[22].to_le_bytes())),
+            Arm64Reg::q23 => ILVal::Big(Big::from(self.neon[23].to_le_bytes())),
+            Arm64Reg::q24 => ILVal::Big(Big::from(self.neon[24].to_le_bytes())),
+            Arm64Reg::q25 => ILVal::Big(Big::from(self.neon[25].to_le_bytes())),
+            Arm64Reg::q26 => ILVal::Big(Big::from(self.neon[26].to_le_bytes())),
+            Arm64Reg::q27 => ILVal::Big(Big::from(self.neon[27].to_le_bytes())),
+            Arm64Reg::q28 => ILVal::Big(Big::from(self.neon[28].to_le_bytes())),
+            Arm64Reg::q29 => ILVal::Big(Big::from(self.neon[29].to_le_bytes())),
+            Arm64Reg::q30 => ILVal::Big(Big::from(self.neon[30].to_le_bytes())),
+            Arm64Reg::q31 => ILVal::Big(Big::from(self.neon[31].to_le_bytes())),
             Arm64Reg::v0b0 => ILVal::Byte(((self.neon[0] >> (0 * 8)) & 0xff) as u8),
             Arm64Reg::v0b1 => ILVal::Byte(((self.neon[0] >> (1 * 8)) & 0xff) as u8),
             Arm64Reg::v0b2 => ILVal::Byte(((self.neon[0] >> (2 * 8)) & 0xff) as u8),

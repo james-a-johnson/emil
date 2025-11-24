@@ -192,7 +192,7 @@ pub struct Emulator<P: Page, S: State<P>> {
     /// State of the device, mainly just memory.
     state: S,
     /// Intermediate language registers.
-    ilrs: [ILVal; 255],
+    ilrs: [ILVal; 256],
     /// Temporary registers used by LLIL.
     temps: [ILVal; NUM_TEMPS],
     /// Address of current instruction.
@@ -204,11 +204,29 @@ pub struct Emulator<P: Page, S: State<P>> {
 }
 
 macro_rules! bin_op {
-    ($state:ident, $o:ident, $l:ident, $r:ident, $op:path) => {{
+    ($state:ident, $o:ident, $l:ident, $r:ident, $op:expr) => {{
         let left = $state.get_ilr($l);
         let right = $state.get_ilr($r);
+        let tmp = $op(left, right);
         let out = $state.get_ilr_mut($o);
-        *out = $op(left, right);
+        *out = tmp;
+    }};
+}
+
+macro_rules! compare {
+    ($state:ident, $o:ident, $l:ident, $r:ident, $op:tt) => {{
+        let left = $state.get_ilr($l);
+        let right = $state.get_ilr($r);
+        let tmp = ILVal::Flag(left $op right);
+        let out = $state.get_ilr_mut($o);
+        *out = tmp;
+    }};
+    ("signed", $state:ident, $o:ident, $l:ident, $r:ident, $op:tt) => {{
+        let left = $state.get_ilr($l);
+        let right = $state.get_ilr($r);
+        let tmp = ILVal::Flag(left $op right);
+        let out = $state.get_ilr_mut($o);
+        *out = tmp;
     }};
 }
 
@@ -222,8 +240,8 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
         Self {
             prog,
             state,
-            ilrs: [ILVal::Byte(0); 255],
-            temps: [ILVal::Byte(0); NUM_TEMPS],
+            ilrs: [ILVal::ZERO; 256],
+            temps: [ILVal::ZERO; NUM_TEMPS],
             pc: 0,
             replaced: Vec::new(),
             watch: HashMap::new(),
@@ -345,7 +363,8 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
                 *self.get_ilr_mut(reg) = val.truncate(size);
             }
             Emil::SetReg { reg, ilr } => {
-                let val = self.get_ilr(ilr);
+                let val = unsafe { self.ilrs.get_unchecked(ilr.0 as usize) };
+                // let val = self.get_ilr(ilr);
                 self.state.regs().write(reg, val);
             }
             Emil::LoadReg { reg, ilr } => {
@@ -353,10 +372,10 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
                 *self.get_ilr_mut(ilr) = val;
             }
             Emil::SetTemp { t, ilr } => {
-                self.temps[t as usize] = self.get_ilr(ilr);
+                self.temps[t as usize] = self.get_ilr(ilr).clone();
             }
             Emil::LoadTemp { ilr, t } => {
-                *self.get_ilr_mut(ilr) = self.temps[t as usize];
+                *self.get_ilr_mut(ilr) = self.temps[t as usize].clone();
             }
             Emil::SetFlag(ilr, id) => {
                 let val = self.get_ilr(ilr);
@@ -367,8 +386,9 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
                 *self.get_ilr_mut(ilr) = val;
             }
             Emil::Store { value, addr, size } => {
-                let value = self.get_ilr(value);
-                let addr = self.get_ilr_mut(addr).extend_64() as usize;
+                let value = unsafe { self.ilrs.get_unchecked(value.0 as usize) };
+                // let value = self.get_ilr(value);
+                let addr = self.get_ilr(addr).extend_64() as usize;
                 let pc = self.curr_pc();
                 debug_assert_eq!(size as usize, value.size());
                 let mem = self
@@ -487,86 +507,82 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
                 }
                 return ExecutionState::Continue;
             }
-            Emil::Add { out, left, right } => bin_op!(self, out, left, right, ILVal::add),
+            Emil::Add { out, left, right } => bin_op!(self, out, left, right, <&ILVal>::add),
             Emil::AddOf { out, left, right } => bin_op!(self, out, left, right, ILVal::add_of),
-            Emil::And { out, left, right } => bin_op!(self, out, left, right, ILVal::bitand),
-            Emil::Divu { out, left, right } => bin_op!(self, out, left, right, ILVal::div),
+            Emil::And { out, left, right } => bin_op!(self, out, left, right, <&ILVal>::bitand),
+            Emil::Divu { out, left, right } => bin_op!(self, out, left, right, <&ILVal>::div),
             Emil::Divs { out, left, right } => {
                 bin_op!(self, out, left, right, ILVal::signed_div)
             }
-            Emil::Mul { out, left, right } => bin_op!(self, out, left, right, ILVal::mul),
+            Emil::Mul { out, left, right } => bin_op!(self, out, left, right, <&ILVal>::mul),
             Emil::MuluDp { out, left, right } => bin_op!(self, out, left, right, ILVal::mulu_dp),
             Emil::MulsDp { out, left, right } => bin_op!(self, out, left, right, ILVal::muls_dp),
             Emil::Not(dest, source) => *self.get_ilr_mut(dest) = !self.get_ilr(source),
             Emil::Negate(dest, source) => *self.get_ilr_mut(dest) = -self.get_ilr(source),
-            Emil::Sub { out, left, right } => bin_op!(self, out, left, right, ILVal::sub),
-            Emil::Or { out, left, right } => bin_op!(self, out, left, right, ILVal::bitor),
-            Emil::Xor { out, left, right } => bin_op!(self, out, left, right, ILVal::bitxor),
-            Emil::Lsl { out, left, right } => bin_op!(self, out, left, right, ILVal::shl),
-            Emil::Lsr { out, left, right } => bin_op!(self, out, left, right, ILVal::shr),
+            Emil::Sub { out, left, right } => bin_op!(self, out, left, right, <&ILVal>::sub),
+            Emil::Or { out, left, right } => bin_op!(self, out, left, right, <&ILVal>::bitor),
+            Emil::Xor { out, left, right } => bin_op!(self, out, left, right, <&ILVal>::bitxor),
+            Emil::Lsl { out, left, right } => bin_op!(self, out, left, right, <&ILVal>::shl),
+            Emil::Lsr { out, left, right } => bin_op!(self, out, left, right, <&ILVal>::shr),
             Emil::Asr { out, left, right } => bin_op!(self, out, left, right, ILVal::asr),
             Emil::Ror { out, left, right } => bin_op!(self, out, left, right, ILVal::rotate_right),
-            Emil::CmpE { out, left, right } => {
-                let left = self.get_ilr(left);
-                let right = self.get_ilr(right);
-                let out = self.get_ilr_mut(out);
-                *out = ILVal::Flag(left == right);
-            }
-            Emil::CmpNe { out, left, right } => {
-                let left = self.get_ilr(left);
-                let right = self.get_ilr(right);
-                let out = self.get_ilr_mut(out);
-                *out = ILVal::Flag(left != right);
-            }
+            Emil::CmpE { out, left, right } => compare!(self, out, left, right, ==),
+            Emil::CmpNe { out, left, right } => compare!(self, out, left, right, !=),
             Emil::CmpSlt { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
+                let tmp = ILVal::Flag(left.signed_cmp(&right) == Ordering::Less);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Flag(left.signed_cmp(&right) == Ordering::Less);
+                *out = tmp;
             }
             Emil::CmpUlt { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
+                let tmp = ILVal::Flag(left < right);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Flag(left < right);
+                *out = tmp;
             }
             Emil::CmpSle { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
-                let out = self.get_ilr_mut(out);
                 let ord = left.signed_cmp(&right);
+                let out = self.get_ilr_mut(out);
                 *out = ILVal::Flag(ord <= Ordering::Equal);
             }
             Emil::CmpUle { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
+                let tmp = ILVal::Flag(left <= right);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Flag(left <= right);
+                *out = tmp;
             }
             Emil::CmpSgt { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
+                let tmp = ILVal::Flag(left.signed_cmp(&right) == Ordering::Greater);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Flag(left.signed_cmp(&right) == Ordering::Greater);
+                *out = tmp;
             }
             Emil::CmpUgt { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
+                let tmp = ILVal::Flag(left > right);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Flag(left > right);
+                *out = tmp;
             }
             Emil::CmpSge { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
-                let out = self.get_ilr_mut(out);
                 let ord = left.signed_cmp(&right);
+                let out = self.get_ilr_mut(out);
                 *out = ILVal::Flag(ord >= Ordering::Equal);
             }
             Emil::CmpUge { out, left, right } => {
                 let left = self.get_ilr(left);
                 let right = self.get_ilr(right);
+                let tmp = ILVal::Flag(left >= right);
                 let out = self.get_ilr_mut(out);
-                *out = ILVal::Flag(left >= right);
+                *out = tmp;
             }
             Emil::BoolToInt(out, val, size) => {
                 let val = self.get_ilr(val).extend_64();
@@ -616,11 +632,11 @@ impl<P: Page, S: State<P>> Emulator<P, S> {
     }
 
     #[inline(always)]
-    fn get_ilr(&self, idx: ILRef) -> ILVal {
+    fn get_ilr(&self, idx: ILRef) -> &ILVal {
         // SAFETY: The index is a u8. That has a valid range of 0-255. This is
         // indexing into an array of size 256 so it is not possible to index
         // past the end of the array or before the array.
-        unsafe { *self.ilrs.get_unchecked(idx.0 as usize) }
+        unsafe { self.ilrs.get_unchecked(idx.0 as usize) }
     }
 
     #[inline(always)]

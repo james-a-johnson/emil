@@ -25,7 +25,7 @@ pub mod riscv;
 
 use std::fmt::{Debug, Display};
 
-use crate::val::ILVal;
+use crate::val::{Big as BigInt, ILVal};
 
 /// Result of a system call.
 ///
@@ -70,7 +70,7 @@ pub trait RegState {
     /// Binary Ninja will correctly size the value for the given register
     /// write so if the value has the wrong size then the program is invalid
     /// and it makes sense to panic.
-    fn write(&mut self, id: Self::RegID, val: ILVal);
+    fn write(&mut self, id: Self::RegID, val: &ILVal);
 }
 
 /// Intrinsic instruction.
@@ -139,7 +139,7 @@ impl<T: Read + Write + Any> FileDescriptor for T {}
 
 pub trait Endian: Debug + Clone + Copy {
     fn read(data: &[u8]) -> ILVal;
-    fn write(value: ILVal, data: &mut [u8]);
+    fn write(value: &ILVal, data: &mut [u8]);
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -147,6 +147,7 @@ pub struct Little;
 impl Endian for Little {
     fn read(data: &[u8]) -> ILVal {
         match data.len() {
+            0 => unreachable!("Can't read a flag from memory"),
             1 => ILVal::Byte(data[0]),
             2 => ILVal::Short(u16::from_le_bytes(
                 data.try_into().expect("Length is valid"),
@@ -157,18 +158,15 @@ impl Endian for Little {
             8 => ILVal::Quad(u64::from_le_bytes(
                 data.try_into().expect("Length is valid"),
             )),
-            16 => ILVal::Simd(u128::from_le_bytes(
-                data.try_into().expect("Length is valid"),
-            )),
-            _ => unreachable!("Invalid length"),
+            _ => ILVal::Big(BigInt::from(data)),
         }
     }
 
-    fn write(value: ILVal, data: &mut [u8]) {
+    fn write(value: &ILVal, data: &mut [u8]) {
         match value {
             ILVal::Flag(_) => unreachable!("Can't write a flag"),
             ILVal::Byte(b) => {
-                data[0] = b;
+                data[0] = *b;
             }
             ILVal::Short(s) => {
                 data[0..2].copy_from_slice(&s.to_le_bytes());
@@ -179,8 +177,8 @@ impl Endian for Little {
             ILVal::Quad(q) => {
                 data[0..8].copy_from_slice(&q.to_le_bytes());
             }
-            ILVal::Simd(s) => {
-                data.copy_from_slice(&s.to_le_bytes());
+            ILVal::Big(s) => {
+                data.copy_from_slice(s.bytes());
             }
         }
     }
@@ -192,6 +190,7 @@ pub struct Big;
 impl Endian for Big {
     fn read(data: &[u8]) -> ILVal {
         match data.len() {
+            0 => unreachable!("Can't read flag from memory"),
             1 => ILVal::Byte(data[0]),
             2 => ILVal::Short(u16::from_be_bytes(
                 data.try_into().expect("bength is valid"),
@@ -202,18 +201,15 @@ impl Endian for Big {
             8 => ILVal::Quad(u64::from_be_bytes(
                 data.try_into().expect("bength is valid"),
             )),
-            16 => ILVal::Simd(u128::from_be_bytes(
-                data.try_into().expect("Length is valid"),
-            )),
-            _ => unreachable!("Invalid length"),
+            _ => ILVal::Big(BigInt::from_iter(data.iter().rev())),
         }
     }
 
-    fn write(value: ILVal, data: &mut [u8]) {
+    fn write(value: &ILVal, data: &mut [u8]) {
         match value {
             ILVal::Flag(_) => unreachable!("Can't write a flag"),
             ILVal::Byte(b) => {
-                data[0] = b;
+                data[0] = *b;
             }
             ILVal::Short(s) => {
                 data[0..2].copy_from_slice(&s.to_be_bytes());
@@ -224,8 +220,10 @@ impl Endian for Big {
             ILVal::Quad(q) => {
                 data[0..8].copy_from_slice(&q.to_be_bytes());
             }
-            ILVal::Simd(s) => {
-                data.copy_from_slice(&s.to_be_bytes());
+            ILVal::Big(b) => {
+                for (i, b) in b.bytes().iter().rev().enumerate() {
+                    data[i] = *b;
+                }
             }
         }
     }

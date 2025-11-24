@@ -36,7 +36,7 @@ impl RegState for Amd64Regs {
         self.0.read(id)
     }
 
-    fn write(&mut self, id: Self::RegID, val: crate::val::ILVal) {
+    fn write(&mut self, id: Self::RegID, val: &crate::val::ILVal) {
         self.0.write(id, val);
     }
 }

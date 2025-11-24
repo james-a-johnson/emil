@@ -7,6 +7,7 @@ use std::fmt::{Debug, Display, LowerHex, UpperHex};
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub};
 
 pub mod big;
+pub use big::Big;
 
 /// Reference to an [`ILVal`].
 ///
@@ -30,17 +31,19 @@ impl ILRef {
 ///
 /// It implements many arithmetic operations. Only two values of the same size can be used in an
 /// operation. Otherwise, the implementation will panic.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub enum ILVal {
     Flag(bool),
     Byte(u8),
     Short(u16),
     Word(u32),
     Quad(u64),
-    Simd(u128),
+    Big(Big),
 }
 
 impl ILVal {
+    pub const ZERO: Self = ILVal::Byte(0);
+
     /// Size of the ILVal in bytes.
     pub fn size(&self) -> usize {
         match self {
@@ -49,7 +52,7 @@ impl ILVal {
             Self::Short(_) => 2,
             Self::Word(_) => 4,
             Self::Quad(_) => 8,
-            Self::Simd(_) => 16,
+            Self::Big(b) => b.size(),
         }
     }
 
@@ -63,7 +66,7 @@ impl ILVal {
             Self::Short(v) => *v as u32,
             Self::Word(v) => *v,
             Self::Quad(v) => *v as u32,
-            Self::Simd(v) => *v as u32,
+            Self::Big(_) => unimplemented!("Don't support getting u32 from big integer"),
         }
     }
 
@@ -77,21 +80,17 @@ impl ILVal {
             Self::Short(s) => *s as u64,
             Self::Word(w) => *w as u64,
             Self::Quad(q) => *q,
-            v => panic!("Extending {v:?} to 64 bits doesn't make sense"),
+            Self::Big(_) => unimplemented!("Don't support getting u64 fomr big integer"),
         }
     }
 
-    /// Convert value to a 128 bit value.
-    ///
-    /// Will zero extend to get a 64 bit value.
-    pub fn extend_128(&self) -> u128 {
-        match self {
-            Self::Flag(b) => *b as u128,
-            Self::Byte(b) => *b as u128,
-            Self::Short(s) => *s as u128,
-            Self::Word(w) => *w as u128,
-            Self::Quad(q) => *q as u128,
-            Self::Simd(s) => *s,
+    /// Gets the value if it is a flag and panics otherwise.
+    #[inline]
+    pub fn get_flag(&self) -> bool {
+        if let Self::Flag(b) = self {
+            *b
+        } else {
+            panic!("Value was not a flag")
         }
     }
 
@@ -135,6 +134,15 @@ impl ILVal {
         }
     }
 
+    /// Gets the value if it is a big integer and panics otherwise.
+    pub fn get_big(&self) -> &Big {
+        if let Self::Big(b) = self {
+            b
+        } else {
+            panic!("Value was not a big integer")
+        }
+    }
+
     /// Checks if the value is true or not.
     ///
     /// This follows the standard c definition of true. So any non-zero value is considered to be true and zero is false.
@@ -145,23 +153,23 @@ impl ILVal {
             Self::Short(v) => *v != 0,
             Self::Word(v) => *v != 0,
             Self::Quad(v) => *v != 0,
-            Self::Simd(v) => *v != 0,
+            Self::Big(v) => v.truth(),
         }
     }
 
     /// Rotate right operation.
-    pub fn rotate_right(self, other: Self) -> Self {
+    pub fn rotate_right(&self, other: &Self) -> Self {
         match (self, other) {
-            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.rotate_right(r as u32)),
-            (Self::Short(l), Self::Byte(r)) => Self::Short(l.rotate_right(r as u32)),
-            (Self::Short(l), Self::Short(r)) => Self::Short(l.rotate_right(r as u32)),
-            (Self::Word(l), Self::Byte(r)) => Self::Word(l.rotate_right(r as u32)),
-            (Self::Word(l), Self::Short(r)) => Self::Word(l.rotate_right(r as u32)),
-            (Self::Word(l), Self::Word(r)) => Self::Word(l.rotate_right(r as u32)),
-            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.rotate_right(r as u32)),
-            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.rotate_right(r as u32)),
-            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.rotate_right(r as u32)),
-            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.rotate_right(r as u32)),
+            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.rotate_right(*r as u32)),
+            (Self::Short(l), Self::Byte(r)) => Self::Short(l.rotate_right(*r as u32)),
+            (Self::Short(l), Self::Short(r)) => Self::Short(l.rotate_right(*r as u32)),
+            (Self::Word(l), Self::Byte(r)) => Self::Word(l.rotate_right(*r as u32)),
+            (Self::Word(l), Self::Short(r)) => Self::Word(l.rotate_right(*r as u32)),
+            (Self::Word(l), Self::Word(r)) => Self::Word(l.rotate_right(*r as u32)),
+            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.rotate_right(*r as u32)),
+            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.rotate_right(*r as u32)),
+            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.rotate_right(*r as u32)),
+            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.rotate_right(*r as u32)),
             (_, _) => unreachable!("Invalid combination for rotate right"),
         }
     }
@@ -169,37 +177,37 @@ impl ILVal {
     /// Arithmetic shift right operation.
     ///
     /// Just a right shift but as a signed value.
-    pub fn asr(self, other: Self) -> Self {
+    pub fn asr(&self, other: &Self) -> Self {
         match (self, other) {
             (Self::Byte(l), Self::Byte(r)) => {
-                Self::Byte(((l as i8).unbounded_shr((r & 7) as u32)) as u8)
+                Self::Byte(((*l as i8).unbounded_shr((r & 7) as u32)) as u8)
             }
             (Self::Short(l), Self::Byte(r)) => {
-                Self::Short(((l as i16).unbounded_shr((r & 15) as u32)) as u16)
+                Self::Short(((*l as i16).unbounded_shr((r & 15) as u32)) as u16)
             }
             (Self::Short(l), Self::Short(r)) => {
-                Self::Short(((l as i16).unbounded_shr((r & 15) as u32)) as u16)
+                Self::Short(((*l as i16).unbounded_shr((r & 15) as u32)) as u16)
             }
             (Self::Word(l), Self::Byte(r)) => {
-                Self::Word(((l as i32).unbounded_shr((r & 31) as u32)) as u32)
+                Self::Word(((*l as i32).unbounded_shr((r & 31) as u32)) as u32)
             }
             (Self::Word(l), Self::Short(r)) => {
-                Self::Word(((l as i32).unbounded_shr((r & 31) as u32)) as u32)
+                Self::Word(((*l as i32).unbounded_shr((r & 31) as u32)) as u32)
             }
             (Self::Word(l), Self::Word(r)) => {
-                Self::Word(((l as i32).unbounded_shr((r & 31) as u32)) as u32)
+                Self::Word(((*l as i32).unbounded_shr((r & 31) as u32)) as u32)
             }
             (Self::Quad(l), Self::Byte(r)) => {
-                Self::Quad(((l as i64).unbounded_shr((r & 63) as u32)) as u64)
+                Self::Quad(((*l as i64).unbounded_shr((r & 63) as u32)) as u64)
             }
             (Self::Quad(l), Self::Short(r)) => {
-                Self::Quad(((l as i64).unbounded_shr((r & 63) as u32)) as u64)
+                Self::Quad(((*l as i64).unbounded_shr((r & 63) as u32)) as u64)
             }
             (Self::Quad(l), Self::Word(r)) => {
-                Self::Quad(((l as i64).unbounded_shr((r & 63) as u32)) as u64)
+                Self::Quad(((*l as i64).unbounded_shr((r & 63) as u32)) as u64)
             }
             (Self::Quad(l), Self::Quad(r)) => {
-                Self::Quad(((l as i64).unbounded_shr((r & 63) as u32)) as u64)
+                Self::Quad(((*l as i64).unbounded_shr((r & 63) as u32)) as u64)
             }
             (_, _) => unreachable!("Invalid combination for rotate right"),
         }
@@ -236,17 +244,19 @@ impl ILVal {
     ///
     /// # Panics
     /// Two values must be of the same size.
-    pub fn signed_div(self, other: Self) -> Self {
+    pub fn signed_div(&self, other: &Self) -> Self {
         match (self, other) {
-            (Self::Byte(v1), Self::Byte(v2)) => Self::Byte((v1 as i8).wrapping_div(v2 as i8) as u8),
+            (Self::Byte(v1), Self::Byte(v2)) => {
+                Self::Byte((*v1 as i8).wrapping_div(*v2 as i8) as u8)
+            }
             (Self::Short(v1), Self::Short(v2)) => {
-                Self::Short((v1 as i16).wrapping_div(v2 as i16) as u16)
+                Self::Short((*v1 as i16).wrapping_div(*v2 as i16) as u16)
             }
             (Self::Word(v1), Self::Word(v2)) => {
-                Self::Word((v1 as i32).wrapping_div(v2 as i32) as u32)
+                Self::Word((*v1 as i32).wrapping_div(*v2 as i32) as u32)
             }
             (Self::Quad(v1), Self::Quad(v2)) => {
-                Self::Quad((v1 as i64).wrapping_div(v2 as i64) as u64)
+                Self::Quad((*v1 as i64).wrapping_div(*v2 as i64) as u64)
             }
             (_, _) => unreachable!("Invalid combination for signed division"),
         }
@@ -269,10 +279,7 @@ impl ILVal {
             (Self::Quad(q), 2) => Self::Short(*q as u16),
             (Self::Quad(q), 4) => Self::Word(*q as u32),
             (Self::Quad(v), 8) => Self::Quad(*v),
-            (Self::Simd(v), 1) => Self::Byte(*v as u8),
-            (Self::Simd(v), 2) => Self::Short(*v as u16),
-            (Self::Simd(v), 4) => Self::Word(*v as u32),
-            (Self::Simd(v), 8) => Self::Quad(*v as u64),
+            (Self::Big(b), s) => b.truncate(s),
             (_, _) => unreachable!("Invalid truncation combination: {self:?} => {size}"),
         }
     }
@@ -293,6 +300,7 @@ impl ILVal {
             (Self::Short(v), 8) => Self::Quad(*v as i16 as i64 as u64),
             (Self::Word(v), 4) => Self::Word(*v),
             (Self::Word(v), 8) => Self::Quad(*v as i32 as i64 as u64),
+            (Self::Big(b), s) => b.sext(s),
             (_, _) => unreachable!("Invalid sign extension combination"),
         }
     }
@@ -314,31 +322,34 @@ impl ILVal {
             (Self::Word(v), 4) => Self::Word(*v),
             (Self::Word(v), 8) => Self::Quad(*v as u64),
             (Self::Quad(v), 8) => Self::Quad(*v),
+            (Self::Big(b), s) => b.zext(s),
             (_, _) => unreachable!("Invalid zero extension combination {self:?} -> {size}"),
         }
     }
 
     /// Zero extend value then multiply.
-    pub fn mulu_dp(self, other: Self) -> Self {
+    pub fn mulu_dp(&self, other: &Self) -> Self {
         match (self, other) {
             (Self::Word(left), Self::Word(right)) => {
-                Self::Quad((left as u64).wrapping_mul(right as u64))
+                Self::Quad((*left as u64).wrapping_mul(*right as u64))
             }
             (Self::Quad(left), Self::Quad(right)) => {
-                Self::Simd((left as u128).wrapping_mul(right as u128))
+                let mul = (*left as u128).wrapping_mul(*right as u128);
+                Self::Big(Big::from(mul.to_le_bytes()))
             }
             (_, _) => unreachable!("Invalid combo of {:?} and {:?}", self, other),
         }
     }
 
     /// Sign extend value then multiply
-    pub fn muls_dp(self, other: Self) -> Self {
+    pub fn muls_dp(&self, other: &Self) -> Self {
         match (self, other) {
             (Self::Word(left), Self::Word(right)) => {
-                Self::Quad((left as i32 as i64).wrapping_mul(right as i32 as i64) as u64)
+                Self::Quad((*left as i32 as i64).wrapping_mul(*right as i32 as i64) as u64)
             }
             (Self::Quad(left), Self::Quad(right)) => {
-                Self::Simd((left as i64 as i128).wrapping_mul(right as i64 as i128) as u128)
+                let mul = (*left as i64 as i128).wrapping_mul(*right as i64 as i128);
+                Self::Big(Big::from(mul.to_le_bytes()))
             }
             (_, _) => unreachable!("Invalid combo of {:?} and {:?}", self, other),
         }
@@ -347,24 +358,24 @@ impl ILVal {
     /// Bit-wise reversal of value.
     pub fn bit_rev(&self) -> Self {
         match self {
+            Self::Flag(v) => Self::Flag(*v),
             Self::Byte(v) => Self::Byte(v.reverse_bits()),
             Self::Short(v) => Self::Short(v.reverse_bits()),
             Self::Word(v) => Self::Word(v.reverse_bits()),
             Self::Quad(v) => Self::Quad(v.reverse_bits()),
-            Self::Simd(v) => Self::Simd(v.reverse_bits()),
-            x => panic!("{x:?} cannot be bit-wise reversed"),
+            Self::Big(v) => Self::Big(v.bit_reverse()),
         }
     }
 
     /// Byte-wise reversal of value.
     pub fn byte_rev(&self) -> Self {
         match self {
+            Self::Flag(v) => Self::Flag(*v),
             Self::Byte(v) => Self::Byte(v.swap_bytes()),
             Self::Short(v) => Self::Short(v.swap_bytes()),
             Self::Word(v) => Self::Word(v.swap_bytes()),
             Self::Quad(v) => Self::Quad(v.swap_bytes()),
-            Self::Simd(v) => Self::Simd(v.swap_bytes()),
-            x => panic!("{x:?} cannot be byte-wise reversed"),
+            Self::Big(v) => Self::Big(v.byte_reverse()),
         }
     }
 
@@ -375,25 +386,24 @@ impl ILVal {
             Self::Short(v) => Self::Word(v.leading_zeros()),
             Self::Word(v) => Self::Word(v.leading_zeros()),
             Self::Quad(v) => Self::Word(v.leading_zeros()),
-            Self::Simd(v) => Self::Word(v.leading_zeros()),
             x => panic!("{x:?} does not support leading zeros"),
         }
     }
 
     /// Check if an add would overflow or not.
-    pub fn add_of(self, other: Self) -> Self {
+    pub fn add_of(&self, other: &Self) -> Self {
         // TODO: This might be architecture specific. It seems like this should be signed addition checking overflow.
         match (self, other) {
-            (Self::Byte(a), Self::Byte(b)) => Self::Flag((a as i8).overflowing_sub(b as i8).1),
-            (Self::Short(a), Self::Byte(b)) => Self::Flag(a.overflowing_sub(b as u16).1),
-            (Self::Short(a), Self::Short(b)) => Self::Flag(a.overflowing_sub(b).1),
-            (Self::Word(a), Self::Byte(b)) => Self::Flag(a.overflowing_sub(b as u32).1),
-            (Self::Word(a), Self::Short(b)) => Self::Flag(a.overflowing_sub(b as u32).1),
-            (Self::Word(a), Self::Word(b)) => Self::Flag((a as i32).overflowing_sub(b as i32).1),
-            (Self::Quad(a), Self::Byte(b)) => Self::Flag(a.overflowing_sub(b as u64).1),
-            (Self::Quad(a), Self::Short(b)) => Self::Flag(a.overflowing_sub(b as u64).1),
-            (Self::Quad(a), Self::Word(b)) => Self::Flag(a.overflowing_sub(b as u64).1),
-            (Self::Quad(a), Self::Quad(b)) => Self::Flag((a).overflowing_sub(b).1),
+            (Self::Byte(a), Self::Byte(b)) => Self::Flag((*a as i8).overflowing_sub(*b as i8).1),
+            (Self::Short(a), Self::Byte(b)) => Self::Flag(a.overflowing_sub(*b as u16).1),
+            (Self::Short(a), Self::Short(b)) => Self::Flag(a.overflowing_sub(*b).1),
+            (Self::Word(a), Self::Byte(b)) => Self::Flag(a.overflowing_sub(*b as u32).1),
+            (Self::Word(a), Self::Short(b)) => Self::Flag(a.overflowing_sub(*b as u32).1),
+            (Self::Word(a), Self::Word(b)) => Self::Flag((*a as i32).overflowing_sub(*b as i32).1),
+            (Self::Quad(a), Self::Byte(b)) => Self::Flag(a.overflowing_sub(*b as u64).1),
+            (Self::Quad(a), Self::Short(b)) => Self::Flag(a.overflowing_sub(*b as u64).1),
+            (Self::Quad(a), Self::Word(b)) => Self::Flag(a.overflowing_sub(*b as u64).1),
+            (Self::Quad(a), Self::Quad(b)) => Self::Flag((a).overflowing_sub(*b).1),
             _ => panic!("Trying to check overflow of unsupported types: {self:?} + {other:?}"),
         }
     }
@@ -407,7 +417,7 @@ impl Debug for ILVal {
             Self::Short(s) => write!(f, "{:X}s", s),
             Self::Word(w) => write!(f, "{:X}w", w),
             Self::Quad(q) => write!(f, "{:X}q", q),
-            Self::Simd(s) => write!(f, "{:X}d", s),
+            Self::Big(b) => write!(f, "{:?}", b),
         }
     }
 }
@@ -420,7 +430,7 @@ impl Display for ILVal {
             Self::Short(s) => write!(f, "{:X}", s),
             Self::Word(w) => write!(f, "{:X}", w),
             Self::Quad(q) => write!(f, "{:X}", q),
-            Self::Simd(s) => write!(f, "{:X}", s),
+            Self::Big(b) => write!(f, "{:?}", b),
         }
     }
 }
@@ -433,7 +443,7 @@ impl LowerHex for ILVal {
             Self::Short(v) => LowerHex::fmt(v, f),
             Self::Word(v) => LowerHex::fmt(v, f),
             Self::Quad(v) => LowerHex::fmt(v, f),
-            Self::Simd(v) => LowerHex::fmt(v, f),
+            Self::Big(b) => LowerHex::fmt(b, f),
         }
     }
 }
@@ -446,7 +456,7 @@ impl UpperHex for ILVal {
             Self::Short(v) => UpperHex::fmt(v, f),
             Self::Word(v) => UpperHex::fmt(v, f),
             Self::Quad(v) => UpperHex::fmt(v, f),
-            Self::Simd(v) => UpperHex::fmt(v, f),
+            Self::Big(v) => UpperHex::fmt(v, f),
         }
     }
 }
@@ -455,13 +465,13 @@ impl ILVal {}
 
 impl PartialEq for ILVal {
     fn eq(&self, other: &Self) -> bool {
-        match (*self, *other) {
+        match (self, other) {
             (Self::Flag(b1), Self::Flag(b2)) => b1 == b2,
             (Self::Byte(b1), Self::Byte(b2)) => b1 == b2,
             (Self::Short(s1), Self::Short(s2)) => s1 == s2,
             (Self::Word(w1), Self::Word(w2)) => w1 == w2,
             (Self::Quad(q1), Self::Quad(q2)) => q1 == q2,
-            (Self::Simd(s1), Self::Simd(s2)) => s1 == s2,
+            (Self::Big(b1), Self::Big(b2)) => b1 == b2,
             (_, _) => false,
         }
     }
@@ -471,13 +481,13 @@ impl Eq for ILVal {}
 
 impl PartialOrd for ILVal {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match (*self, *other) {
-            (Self::Flag(b1), Self::Flag(b2)) => b1.partial_cmp(&b2),
-            (Self::Byte(b1), Self::Byte(b2)) => b1.partial_cmp(&b2),
-            (Self::Short(s1), Self::Short(s2)) => s1.partial_cmp(&s2),
-            (Self::Word(w1), Self::Word(w2)) => w1.partial_cmp(&w2),
-            (Self::Quad(q1), Self::Quad(q2)) => q1.partial_cmp(&q2),
-            (Self::Simd(s1), Self::Simd(s2)) => s1.partial_cmp(&s2),
+        match (self, other) {
+            (Self::Flag(b1), Self::Flag(b2)) => b1.partial_cmp(b2),
+            (Self::Byte(b1), Self::Byte(b2)) => b1.partial_cmp(b2),
+            (Self::Short(s1), Self::Short(s2)) => s1.partial_cmp(s2),
+            (Self::Word(w1), Self::Word(w2)) => w1.partial_cmp(w2),
+            (Self::Quad(q1), Self::Quad(q2)) => q1.partial_cmp(q2),
+            (Self::Big(b1), Self::Big(b2)) => b1.partial_cmp(b2),
             (_, _) => panic!("Comparing types of unequal size"),
         }
     }
@@ -539,13 +549,13 @@ impl From<i64> for ILVal {
 
 impl From<u128> for ILVal {
     fn from(value: u128) -> Self {
-        Self::Simd(value)
+        Self::Big(Big::from(value.to_le_bytes()))
     }
 }
 
 impl From<i128> for ILVal {
     fn from(value: i128) -> Self {
-        Self::Simd(value as u128)
+        Self::Big(Big::from(value.to_le_bytes()))
     }
 }
 
@@ -561,8 +571,8 @@ impl From<f64> for ILVal {
     }
 }
 
-impl Add for ILVal {
-    type Output = Self;
+impl Add for &ILVal {
+    type Output = ILVal;
 
     /// Wrapping add of two ILVals.
     ///
@@ -570,24 +580,24 @@ impl Add for ILVal {
     /// ILVals must have the same size or this will panic.
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(a), Self::Byte(b)) => Self::Byte(a.wrapping_add(b)),
-            (Self::Short(a), Self::Byte(b)) => Self::Short(a.wrapping_add(b as u16)),
-            (Self::Short(a), Self::Short(b)) => Self::Short(a.wrapping_add(b)),
-            (Self::Word(a), Self::Byte(b)) => Self::Word(a.wrapping_add(b as u32)),
-            (Self::Word(a), Self::Short(b)) => Self::Word(a.wrapping_add(b as u32)),
-            (Self::Word(a), Self::Word(b)) => Self::Word(a.wrapping_add(b)),
-            (Self::Quad(a), Self::Byte(b)) => Self::Quad(a.wrapping_add(b as u64)),
-            (Self::Quad(a), Self::Short(b)) => Self::Quad(a.wrapping_add(b as u64)),
-            (Self::Quad(a), Self::Word(b)) => Self::Quad(a.wrapping_add(b as u64)),
-            (Self::Quad(a), Self::Quad(b)) => Self::Quad(a.wrapping_add(b)),
-            (Self::Simd(a), Self::Simd(b)) => Self::Simd(a.wrapping_add(b)),
+            (ILVal::Byte(a), ILVal::Byte(b)) => ILVal::Byte(a.wrapping_add(*b)),
+            (ILVal::Short(a), ILVal::Byte(b)) => ILVal::Short(a.wrapping_add(*b as u16)),
+            (ILVal::Short(a), ILVal::Short(b)) => ILVal::Short(a.wrapping_add(*b)),
+            (ILVal::Word(a), ILVal::Byte(b)) => ILVal::Word(a.wrapping_add(*b as u32)),
+            (ILVal::Word(a), ILVal::Short(b)) => ILVal::Word(a.wrapping_add(*b as u32)),
+            (ILVal::Word(a), ILVal::Word(b)) => ILVal::Word(a.wrapping_add(*b)),
+            (ILVal::Quad(a), ILVal::Byte(b)) => ILVal::Quad(a.wrapping_add(*b as u64)),
+            (ILVal::Quad(a), ILVal::Short(b)) => ILVal::Quad(a.wrapping_add(*b as u64)),
+            (ILVal::Quad(a), ILVal::Word(b)) => ILVal::Quad(a.wrapping_add(*b as u64)),
+            (ILVal::Quad(a), ILVal::Quad(b)) => ILVal::Quad(a.wrapping_add(*b)),
+            (ILVal::Big(a), ILVal::Big(b)) => ILVal::Big(a + b),
             _ => panic!("Trying to add different sized integers: {self:?} + {rhs:?}"),
         }
     }
 }
 
-impl Sub for ILVal {
-    type Output = Self;
+impl Sub for &ILVal {
+    type Output = ILVal;
 
     /// Wrapping subtraction of two ILVals.
     ///
@@ -595,18 +605,18 @@ impl Sub for ILVal {
     /// ILVals must have the same size or this will panic.
     fn sub(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(a), Self::Byte(b)) => Self::Byte(a.wrapping_sub(b)),
-            (Self::Short(a), Self::Short(b)) => Self::Short(a.wrapping_sub(b)),
-            (Self::Word(a), Self::Word(b)) => Self::Word(a.wrapping_sub(b)),
-            (Self::Quad(a), Self::Quad(b)) => Self::Quad(a.wrapping_sub(b)),
-            (Self::Simd(a), Self::Simd(b)) => Self::Simd(a.wrapping_sub(b)),
+            (ILVal::Byte(a), ILVal::Byte(b)) => ILVal::Byte(a.wrapping_sub(*b)),
+            (ILVal::Short(a), ILVal::Short(b)) => ILVal::Short(a.wrapping_sub(*b)),
+            (ILVal::Word(a), ILVal::Word(b)) => ILVal::Word(a.wrapping_sub(*b)),
+            (ILVal::Quad(a), ILVal::Quad(b)) => ILVal::Quad(a.wrapping_sub(*b)),
+            (ILVal::Big(a), ILVal::Big(b)) => ILVal::Big(a - b),
             _ => panic!("Trying to subtract different sized integers"),
         }
     }
 }
 
-impl Mul for ILVal {
-    type Output = Self;
+impl Mul for &ILVal {
+    type Output = ILVal;
 
     /// Wrapping multiply of two ILVals.
     ///
@@ -614,18 +624,18 @@ impl Mul for ILVal {
     /// ILVals must have the same size or this will panic.
     fn mul(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(a), Self::Byte(b)) => Self::Byte(a.wrapping_mul(b)),
-            (Self::Short(a), Self::Short(b)) => Self::Short(a.wrapping_mul(b)),
-            (Self::Word(a), Self::Word(b)) => Self::Word(a.wrapping_mul(b)),
-            (Self::Quad(a), Self::Quad(b)) => Self::Quad(a.wrapping_mul(b)),
-            (Self::Simd(a), Self::Simd(b)) => Self::Simd(a.wrapping_mul(b)),
+            (ILVal::Byte(a), ILVal::Byte(b)) => ILVal::Byte(a.wrapping_mul(*b)),
+            (ILVal::Short(a), ILVal::Short(b)) => ILVal::Short(a.wrapping_mul(*b)),
+            (ILVal::Word(a), ILVal::Word(b)) => ILVal::Word(a.wrapping_mul(*b)),
+            (ILVal::Quad(a), ILVal::Quad(b)) => ILVal::Quad(a.wrapping_mul(*b)),
+            (ILVal::Big(a), ILVal::Big(b)) => ILVal::Big(a * b),
             _ => panic!("Trying to multiply different sized integers"),
         }
     }
 }
 
-impl Div for ILVal {
-    type Output = Self;
+impl Div for &ILVal {
+    type Output = ILVal;
 
     /// Wrapping division of two ILVals.
     ///
@@ -633,147 +643,141 @@ impl Div for ILVal {
     /// ILVals must have the same size.
     fn div(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(a), Self::Byte(b)) => Self::Byte(a.wrapping_div(b)),
-            (Self::Short(a), Self::Short(b)) => Self::Short(a.wrapping_div(b)),
-            (Self::Word(a), Self::Word(b)) => Self::Word(a.wrapping_div(b)),
-            (Self::Quad(a), Self::Quad(b)) => Self::Quad(a.wrapping_div(b)),
-            (Self::Simd(a), Self::Simd(b)) => Self::Simd(a.wrapping_div(b)),
+            (ILVal::Byte(a), ILVal::Byte(b)) => ILVal::Byte(a.wrapping_div(*b)),
+            (ILVal::Short(a), ILVal::Short(b)) => ILVal::Short(a.wrapping_div(*b)),
+            (ILVal::Word(a), ILVal::Word(b)) => ILVal::Word(a.wrapping_div(*b)),
+            (ILVal::Quad(a), ILVal::Quad(b)) => ILVal::Quad(a.wrapping_div(*b)),
             _ => panic!("Trying to divide different sized integers"),
         }
     }
 }
 
-impl BitAnd for ILVal {
-    type Output = Self;
+impl BitAnd for &ILVal {
+    type Output = ILVal;
 
     fn bitand(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Flag(a), Self::Flag(b)) => Self::Flag(a & b),
-            (Self::Byte(a), Self::Byte(b)) => Self::Byte(a & b),
-            (Self::Short(a), Self::Short(b)) => Self::Short(a & b),
-            (Self::Word(a), Self::Word(b)) => Self::Word(a & b),
-            (Self::Quad(a), Self::Quad(b)) => Self::Quad(a & b),
-            (Self::Simd(a), Self::Simd(b)) => Self::Simd(a & b),
+            (ILVal::Flag(a), ILVal::Flag(b)) => ILVal::Flag(a & b),
+            (ILVal::Byte(a), ILVal::Byte(b)) => ILVal::Byte(a & b),
+            (ILVal::Short(a), ILVal::Short(b)) => ILVal::Short(a & b),
+            (ILVal::Word(a), ILVal::Word(b)) => ILVal::Word(a & b),
+            (ILVal::Quad(a), ILVal::Quad(b)) => ILVal::Quad(a & b),
+            (ILVal::Big(a), ILVal::Big(b)) => ILVal::Big(a & b),
             _ => panic!("Trying to bitwise and different sized integers"),
         }
     }
 }
 
-impl BitOr for ILVal {
-    type Output = Self;
+impl BitOr for &ILVal {
+    type Output = ILVal;
 
     fn bitor(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Flag(a), Self::Flag(b)) => Self::Flag(a || b),
-            (Self::Byte(a), Self::Byte(b)) => Self::Byte(a | b),
-            (Self::Short(a), Self::Short(b)) => Self::Short(a | b),
-            (Self::Word(a), Self::Word(b)) => Self::Word(a | b),
-            (Self::Quad(a), Self::Quad(b)) => Self::Quad(a | b),
-            (Self::Simd(a), Self::Simd(b)) => Self::Simd(a | b),
+            (ILVal::Flag(a), ILVal::Flag(b)) => ILVal::Flag(*a || *b),
+            (ILVal::Byte(a), ILVal::Byte(b)) => ILVal::Byte(a | b),
+            (ILVal::Short(a), ILVal::Short(b)) => ILVal::Short(a | b),
+            (ILVal::Word(a), ILVal::Word(b)) => ILVal::Word(a | b),
+            (ILVal::Quad(a), ILVal::Quad(b)) => ILVal::Quad(a | b),
+            (ILVal::Big(a), ILVal::Big(b)) => ILVal::Big(a | b),
             _ => panic!("Trying to bitwise or different sized integers"),
         }
     }
 }
 
-impl BitXor for ILVal {
-    type Output = Self;
+impl BitXor for &ILVal {
+    type Output = ILVal;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(a), Self::Byte(b)) => Self::Byte(a ^ b),
-            (Self::Short(a), Self::Short(b)) => Self::Short(a ^ b),
-            (Self::Word(a), Self::Word(b)) => Self::Word(a ^ b),
-            (Self::Quad(a), Self::Quad(b)) => Self::Quad(a ^ b),
-            (Self::Simd(a), Self::Simd(b)) => Self::Simd(a ^ b),
+            (ILVal::Byte(a), ILVal::Byte(b)) => ILVal::Byte(a ^ b),
+            (ILVal::Short(a), ILVal::Short(b)) => ILVal::Short(a ^ b),
+            (ILVal::Word(a), ILVal::Word(b)) => ILVal::Word(a ^ b),
+            (ILVal::Quad(a), ILVal::Quad(b)) => ILVal::Quad(a ^ b),
+            (ILVal::Big(a), ILVal::Big(b)) => ILVal::Big(a ^ b),
             _ => panic!("Trying to bitwise xor different sized integers"),
         }
     }
 }
 
-impl Neg for ILVal {
-    type Output = Self;
+impl Neg for &ILVal {
+    type Output = ILVal;
 
     fn neg(self) -> Self::Output {
         match self {
-            Self::Flag(v) => Self::Flag(!v),
-            Self::Byte(v) => Self::Byte(-(v as i8) as u8),
-            Self::Short(v) => Self::Short(-(v as i16) as u16),
-            Self::Word(v) => Self::Word(-(v as i32) as u32),
-            Self::Quad(v) => Self::Quad(-(v as i64) as u64),
-            Self::Simd(v) => Self::Simd(-(v as i128) as u128),
+            ILVal::Flag(v) => ILVal::Flag(!v),
+            ILVal::Byte(v) => ILVal::Byte(-(*v as i8) as u8),
+            ILVal::Short(v) => ILVal::Short(-(*v as i16) as u16),
+            ILVal::Word(v) => ILVal::Word(-(*v as i32) as u32),
+            ILVal::Quad(v) => ILVal::Quad(-(*v as i64) as u64),
+            ILVal::Big(v) => ILVal::Big(-v),
         }
     }
 }
 
-impl Not for ILVal {
-    type Output = Self;
+impl Not for &ILVal {
+    type Output = ILVal;
 
     fn not(self) -> Self::Output {
         match self {
-            Self::Flag(v) => Self::Flag(!v),
-            Self::Byte(v) => Self::Byte(!v),
-            Self::Short(v) => Self::Short(!v),
-            Self::Word(v) => Self::Word(!v),
-            Self::Quad(v) => Self::Quad(!v),
-            Self::Simd(v) => Self::Simd(!v),
+            ILVal::Flag(v) => ILVal::Flag(!v),
+            ILVal::Byte(v) => ILVal::Byte(!v),
+            ILVal::Short(v) => ILVal::Short(!v),
+            ILVal::Word(v) => ILVal::Word(!v),
+            ILVal::Quad(v) => ILVal::Quad(!v),
+            ILVal::Big(v) => ILVal::Big(!v),
         }
     }
 }
 
-impl Rem for ILVal {
-    type Output = Self;
+impl Rem for &ILVal {
+    type Output = ILVal;
 
     fn rem(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.wrapping_rem(r)),
-            (Self::Short(l), Self::Short(r)) => Self::Short(l.wrapping_rem(r)),
-            (Self::Word(l), Self::Word(r)) => Self::Word(l.wrapping_rem(r)),
-            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.wrapping_rem(r)),
-            (Self::Simd(a), Self::Simd(b)) => Self::Simd(a.wrapping_rem(b)),
+            (ILVal::Byte(l), ILVal::Byte(r)) => ILVal::Byte(l.wrapping_rem(*r)),
+            (ILVal::Short(l), ILVal::Short(r)) => ILVal::Short(l.wrapping_rem(*r)),
+            (ILVal::Word(l), ILVal::Word(r)) => ILVal::Word(l.wrapping_rem(*r)),
+            (ILVal::Quad(l), ILVal::Quad(r)) => ILVal::Quad(l.wrapping_rem(*r)),
             _ => panic!("Incompatible sizes for remainder operation"),
         }
     }
 }
 
-impl Shl for ILVal {
-    type Output = Self;
+impl Shl for &ILVal {
+    type Output = ILVal;
 
     fn shl(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.unbounded_shl((r & 7) as u32)),
-            (Self::Short(l), Self::Byte(r)) => Self::Short(l.unbounded_shl((r & 15) as u32)),
-            (Self::Short(l), Self::Short(r)) => Self::Short(l.unbounded_shl((r & 15) as u32)),
-            (Self::Word(l), Self::Byte(r)) => Self::Word(l.unbounded_shl((r & 31) as u32)),
-            (Self::Word(l), Self::Short(r)) => Self::Word(l.unbounded_shl((r & 31) as u32)),
-            (Self::Word(l), Self::Word(r)) => Self::Word(l.unbounded_shl((r & 31) as u32)),
-            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.unbounded_shl((r & 63) as u32)),
-            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.unbounded_shl((r & 63) as u32)),
-            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.unbounded_shl((r & 63) as u32)),
-            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.unbounded_shl((r & 63) as u32)),
+            (ILVal::Byte(l), ILVal::Byte(r)) => ILVal::Byte(l.unbounded_shl((*r & 7) as u32)),
+            (ILVal::Short(l), ILVal::Byte(r)) => ILVal::Short(l.unbounded_shl((*r & 15) as u32)),
+            (ILVal::Short(l), ILVal::Short(r)) => ILVal::Short(l.unbounded_shl((*r & 15) as u32)),
+            (ILVal::Word(l), ILVal::Byte(r)) => ILVal::Word(l.unbounded_shl((*r & 31) as u32)),
+            (ILVal::Word(l), ILVal::Short(r)) => ILVal::Word(l.unbounded_shl((*r & 31) as u32)),
+            (ILVal::Word(l), ILVal::Word(r)) => ILVal::Word(l.unbounded_shl((*r & 31) as u32)),
+            (ILVal::Quad(l), ILVal::Byte(r)) => ILVal::Quad(l.unbounded_shl((*r & 63) as u32)),
+            (ILVal::Quad(l), ILVal::Short(r)) => ILVal::Quad(l.unbounded_shl((*r & 63) as u32)),
+            (ILVal::Quad(l), ILVal::Word(r)) => ILVal::Quad(l.unbounded_shl((*r & 63) as u32)),
+            (ILVal::Quad(l), ILVal::Quad(r)) => ILVal::Quad(l.unbounded_shl((*r & 63) as u32)),
             _ => panic!("Incompatible sizes for shift left operation"),
         }
     }
 }
 
-impl Shr for ILVal {
-    type Output = Self;
+impl Shr for &ILVal {
+    type Output = ILVal;
 
     fn shr(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::Byte(l), Self::Byte(r)) => Self::Byte(l.unbounded_shr((r & 7) as u32)),
-            (Self::Short(l), Self::Byte(r)) => Self::Short(l.unbounded_shr((r & 15) as u32)),
-            (Self::Short(l), Self::Short(r)) => Self::Short(l.unbounded_shr((r & 15) as u32)),
-            (Self::Word(l), Self::Byte(r)) => Self::Word(l.unbounded_shr((r & 31) as u32)),
-            (Self::Word(l), Self::Short(r)) => Self::Word(l.unbounded_shr((r & 31) as u32)),
-            (Self::Word(l), Self::Word(r)) => Self::Word(l.unbounded_shr((r & 31) as u32)),
-            (Self::Quad(l), Self::Byte(r)) => Self::Quad(l.unbounded_shr((r & 63) as u32)),
-            (Self::Quad(l), Self::Short(r)) => Self::Quad(l.unbounded_shr((r & 63) as u32)),
-            (Self::Quad(l), Self::Word(r)) => Self::Quad(l.unbounded_shr((r & 63) as u32)),
-            (Self::Quad(l), Self::Quad(r)) => Self::Quad(l.unbounded_shr((r & 63) as u32)),
-            (Self::Simd(l), Self::Byte(r)) => Self::Simd(l.unbounded_shr((r & 127) as u32)),
-            (Self::Simd(l), Self::Short(r)) => Self::Simd(l.unbounded_shr((r & 127) as u32)),
-            (Self::Simd(l), Self::Word(r)) => Self::Simd(l.unbounded_shr((r & 127) as u32)),
-            (Self::Simd(l), Self::Quad(r)) => Self::Simd(l.unbounded_shr((r & 127) as u32)),
+            (ILVal::Byte(l), ILVal::Byte(r)) => ILVal::Byte(l.unbounded_shr((*r & 7) as u32)),
+            (ILVal::Short(l), ILVal::Byte(r)) => ILVal::Short(l.unbounded_shr((*r & 15) as u32)),
+            (ILVal::Short(l), ILVal::Short(r)) => ILVal::Short(l.unbounded_shr((*r & 15) as u32)),
+            (ILVal::Word(l), ILVal::Byte(r)) => ILVal::Word(l.unbounded_shr((*r & 31) as u32)),
+            (ILVal::Word(l), ILVal::Short(r)) => ILVal::Word(l.unbounded_shr((*r & 31) as u32)),
+            (ILVal::Word(l), ILVal::Word(r)) => ILVal::Word(l.unbounded_shr((*r & 31) as u32)),
+            (ILVal::Quad(l), ILVal::Byte(r)) => ILVal::Quad(l.unbounded_shr((*r & 63) as u32)),
+            (ILVal::Quad(l), ILVal::Short(r)) => ILVal::Quad(l.unbounded_shr((*r & 63) as u32)),
+            (ILVal::Quad(l), ILVal::Word(r)) => ILVal::Quad(l.unbounded_shr((*r & 63) as u32)),
+            (ILVal::Quad(l), ILVal::Quad(r)) => ILVal::Quad(l.unbounded_shr((*r & 63) as u32)),
             _ => panic!("Incompatible sizes for shift right operation"),
         }
     }

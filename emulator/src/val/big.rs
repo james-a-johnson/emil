@@ -15,8 +15,8 @@
 
 use crate::val::ILVal;
 
-use std::fmt::Debug;
-use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Sub};
+use std::fmt::{Debug, LowerHex, UpperHex};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Sub};
 
 /// Big integer type that can represent any number of bytes.
 ///
@@ -37,33 +37,43 @@ impl Big {
         self.0.iter().any(|b| *b != 0)
     }
 
+    #[inline]
+    pub fn bytes(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+
+    /// Create a big integer from an iterator of bytes.
+    ///
+    /// Assumes that the bytes are being iterated in little endian format.
+    pub fn from_iter<'a, T: Iterator<Item = &'a u8>>(iter: T) -> Self {
+        let mut bytes = Vec::with_capacity(iter.size_hint().0);
+        for b in iter {
+            bytes.push(*b);
+        }
+        Self(bytes)
+    }
+
     /// Truncate the number to a specific number of bytes.
     ///
     /// This returns an [`ILVal`] instead of self so that it can return a u64 if it's truncating to 8 bytes or something
     /// similar.
-    pub fn truncate(&self, size: u8) -> Result<ILVal, Big> {
+    pub fn truncate(&self, size: u8) -> ILVal {
         debug_assert!(
             (size as usize) < self.size(),
             "Must truncate to smaller size"
         );
         match size {
-            0 => Ok(ILVal::Flag(self.0[0] & 0b1 == 1)),
-            1 => Ok(ILVal::Byte(self.0[0])),
-            2 => Ok(ILVal::Short(u16::from_le_bytes(
-                self.0[0..2].try_into().unwrap(),
-            ))),
-            4 => Ok(ILVal::Word(u32::from_le_bytes(
-                self.0[0..4].try_into().unwrap(),
-            ))),
-            8 => Ok(ILVal::Quad(u64::from_le_bytes(
-                self.0[0..8].try_into().unwrap(),
-            ))),
-            _ => Err(Big(self.0[0..size as usize].to_vec())),
+            0 => ILVal::Flag(self.0[0] & 0b1 == 1),
+            1 => ILVal::Byte(self.0[0]),
+            2 => ILVal::Short(u16::from_le_bytes(self.0[0..2].try_into().unwrap())),
+            4 => ILVal::Word(u32::from_le_bytes(self.0[0..4].try_into().unwrap())),
+            8 => ILVal::Quad(u64::from_le_bytes(self.0[0..8].try_into().unwrap())),
+            _ => ILVal::Big(Big(self.0[0..size as usize].to_vec())),
         }
     }
 
     /// Sign extend the big intenger to the specified number of bytes.
-    pub fn sext(&self, size: u8) -> Result<ILVal, Big> {
+    pub fn sext(&self, size: u8) -> ILVal {
         debug_assert!(
             (size as usize) > self.size(),
             "Need to extend to a larger size"
@@ -88,7 +98,7 @@ impl Big {
                     0x00
                 };
                 let word = [self.0[0], self.0[1], self.0[2], sign];
-                Ok(ILVal::Word(u32::from_le_bytes(word)))
+                ILVal::Word(u32::from_le_bytes(word))
             }
             8 => {
                 let mut quad = [0u8; 8];
@@ -107,7 +117,7 @@ impl Big {
                     quad[idx] = sign;
                     idx += 1;
                 }
-                Ok(ILVal::Quad(u64::from_le_bytes(quad)))
+                ILVal::Quad(u64::from_le_bytes(quad))
             }
             _ => {
                 let mut bytes = Vec::with_capacity(size.into());
@@ -122,13 +132,13 @@ impl Big {
                 for _ in 0..extension {
                     bytes.push(sign);
                 }
-                Err(Big(bytes))
+                ILVal::Big(Big(bytes))
             }
         }
     }
 
     /// Zero extend the big intenger to the specified number of bytes.
-    pub fn zext(&self, size: u8) -> Result<ILVal, Big> {
+    pub fn zext(&self, size: u8) -> ILVal {
         debug_assert!(
             (size as usize) > self.size(),
             "Need to extend to a larger size"
@@ -143,7 +153,7 @@ impl Big {
                     "This is the only case where this can happen"
                 );
                 let word = [self.0[0], self.0[1], self.0[2], 0x00];
-                Ok(ILVal::Word(u32::from_le_bytes(word)))
+                ILVal::Word(u32::from_le_bytes(word))
             }
             8 => {
                 let mut quad = [0u8; 8];
@@ -156,7 +166,7 @@ impl Big {
                     quad[idx] = 0x00;
                     idx += 1;
                 }
-                Ok(ILVal::Quad(u64::from_le_bytes(quad)))
+                ILVal::Quad(u64::from_le_bytes(quad))
             }
             _ => {
                 let mut bytes = Vec::with_capacity(size.into());
@@ -165,9 +175,32 @@ impl Big {
                 for _ in 0..extension {
                     bytes.push(0x00);
                 }
-                Err(Big(bytes))
+                ILVal::Big(Big(bytes))
             }
         }
+    }
+
+    /// Reverse the underlying byte array.
+    pub fn byte_reverse(&self) -> Self {
+        let mut bytes = self.0.clone();
+        bytes.reverse();
+        Self(bytes)
+    }
+
+    /// Reverse the underlying byte array and the bits in each byte.
+    pub fn bit_reverse(&self) -> Self {
+        let mut bytes = self.0.clone();
+        bytes.reverse();
+        for b in &mut bytes {
+            *b = b.reverse_bits();
+        }
+        Self(bytes)
+    }
+}
+
+impl AsRef<[u8]> for Big {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
     }
 }
 
@@ -186,6 +219,24 @@ impl<const N: usize> From<[u8; N]> for Big {
 impl Debug for Big {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list().entries(self.0.iter()).finish()
+    }
+}
+
+impl LowerHex for Big {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for b in self.0.iter().rev() {
+            write!(f, "{:x}", *b)?;
+        }
+        Ok(())
+    }
+}
+
+impl UpperHex for Big {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for b in self.0.iter().rev() {
+            write!(f, "{:X}", *b)?;
+        }
+        Ok(())
     }
 }
 
@@ -247,6 +298,34 @@ impl Mul for &Big {
     }
 }
 
+impl Not for &Big {
+    type Output = Big;
+
+    fn not(self) -> Self::Output {
+        let mut bytes = self.0.clone();
+        for b in &mut bytes {
+            *b = !*b;
+        }
+        Big(bytes)
+    }
+}
+
+impl Neg for &Big {
+    type Output = Big;
+
+    fn neg(self) -> Self::Output {
+        let mut bytes = !self;
+        let mut carry = true;
+        for b in &mut bytes.0 {
+            (*b, carry) = b.carrying_add(0, carry);
+            if !carry {
+                break;
+            }
+        }
+        bytes
+    }
+}
+
 impl BitAnd for &Big {
     type Output = Big;
 
@@ -292,7 +371,19 @@ impl PartialEq<[u8]> for Big {
     }
 }
 
+impl PartialEq<[u8]> for &Big {
+    fn eq(&self, other: &[u8]) -> bool {
+        self.0.eq(other)
+    }
+}
+
 impl<const N: usize> PartialEq<[u8; N]> for Big {
+    fn eq(&self, other: &[u8; N]) -> bool {
+        self.0.eq(other)
+    }
+}
+
+impl<const N: usize> PartialEq<[u8; N]> for &Big {
     fn eq(&self, other: &[u8; N]) -> bool {
         self.0.eq(other)
     }
@@ -357,43 +448,52 @@ mod test {
     #[test]
     fn truncate() {
         let a: Big = Big::from([0xaa, 0xbb, 0xcc, 0xdd, 0xee]);
-        let three = a.truncate(3).unwrap_err();
-        let short = a.truncate(2).unwrap();
-        let flag = a.truncate(0).unwrap();
-        assert_eq!(three, [0xaa, 0xbb, 0xcc]);
-        assert_eq!(short, ILVal::Short(0xbbaa));
-        assert_eq!(flag, ILVal::Flag(false));
+        let three = a.truncate(3);
+        let short = a.truncate(2).get_short();
+        let flag = a.truncate(0).get_flag();
+        assert_eq!(three.get_big(), [0xaa, 0xbb, 0xcc]);
+        assert_eq!(short, 0xbbaa);
+        assert_eq!(flag, false);
     }
 
     #[test]
     fn sign_extend() {
         let unsigned = Big::from([0xaa, 0xbb, 0x01]);
         let signed = Big::from([0x00, 0x01, 0x80]);
-        assert_eq!(unsigned.sext(4).unwrap(), ILVal::Word(0x0001bbaa));
-        assert_eq!(signed.sext(4).unwrap(), ILVal::Word(0xff800100));
-        assert_eq!(unsigned.sext(8).unwrap(), ILVal::Quad(0x0001bbaa));
-        assert_eq!(signed.sext(8).unwrap(), ILVal::Quad(0xffffffffff800100));
+        assert_eq!(unsigned.sext(4).get_word(), 0x0001bbaa);
+        assert_eq!(signed.sext(4).get_word(), 0xff800100);
+        assert_eq!(unsigned.sext(8).get_quad(), 0x0001bbaa);
+        assert_eq!(signed.sext(8).get_quad(), 0xffffffffff800100);
         assert_eq!(
-            unsigned.sext(9).unwrap_err(),
+            unsigned.sext(9).get_big(),
             [0xaa, 0xbb, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
-        assert_eq!(unsigned.sext(9).unwrap_err().size(), 9);
+        assert_eq!(unsigned.sext(9).get_big().size(), 9);
         assert_eq!(
-            signed.sext(9).unwrap_err(),
+            signed.sext(9).get_big(),
             [0x00, 0x01, 0x80, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
         );
-        assert_eq!(signed.sext(9).unwrap_err().size(), 9);
+        assert_eq!(signed.sext(9).get_big().size(), 9);
     }
 
     #[test]
     fn zero_extend() {
         let unsigned = Big::from([0xaa, 0xbb, 0x01]);
-        assert_eq!(unsigned.zext(4).unwrap(), ILVal::Word(0x0001bbaa));
-        assert_eq!(unsigned.zext(8).unwrap(), ILVal::Quad(0x0001bbaa));
+        assert_eq!(unsigned.zext(4).get_word(), 0x0001bbaa);
+        assert_eq!(unsigned.zext(8).get_quad(), 0x0001bbaa);
         assert_eq!(
-            unsigned.zext(9).unwrap_err(),
+            unsigned.zext(9).get_big(),
             [0xaa, 0xbb, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
-        assert_eq!(unsigned.zext(9).unwrap_err().size(), 9);
+        assert_eq!(unsigned.zext(9).get_big().size(), 9);
+    }
+
+    #[test]
+    fn negation() {
+        let value = Big::from([0x00, 0xff, 0x01]);
+        let not = !&value;
+        let neg = -&value;
+        assert_eq!(not, [0xff, 0x00, 0xfe]);
+        assert_eq!(neg, [0x00, 0x01, 0xfe]);
     }
 }
