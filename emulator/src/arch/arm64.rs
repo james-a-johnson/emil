@@ -2,7 +2,7 @@ use crate::arch::{Endian, Little};
 use crate::arch::{FileDescriptor, Intrinsic, RegState, Register, State, SyscallResult};
 use crate::emil::ILVal;
 use crate::os::linux::LinuxSyscalls;
-use binaryninja::architecture::Register as BNReg;
+use binaryninja::architecture::{Intrinsic as _, Register as BNReg};
 use binaryninja::low_level_il::expression::ExpressionHandler;
 use binaryninja::low_level_il::expression::LowLevelILExpressionKind as ExprKind;
 use binaryninja::low_level_il::operation::IntrinsicOutput;
@@ -44,33 +44,40 @@ impl Intrinsic for ArmIntrinsic {
             binaryninja::low_level_il::operation::Intrinsic,
         >,
     ) -> Result<Self, String> {
-        let id = intrinsic.intrinsic().expect("Invalid intrinsic").id.0;
-        match id {
-            4 => Ok(Self::Dc),
-            5 => Ok(Self::Dmb),
-            8 => Ok(Self::BtiHint),
-            30 => {
+        let intrin = intrinsic
+            .intrinsic()
+            .expect("This is an intrinsic instruction");
+        let intrinsic_name = intrin.name();
+        // Match on the name of the intrinsic since it shouldn't change between versions of
+        // binary ninja and the API.
+        match intrinsic_name.as_ref() {
+            "__dc" => Ok(Self::Dc),
+            "__dmb" => Ok(Self::Dmb),
+            // TODO: Fix this name
+            "btihint" => Ok(Self::BtiHint),
+            "_CountLeadingZeros" => {
                 let dest_reg = get_reg_from_outputs(intrinsic, 0)
                     .map_err(|e| format!("Bad output for reverse: {e}"))?;
                 let src_reg = get_reg_from_inputs(intrinsic, 0)
                     .map_err(|e| format!("Bad source register for reverse: {e}"))?;
                 Ok(Self::Clz(dest_reg, src_reg))
             }
-            32 => {
+            // TODO: Fix this name
+            "rev" => {
                 let dest_reg = get_reg_from_outputs(intrinsic, 0)
                     .map_err(|e| format!("Bad output for reverse: {e}"))?;
                 let src_reg = get_reg_from_inputs(intrinsic, 0)
                     .map_err(|e| format!("Bad source register for reverse: {e}"))?;
                 Ok(Self::Rev(dest_reg, src_reg))
             }
-            33 => {
+            "__rbit" => {
                 let dest_reg = get_reg_from_outputs(intrinsic, 0)
                     .map_err(|e| format!("Bad output register for rbit: {e}"))?;
                 let src_reg = get_reg_from_inputs(intrinsic, 0)
                     .map_err(|e| format!("Bad source register for rbit: {e}"))?;
                 Ok(Self::Rbit(dest_reg, src_reg))
             }
-            38 | 41 => {
+            "__ldaxr" => {
                 // ldaxr, load acquire exclusive
                 let dest_reg = get_reg_from_outputs(intrinsic, 0)
                     .map_err(|e| format!("Couldn't get register to load into for ldaxr: {e}"))?;
@@ -78,7 +85,7 @@ impl Intrinsic for ArmIntrinsic {
                     .map_err(|e| format!("Couldn't get source register for ldaxr: {e}"))?;
                 Ok(Self::Ldxr(dest_reg, source_reg))
             }
-            47 | 44 => {
+            "__stlxr" => {
                 // stxr store exclusive
                 let dest_reg = get_reg_from_outputs(intrinsic, 0)
                     .map_err(|e| format!("Bad output reg for stxr: {e}"))?;
@@ -88,7 +95,7 @@ impl Intrinsic for ArmIntrinsic {
                     .map_err(|e| format!("Failed to get value register to use: {e}"))?;
                 Ok(Self::Stxr(dest_reg, value_reg, addr_reg))
             }
-            13 => {
+            "_ReadMSR" => {
                 // Read msr into an architecture register.
                 // First element of output array should be a register.
                 let outputs = intrinsic.outputs();
@@ -104,7 +111,7 @@ impl Intrinsic for ArmIntrinsic {
                     .map_err(|e| format!("Failed to get msr for msr read: {e}"))?;
                 Ok(Self::ReadMSR(reg, msr as u32))
             }
-            14 => {
+            "_WriteMSR" => {
                 // Write architecture register into system register.
                 // All information is in the inputs array. That will have the system register number and then the
                 // architecture register ID.
@@ -116,7 +123,7 @@ impl Intrinsic for ArmIntrinsic {
                 })?;
                 Ok(Self::WriteMSR(reg, sys_id))
             }
-            _ => Err(format!("Don't support {id} yet")),
+            _ => Err(format!("Don't support {intrinsic_name} yet")),
         }
     }
 }
