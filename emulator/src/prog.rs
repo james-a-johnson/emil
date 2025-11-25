@@ -122,7 +122,13 @@ impl<P: Page, Regs: RegState, E: Endian, I: Intrinsic> Program<P, Regs, E, I> {
             Kind::Bp(_) => self.il.push(Emil::Bp),
             Kind::Undef(_) => self.il.push(Emil::Undef),
             Kind::Intrinsic(i) => {
-                let intrinsic = I::parse(&i).expect("Unimplemented intrinsic");
+                let intrinsic = match I::parse(&i) {
+                    Ok(i) => i,
+                    Err(msg) => {
+                        let addr = insn.address();
+                        panic!("Failed to parse intrinsic at {addr:#x}: {msg}");
+                    }
+                };
                 self.il.push(Emil::Intrinsic(intrinsic));
             }
             Kind::Trap(t) => self.il.push(Emil::Trap(t.vector())),
