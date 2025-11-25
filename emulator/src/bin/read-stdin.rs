@@ -134,7 +134,7 @@ fn strlen_hook<P: Page>(
     }
     state
         .regs()
-        .write(Arm64Reg::x0, emil::val::ILVal::Quad(len));
+        .write(Arm64Reg::x0, &emil::val::ILVal::Quad(len));
     HookStatus::Goto(ret)
 }
 
@@ -176,8 +176,8 @@ fn rindex_hook<P: Page>(
     match last {
         Some(addr) => state
             .regs()
-            .write(Arm64Reg::x0, emil::val::ILVal::Quad(addr)),
-        None => state.regs().write(Arm64Reg::x0, emil::val::ILVal::Quad(0)),
+            .write(Arm64Reg::x0, &emil::val::ILVal::Quad(addr)),
+        None => state.regs().write(Arm64Reg::x0, &emil::val::ILVal::Quad(0)),
     };
 
     HookStatus::Goto(ret)
@@ -199,7 +199,7 @@ fn strchrnul<P: Page>(
         if byte[0] == 0 || byte[0] == chr {
             state
                 .regs()
-                .write(Arm64Reg::x0, ILVal::Quad(str_ptr as u64));
+                .write(Arm64Reg::x0, &ILVal::Quad(str_ptr as u64));
             break;
         }
         str_ptr += 1;
