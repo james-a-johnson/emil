@@ -1,5 +1,5 @@
 use crate::arch::{Big, Endian, Little, RegState};
-use crate::emil::ILVal;
+use crate::val::ILVal;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -48,7 +48,7 @@ pub struct GenericRegs {
     /// Function to read bytes in either little or bit endian format.
     read_endian: fn(data: &[u8]) -> ILVal,
     /// Function to write data with the correct endianness.
-    write_endian: fn(value: ILVal, data: &mut [u8]),
+    write_endian: fn(value: &ILVal, data: &mut [u8]),
 }
 
 impl GenericRegs {
@@ -146,7 +146,7 @@ impl RegState for GenericRegs {
         (self.read_endian)(data)
     }
 
-    fn write(&mut self, id: Self::RegID, val: ILVal) {
+    fn write(&mut self, id: Self::RegID, val: &ILVal) {
         let reg_info = self.regs.get(&id.0).expect("Invalid register id");
         let data = &mut self.data[reg_info.offset..][..reg_info.size];
         (self.write_endian)(val, data);

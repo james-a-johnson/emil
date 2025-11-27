@@ -2,7 +2,7 @@ use std::ffi::OsString;
 
 use binaryninja::binary_view::BinaryViewExt;
 
-use crate::{arch::SyscallResult, emil::ILVal};
+use crate::{arch::SyscallResult, val::ILVal};
 
 /// Auxiliary vector entries.
 #[derive(Clone, Debug)]

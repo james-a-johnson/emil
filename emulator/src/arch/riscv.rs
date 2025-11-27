@@ -1,8 +1,8 @@
 use crate::arch::Little;
 use crate::arch::{FileDescriptor, Intrinsic, RegState, State};
 use crate::arch::{Register, SyscallResult};
-use crate::emil::ILVal;
 use crate::os::linux::LinuxSyscalls;
+use crate::val::ILVal;
 use from_id::FromId;
 use softmew::{MMU, Perm, fault::Fault, page::Page, page::SimplePage};
 use std::collections::{HashMap, VecDeque};
@@ -401,7 +401,7 @@ impl RegState for Rv64State {
         ILVal::Quad(self[id])
     }
 
-    fn write(&mut self, id: Self::RegID, val: ILVal) {
+    fn write(&mut self, id: Self::RegID, val: &ILVal) {
         self[id] = val.get_quad()
     }
 }
