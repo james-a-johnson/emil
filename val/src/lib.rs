@@ -15,7 +15,7 @@ pub use big::Big;
 /// instruction. There can be a maximum of 255 of them, and they are not guaranteed to be preserved between instructions.
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct ILRef(pub(crate) u8);
+pub struct ILRef(pub u8);
 
 impl ILRef {
     /// Get a reference to the next intermediate value.
