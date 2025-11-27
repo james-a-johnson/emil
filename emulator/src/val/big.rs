@@ -32,11 +32,13 @@ impl Big {
         self.0.len()
     }
 
+    /// Check if the value is non-zero.
     #[inline]
     pub fn truth(&self) -> bool {
         self.0.iter().any(|b| *b != 0)
     }
 
+    /// Get a slice of the backing bytes of the array.
     #[inline]
     pub fn bytes(&self) -> &[u8] {
         self.0.as_ref()
@@ -205,12 +207,20 @@ impl AsRef<[u8]> for Big {
 }
 
 impl From<&[u8]> for Big {
+    /// Convert a slice of bytes to a big integer.
+    ///
+    /// This requries that the bytes be in little endian format. Otherwise, the big integer will
+    /// represent the wrong value.
     fn from(value: &[u8]) -> Self {
         Self(value.to_vec())
     }
 }
 
 impl<const N: usize> From<[u8; N]> for Big {
+    /// Convert an array of bytes to a big integer.
+    ///
+    /// Requires that the bytes be in little endian format. Otherwise, the big integer will
+    /// represent the wrong value.
     fn from(value: [u8; N]) -> Self {
         Self(value.to_vec())
     }
