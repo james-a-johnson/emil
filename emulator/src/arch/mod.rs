@@ -25,7 +25,7 @@ pub mod riscv;
 
 use std::fmt::{Debug, Display};
 
-use crate::val::{Big as BigInt, ILVal};
+use val::{Big as BigInt, ILVal};
 
 /// Result of a system call.
 ///

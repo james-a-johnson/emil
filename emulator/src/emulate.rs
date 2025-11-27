@@ -1,7 +1,7 @@
 use crate::arch::{Endian, RegState, State, SyscallResult};
 use crate::emil::Emil;
 use crate::prog::Program;
-use crate::val::{ILRef, ILVal};
+use val::{ILRef, ILVal};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::error::Error;
