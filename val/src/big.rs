@@ -13,7 +13,7 @@
 //! - Left shift
 //! - Right shift
 
-use crate::val::ILVal;
+use crate::ILVal;
 
 use std::fmt::{Debug, LowerHex, UpperHex};
 use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Sub};
