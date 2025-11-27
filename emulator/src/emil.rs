@@ -18,7 +18,7 @@
 
 use crate::arch::{Endian, Intrinsic, RegState, State};
 use crate::emulate::HookStatus;
-use crate::val::ILRef;
+use val::ILRef;
 use std::fmt::Debug;
 
 use softmew::page::Page;

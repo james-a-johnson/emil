@@ -1,7 +1,7 @@
 use crate::arch::{Endian, Little};
 use crate::arch::{FileDescriptor, Intrinsic, RegState, Register, State, SyscallResult};
 use crate::os::linux::LinuxSyscalls;
-use crate::val::{Big, ILVal};
+use val::{Big, ILVal};
 use binaryninja::architecture::{Intrinsic as _, Register as BNReg};
 use binaryninja::low_level_il::expression::ExpressionHandler;
 use binaryninja::low_level_il::expression::LowLevelILExpressionKind as ExprKind;
