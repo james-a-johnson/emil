@@ -3,6 +3,11 @@ use val::ILVal;
 
 pub mod x86;
 
+const _: () = assert!(
+    0xaabb_u16.to_le_bytes()[0] == 0xbb,
+    "This crate only supports little endian hosts"
+);
+
 /// Type that represents a specific register in an architecture.
 ///
 /// In general, this should be represented by some enum that has each register as a variant. However, it

@@ -4,7 +4,8 @@
 
 #![allow(non_camel_case_types)]
 
-use crate::Register;
+use crate::{Register, RegState};
+use val::{Big, ILVal};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum x86Reg {
@@ -256,7 +257,7 @@ impl TryFrom<u32> for x86Reg {
 	}
 }
 
-impl std::fmt::Debug for x86Reg {
+impl std::fmt::Display for x86Reg {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{:?}", self)
 	}
@@ -266,92 +267,462 @@ impl Register for x86Reg {}
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct x86RegFile {
+	pub xmm2: [u8; 16],
+	pub st7: [u8; 10],
+	pub cr15: u32,
+	pub x87pop: u32,
+	pub xmm0: [u8; 16],
+	pub cr1: u32,
+	pub xmm7: [u8; 16],
+	pub msrs: u64,
+	pub x87control: u16,
+	pub dr6: u32,
+	pub x87lastip: u32,
+	pub st6: [u8; 10],
+	pub tr: u32,
+	pub st3: [u8; 10],
+	pub cr4: u32,
+	pub x87_r3: [u8; 10],
+	pub bnd2: [u8; 16],
+	pub xmm5: [u8; 16],
+	pub dr7: u32,
+	pub tsc: u32,
+	pub mxcsr: u32,
+	pub st1: [u8; 10],
+	pub x87pop2: u32,
+	pub tscaux: u32,
+	pub rflags: u64,
+	pub cr14: u32,
+	pub st4: [u8; 10],
+	pub x87_r0: [u8; 10],
+	pub x87_r5: [u8; 10],
+	pub cr10: u32,
+	pub cr6: u32,
+	pub cr8: u32,
+	pub ldtr: [u8; 6],
+	pub st2: [u8; 10],
+	pub dr5: u32,
 	pub cs: u16,
-	pub ds: u16,
 	pub es: u16,
-	pub ss: u16,
+	pub x87tag: u16,
+	pub st0: [u8; 10],
+	pub ebx: u32,
+	pub esi: u32,
+	pub x87opcode: u16,
+	pub x87_r1: [u8; 10],
+	pub eflags: u32,
+	pub dr3: u32,
+	pub top: u16,
+	pub bnd3: [u8; 16],
+	pub xmm4: [u8; 16],
+	pub ebp: u32,
+	pub bnd0: [u8; 16],
+	pub eax: u32,
+	pub x87lastds: u16,
+	pub cr2: u32,
+	pub bnd1: [u8; 16],
+	pub edx: u32,
 	pub fs: u16,
-	pub gs: u16,
-	pub fsbase: u32,
+	pub ecx: u32,
+	pub xcr0: u64,
+	pub cr9: u32,
+	pub xmm6: [u8; 16],
+	pub dr2: u32,
 	pub gsbase: u32,
 	pub eip: u32,
-	pub esp: u32,
-	pub ebp: u32,
-	pub esi: u32,
-	pub edi: u32,
-	pub eflags: u32,
-	pub eax: u32,
-	pub ecx: u32,
-	pub edx: u32,
-	pub ebx: u32,
-	pub tsc: u32,
-	pub tscaux: u32,
-	pub tr: u32,
-	pub cr0: u32,
-	pub cr1: u32,
-	pub cr2: u32,
-	pub cr3: u32,
-	pub cr4: u32,
-	pub cr5: u32,
-	pub cr6: u32,
-	pub cr7: u32,
-	pub cr8: u32,
-	pub cr9: u32,
-	pub cr10: u32,
-	pub cr11: u32,
-	pub cr12: u32,
-	pub cr13: u32,
-	pub cr14: u32,
-	pub cr15: u32,
-	pub dr0: u32,
-	pub dr1: u32,
-	pub dr2: u32,
-	pub dr3: u32,
-	pub dr4: u32,
-	pub dr5: u32,
-	pub dr6: u32,
-	pub dr7: u32,
-	pub mxcsr: u32,
-	pub top: u16,
-	pub x87control: u16,
-	pub x87status: u16,
-	pub x87tag: u16,
-	pub x87opcode: u16,
-	pub x87lastcs: u16,
-	pub x87lastds: u16,
-	pub x87lastip: u32,
-	pub x87lastdp: u32,
-	pub x87push: u32,
-	pub x87pop: u32,
-	pub x87pop2: u32,
-	pub gdtr: [u8; 6],
-	pub ldtr: [u8; 6],
-	pub idtr: [u8; 6],
-	pub xcr0: u64,
-	pub msrs: u64,
-	pub st0: [u8; 10],
-	pub st1: [u8; 10],
-	pub st2: [u8; 10],
-	pub st3: [u8; 10],
-	pub st4: [u8; 10],
-	pub st5: [u8; 10],
-	pub st6: [u8; 10],
-	pub st7: [u8; 10],
-	pub x87_r0: [u8; 10],
-	pub x87_r1: [u8; 10],
-	pub x87_r2: [u8; 10],
-	pub x87_r3: [u8; 10],
-	pub x87_r4: [u8; 10],
-	pub x87_r5: [u8; 10],
-	pub x87_r6: [u8; 10],
 	pub x87_r7: [u8; 10],
-	pub xmm0: [u8; 16],
-	pub xmm1: [u8; 16],
-	pub xmm2: [u8; 16],
+	pub x87_r2: [u8; 10],
+	pub cr7: u32,
+	pub cr0: u32,
+	pub idtr: [u8; 6],
+	pub x87status: u16,
 	pub xmm3: [u8; 16],
-	pub xmm4: [u8; 16],
-	pub xmm5: [u8; 16],
-	pub xmm6: [u8; 16],
-	pub xmm7: [u8; 16],
+	pub cr5: u32,
+	pub esp: u32,
+	pub fsbase: u32,
+	pub ds: u16,
+	pub gs: u16,
+	pub cr11: u32,
+	pub x87push: u32,
+	pub x87lastdp: u32,
+	pub xmm1: [u8; 16],
+	pub cr13: u32,
+	pub gdtr: [u8; 6],
+	pub x87lastcs: u16,
+	pub dr1: u32,
+	pub st5: [u8; 10],
+	pub x87_r6: [u8; 10],
+	pub dr4: u32,
+	pub cr3: u32,
+	pub ss: u16,
+	pub x87_r4: [u8; 10],
+	pub dr0: u32,
+	pub cr12: u32,
+	pub edi: u32,
+}
+
+impl RegState for x86RegFile {
+	type RegID = x86Reg;
+
+	fn read(&self, id: Self::RegID) -> ILVal {
+		match id {
+			x86Reg::ah => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::ch => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::dh => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::bh => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::al => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::cl => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::dl => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::bl => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::ip => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::cs => {
+				ILVal::Short(self.cs)
+			}
+			x86Reg::ds => {
+				ILVal::Short(self.ds)
+			}
+			x86Reg::es => {
+				ILVal::Short(self.es)
+			}
+			x86Reg::ss => {
+				ILVal::Short(self.ss)
+			}
+			x86Reg::fs => {
+				ILVal::Short(self.fs)
+			}
+			x86Reg::gs => {
+				ILVal::Short(self.gs)
+			}
+			x86Reg::fsbase => {
+				ILVal::Word(self.fsbase)
+			}
+			x86Reg::gsbase => {
+				ILVal::Word(self.gsbase)
+			}
+			x86Reg::sp => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::bp => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::si => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::di => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::flags => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::ax => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::cx => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::dx => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::bx => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::top => {
+				ILVal::Short(self.top)
+			}
+			x86Reg::x87control => {
+				ILVal::Short(self.x87control)
+			}
+			x86Reg::x87status => {
+				ILVal::Short(self.x87status)
+			}
+			x86Reg::x87tag => {
+				ILVal::Short(self.x87tag)
+			}
+			x86Reg::x87push => {
+				ILVal::Word(self.x87push)
+			}
+			x86Reg::x87pop => {
+				ILVal::Word(self.x87pop)
+			}
+			x86Reg::x87pop2 => {
+				ILVal::Word(self.x87pop2)
+			}
+			x86Reg::x87opcode => {
+				ILVal::Short(self.x87opcode)
+			}
+			x86Reg::x87lastcs => {
+				ILVal::Short(self.x87lastcs)
+			}
+			x86Reg::x87lastip => {
+				ILVal::Word(self.x87lastip)
+			}
+			x86Reg::x87lastds => {
+				ILVal::Short(self.x87lastds)
+			}
+			x86Reg::x87lastdp => {
+				ILVal::Word(self.x87lastdp)
+			}
+			x86Reg::eip => {
+				ILVal::Word(self.eip)
+			}
+			x86Reg::esp => {
+				ILVal::Word(self.esp)
+			}
+			x86Reg::ebp => {
+				ILVal::Word(self.ebp)
+			}
+			x86Reg::esi => {
+				ILVal::Word(self.esi)
+			}
+			x86Reg::edi => {
+				ILVal::Word(self.edi)
+			}
+			x86Reg::eflags => {
+				ILVal::Word(self.eflags)
+			}
+			x86Reg::eax => {
+				ILVal::Word(self.eax)
+			}
+			x86Reg::ecx => {
+				ILVal::Word(self.ecx)
+			}
+			x86Reg::edx => {
+				ILVal::Word(self.edx)
+			}
+			x86Reg::ebx => {
+				ILVal::Word(self.ebx)
+			}
+			x86Reg::tsc => {
+				ILVal::Word(self.tsc)
+			}
+			x86Reg::tscaux => {
+				ILVal::Word(self.tscaux)
+			}
+			x86Reg::tr => {
+				ILVal::Word(self.tr)
+			}
+			x86Reg::cr0 => {
+				ILVal::Word(self.cr0)
+			}
+			x86Reg::cr1 => {
+				ILVal::Word(self.cr1)
+			}
+			x86Reg::cr2 => {
+				ILVal::Word(self.cr2)
+			}
+			x86Reg::cr3 => {
+				ILVal::Word(self.cr3)
+			}
+			x86Reg::cr4 => {
+				ILVal::Word(self.cr4)
+			}
+			x86Reg::cr5 => {
+				ILVal::Word(self.cr5)
+			}
+			x86Reg::cr6 => {
+				ILVal::Word(self.cr6)
+			}
+			x86Reg::cr7 => {
+				ILVal::Word(self.cr7)
+			}
+			x86Reg::cr8 => {
+				ILVal::Word(self.cr8)
+			}
+			x86Reg::cr9 => {
+				ILVal::Word(self.cr9)
+			}
+			x86Reg::cr10 => {
+				ILVal::Word(self.cr10)
+			}
+			x86Reg::cr11 => {
+				ILVal::Word(self.cr11)
+			}
+			x86Reg::cr12 => {
+				ILVal::Word(self.cr12)
+			}
+			x86Reg::cr13 => {
+				ILVal::Word(self.cr13)
+			}
+			x86Reg::cr14 => {
+				ILVal::Word(self.cr14)
+			}
+			x86Reg::cr15 => {
+				ILVal::Word(self.cr15)
+			}
+			x86Reg::dr0 => {
+				ILVal::Word(self.dr0)
+			}
+			x86Reg::dr1 => {
+				ILVal::Word(self.dr1)
+			}
+			x86Reg::dr2 => {
+				ILVal::Word(self.dr2)
+			}
+			x86Reg::dr3 => {
+				ILVal::Word(self.dr3)
+			}
+			x86Reg::dr4 => {
+				ILVal::Word(self.dr4)
+			}
+			x86Reg::dr5 => {
+				ILVal::Word(self.dr5)
+			}
+			x86Reg::dr6 => {
+				ILVal::Word(self.dr6)
+			}
+			x86Reg::dr7 => {
+				ILVal::Word(self.dr7)
+			}
+			x86Reg::mxcsr => {
+				ILVal::Word(self.mxcsr)
+			}
+			x86Reg::gdtr => {
+				ILVal::Big(Big::from(self.gdtr))
+			}
+			x86Reg::ldtr => {
+				ILVal::Big(Big::from(self.ldtr))
+			}
+			x86Reg::idtr => {
+				ILVal::Big(Big::from(self.idtr))
+			}
+			x86Reg::mm0 => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::mm1 => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::mm2 => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::mm3 => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::mm4 => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::mm5 => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::mm6 => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::mm7 => {
+				unimplemented!("Not supported yet")
+			}
+			x86Reg::xcr0 => {
+				ILVal::Quad(self.xcr0)
+			}
+			x86Reg::rflags => {
+				ILVal::Quad(self.rflags)
+			}
+			x86Reg::msrs => {
+				ILVal::Quad(self.msrs)
+			}
+			x86Reg::st0 => {
+				ILVal::Big(Big::from(self.st0))
+			}
+			x86Reg::st1 => {
+				ILVal::Big(Big::from(self.st1))
+			}
+			x86Reg::st2 => {
+				ILVal::Big(Big::from(self.st2))
+			}
+			x86Reg::st3 => {
+				ILVal::Big(Big::from(self.st3))
+			}
+			x86Reg::st4 => {
+				ILVal::Big(Big::from(self.st4))
+			}
+			x86Reg::st5 => {
+				ILVal::Big(Big::from(self.st5))
+			}
+			x86Reg::st6 => {
+				ILVal::Big(Big::from(self.st6))
+			}
+			x86Reg::st7 => {
+				ILVal::Big(Big::from(self.st7))
+			}
+			x86Reg::x87_r0 => {
+				ILVal::Big(Big::from(self.x87_r0))
+			}
+			x86Reg::x87_r1 => {
+				ILVal::Big(Big::from(self.x87_r1))
+			}
+			x86Reg::x87_r2 => {
+				ILVal::Big(Big::from(self.x87_r2))
+			}
+			x86Reg::x87_r3 => {
+				ILVal::Big(Big::from(self.x87_r3))
+			}
+			x86Reg::x87_r4 => {
+				ILVal::Big(Big::from(self.x87_r4))
+			}
+			x86Reg::x87_r5 => {
+				ILVal::Big(Big::from(self.x87_r5))
+			}
+			x86Reg::x87_r6 => {
+				ILVal::Big(Big::from(self.x87_r6))
+			}
+			x86Reg::x87_r7 => {
+				ILVal::Big(Big::from(self.x87_r7))
+			}
+			x86Reg::xmm0 => {
+				ILVal::Big(Big::from(self.xmm0))
+			}
+			x86Reg::xmm1 => {
+				ILVal::Big(Big::from(self.xmm1))
+			}
+			x86Reg::xmm2 => {
+				ILVal::Big(Big::from(self.xmm2))
+			}
+			x86Reg::xmm3 => {
+				ILVal::Big(Big::from(self.xmm3))
+			}
+			x86Reg::xmm4 => {
+				ILVal::Big(Big::from(self.xmm4))
+			}
+			x86Reg::xmm5 => {
+				ILVal::Big(Big::from(self.xmm5))
+			}
+			x86Reg::xmm6 => {
+				ILVal::Big(Big::from(self.xmm6))
+			}
+			x86Reg::xmm7 => {
+				ILVal::Big(Big::from(self.xmm7))
+			}
+			x86Reg::bnd0 => {
+				ILVal::Big(Big::from(self.bnd0))
+			}
+			x86Reg::bnd1 => {
+				ILVal::Big(Big::from(self.bnd1))
+			}
+			x86Reg::bnd2 => {
+				ILVal::Big(Big::from(self.bnd2))
+			}
+			x86Reg::bnd3 => {
+				ILVal::Big(Big::from(self.bnd3))
+			}
+		}
+	}
+
+	fn write(&mut self, id: Self::RegID, val: &ILVal) { unimplemented!("Writing not supported yet") }
 }
 
