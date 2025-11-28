@@ -267,98 +267,98 @@ impl Register for x86Reg {}
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct x86RegFile {
-	pub xmm2: [u8; 16],
-	pub st7: [u8; 10],
-	pub cr15: u32,
-	pub x87pop: u32,
-	pub xmm0: [u8; 16],
-	pub cr1: u32,
-	pub xmm7: [u8; 16],
-	pub msrs: u64,
-	pub x87control: u16,
-	pub dr6: u32,
-	pub x87lastip: u32,
-	pub st6: [u8; 10],
-	pub tr: u32,
-	pub st3: [u8; 10],
-	pub cr4: u32,
-	pub x87_r3: [u8; 10],
-	pub bnd2: [u8; 16],
-	pub xmm5: [u8; 16],
-	pub dr7: u32,
-	pub tsc: u32,
-	pub mxcsr: u32,
-	pub st1: [u8; 10],
-	pub x87pop2: u32,
-	pub tscaux: u32,
-	pub rflags: u64,
-	pub cr14: u32,
-	pub st4: [u8; 10],
-	pub x87_r0: [u8; 10],
-	pub x87_r5: [u8; 10],
-	pub cr10: u32,
-	pub cr6: u32,
-	pub cr8: u32,
-	pub ldtr: [u8; 6],
-	pub st2: [u8; 10],
-	pub dr5: u32,
-	pub cs: u16,
-	pub es: u16,
-	pub x87tag: u16,
-	pub st0: [u8; 10],
-	pub ebx: u32,
-	pub esi: u32,
-	pub x87opcode: u16,
-	pub x87_r1: [u8; 10],
-	pub eflags: u32,
-	pub dr3: u32,
-	pub top: u16,
-	pub bnd3: [u8; 16],
-	pub xmm4: [u8; 16],
-	pub ebp: u32,
-	pub bnd0: [u8; 16],
-	pub eax: u32,
-	pub x87lastds: u16,
+	pub cr3: u32,
 	pub cr2: u32,
-	pub bnd1: [u8; 16],
-	pub edx: u32,
-	pub fs: u16,
-	pub ecx: u32,
-	pub xcr0: u64,
-	pub cr9: u32,
-	pub xmm6: [u8; 16],
-	pub dr2: u32,
-	pub gsbase: u32,
-	pub eip: u32,
-	pub x87_r7: [u8; 10],
-	pub x87_r2: [u8; 10],
-	pub cr7: u32,
-	pub cr0: u32,
-	pub idtr: [u8; 6],
-	pub x87status: u16,
-	pub xmm3: [u8; 16],
-	pub cr5: u32,
-	pub esp: u32,
+	pub x87_r0: [u8; 10],
 	pub fsbase: u32,
-	pub ds: u16,
-	pub gs: u16,
-	pub cr11: u32,
-	pub x87push: u32,
-	pub x87lastdp: u32,
+	pub cr9: u32,
+	pub x87_r1: [u8; 10],
+	pub x87_r3: [u8; 10],
+	pub st7: [u8; 10],
+	pub x87tag: u16,
+	pub bnd0: [u8; 16],
+	pub bnd2: [u8; 16],
+	pub tsc: u32,
+	pub xmm3: [u8; 16],
+	pub eax: u32,
+	pub cr8: u32,
+	pub dr1: u32,
+	pub ss: u16,
+	pub dr4: u32,
+	pub tr: u32,
+	pub x87control: u16,
+	pub cr7: u32,
+	pub cr10: u32,
+	pub cr5: u32,
+	pub x87lastip: u32,
+	pub xmm5: [u8; 16],
 	pub xmm1: [u8; 16],
+	pub x87_r2: [u8; 10],
+	pub x87_r7: [u8; 10],
+	pub dr0: u32,
+	pub xmm0: [u8; 16],
+	pub ebx: u32,
+	pub x87_r6: [u8; 10],
+	pub x87lastds: u16,
 	pub cr13: u32,
+	pub cr11: u32,
+	pub es: u16,
+	pub x87opcode: u16,
+	pub ebp: u32,
+	pub rflags: u64,
+	pub msrs: u64,
+	pub fs: u16,
+	pub st4: [u8; 10],
+	pub xmm6: [u8; 16],
+	pub gsbase: u32,
+	pub gs: u16,
+	pub st0: [u8; 10],
 	pub gdtr: [u8; 6],
 	pub x87lastcs: u16,
-	pub dr1: u32,
-	pub st5: [u8; 10],
-	pub x87_r6: [u8; 10],
-	pub dr4: u32,
-	pub cr3: u32,
-	pub ss: u16,
+	pub x87pop: u32,
+	pub mxcsr: u32,
+	pub xmm4: [u8; 16],
+	pub st3: [u8; 10],
+	pub cs: u16,
+	pub ecx: u32,
+	pub cr14: u32,
+	pub cr4: u32,
+	pub xmm2: [u8; 16],
+	pub cr0: u32,
+	pub dr5: u32,
+	pub idtr: [u8; 6],
+	pub x87push: u32,
 	pub x87_r4: [u8; 10],
-	pub dr0: u32,
-	pub cr12: u32,
+	pub bnd3: [u8; 16],
+	pub x87pop2: u32,
+	pub st2: [u8; 10],
 	pub edi: u32,
+	pub x87_r5: [u8; 10],
+	pub x87lastdp: u32,
+	pub st1: [u8; 10],
+	pub dr6: u32,
+	pub dr3: u32,
+	pub esi: u32,
+	pub eflags: u32,
+	pub edx: u32,
+	pub cr6: u32,
+	pub ds: u16,
+	pub xcr0: u64,
+	pub dr7: u32,
+	pub bnd1: [u8; 16],
+	pub dr2: u32,
+	pub st6: [u8; 10],
+	pub tscaux: u32,
+	pub x87status: u16,
+	pub cr1: u32,
+	pub top: u16,
+	pub ldtr: [u8; 6],
+	pub st5: [u8; 10],
+	pub eip: u32,
+	pub xmm7: [u8; 16],
+	pub cr12: u32,
+	pub esp: u32,
+	pub cr15: u32,
 }
 
 impl RegState for x86RegFile {
@@ -367,31 +367,44 @@ impl RegState for x86RegFile {
 	fn read(&self, id: Self::RegID) -> ILVal {
 		match id {
 			x86Reg::ah => {
-				unimplemented!("Not supported yet")
+				let val = self.eax;
+				let val = val >> (8 * 1);
+				ILVal::Byte(val as u8)
 			}
 			x86Reg::ch => {
-				unimplemented!("Not supported yet")
+				let val = self.ecx;
+				let val = val >> (8 * 1);
+				ILVal::Byte(val as u8)
 			}
 			x86Reg::dh => {
-				unimplemented!("Not supported yet")
+				let val = self.edx;
+				let val = val >> (8 * 1);
+				ILVal::Byte(val as u8)
 			}
 			x86Reg::bh => {
-				unimplemented!("Not supported yet")
+				let val = self.ebx;
+				let val = val >> (8 * 1);
+				ILVal::Byte(val as u8)
 			}
 			x86Reg::al => {
-				unimplemented!("Not supported yet")
+				let val = self.eax;
+				ILVal::Byte(val as u8)
 			}
 			x86Reg::cl => {
-				unimplemented!("Not supported yet")
+				let val = self.ecx;
+				ILVal::Byte(val as u8)
 			}
 			x86Reg::dl => {
-				unimplemented!("Not supported yet")
+				let val = self.edx;
+				ILVal::Byte(val as u8)
 			}
 			x86Reg::bl => {
-				unimplemented!("Not supported yet")
+				let val = self.ebx;
+				ILVal::Byte(val as u8)
 			}
 			x86Reg::ip => {
-				unimplemented!("Not supported yet")
+				let val = self.eip;
+				ILVal::Short(val as u16)
 			}
 			x86Reg::cs => {
 				ILVal::Short(self.cs)
@@ -418,31 +431,40 @@ impl RegState for x86RegFile {
 				ILVal::Word(self.gsbase)
 			}
 			x86Reg::sp => {
-				unimplemented!("Not supported yet")
+				let val = self.esp;
+				ILVal::Short(val as u16)
 			}
 			x86Reg::bp => {
-				unimplemented!("Not supported yet")
+				let val = self.ebp;
+				ILVal::Short(val as u16)
 			}
 			x86Reg::si => {
-				unimplemented!("Not supported yet")
+				let val = self.esi;
+				ILVal::Short(val as u16)
 			}
 			x86Reg::di => {
-				unimplemented!("Not supported yet")
+				let val = self.edi;
+				ILVal::Short(val as u16)
 			}
 			x86Reg::flags => {
-				unimplemented!("Not supported yet")
+				let val = self.eflags;
+				ILVal::Short(val as u16)
 			}
 			x86Reg::ax => {
-				unimplemented!("Not supported yet")
+				let val = self.eax;
+				ILVal::Short(val as u16)
 			}
 			x86Reg::cx => {
-				unimplemented!("Not supported yet")
+				let val = self.ecx;
+				ILVal::Short(val as u16)
 			}
 			x86Reg::dx => {
-				unimplemented!("Not supported yet")
+				let val = self.edx;
+				ILVal::Short(val as u16)
 			}
 			x86Reg::bx => {
-				unimplemented!("Not supported yet")
+				let val = self.ebx;
+				ILVal::Short(val as u16)
 			}
 			x86Reg::top => {
 				ILVal::Short(self.top)
@@ -604,28 +626,36 @@ impl RegState for x86RegFile {
 				ILVal::Big(Big::from(self.idtr))
 			}
 			x86Reg::mm0 => {
-				unimplemented!("Not supported yet")
+				let val = &self.st0;
+				ILVal::Quad(u64::from_le_bytes([val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]]))
 			}
 			x86Reg::mm1 => {
-				unimplemented!("Not supported yet")
+				let val = &self.st1;
+				ILVal::Quad(u64::from_le_bytes([val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]]))
 			}
 			x86Reg::mm2 => {
-				unimplemented!("Not supported yet")
+				let val = &self.st2;
+				ILVal::Quad(u64::from_le_bytes([val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]]))
 			}
 			x86Reg::mm3 => {
-				unimplemented!("Not supported yet")
+				let val = &self.st3;
+				ILVal::Quad(u64::from_le_bytes([val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]]))
 			}
 			x86Reg::mm4 => {
-				unimplemented!("Not supported yet")
+				let val = &self.st4;
+				ILVal::Quad(u64::from_le_bytes([val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]]))
 			}
 			x86Reg::mm5 => {
-				unimplemented!("Not supported yet")
+				let val = &self.st5;
+				ILVal::Quad(u64::from_le_bytes([val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]]))
 			}
 			x86Reg::mm6 => {
-				unimplemented!("Not supported yet")
+				let val = &self.st6;
+				ILVal::Quad(u64::from_le_bytes([val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]]))
 			}
 			x86Reg::mm7 => {
-				unimplemented!("Not supported yet")
+				let val = &self.st7;
+				ILVal::Quad(u64::from_le_bytes([val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]]))
 			}
 			x86Reg::xcr0 => {
 				ILVal::Quad(self.xcr0)

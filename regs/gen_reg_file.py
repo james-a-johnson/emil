@@ -2,6 +2,13 @@ import argparse
 
 import binaryninja as bn
 
+NATIVE_SIZES: set[int] = set([1, 2, 4, 8])
+
+
+def mask(size: int) -> int:
+    hex = "ff" * size
+    return int.from_bytes(bytes.fromhex(hex), "little")
+
 
 def list_archs(_args):
     archs = bn.Architecture
@@ -51,7 +58,45 @@ def gen_read_reg(arch: bn.Architecture, name: str, info: bn.RegisterInfo) -> str
             case _:
                 read += f"ILVal::Big(Big::from(self.{info.full_width_reg}))\n"
     else:
-        read += 'unimplemented!("Not supported yet")'
+        if full_width.size in NATIVE_SIZES:
+            read += f"let val = self.{info.full_width_reg};\n"
+            if info.offset != 0:
+                read += f"let val = val >> (8 * {info.offset});\n"
+            match info.size:
+                case 1:
+                    read += "ILVal::Byte(val as u8)\n"
+                case 2:
+                    read += "ILVal::Short(val as u16)\n"
+                case 4:
+                    read += "ILVal::Word(val as u32)\n"
+                case 8:
+                    read += "ILVal::Quad(val as u64)\n"
+                case _:
+                    read += (
+                        f"ILVal::Big(Big::from(&val.to_le_bytes()[0..{info.size}))\n"
+                    )
+        else:
+            # Working on a register that is just stored as an array of bytes. Need to just use indexes into it
+            # to get the value out.
+            offset = info.offset
+            size = info.size
+            start = offset
+            end = offset + size
+            match info.size:
+                case 1:
+                    read += f"ILVal::Byte(self.{info.full_width_reg}[{start}])\n"
+                case 2:
+                    read += f"let val = &self.{info.full_width_reg};\n"
+                    read += f"ILVal::Short(u16::from_le_bytes([val[{start}], val[{start + 1}]]))\n"
+                case 4:
+                    read += f"let val = &self.{info.full_width_reg};\n"
+                    read += f"ILVal::Word(u32::from_le_bytes([val[{start}], val[{start + 1}], val[{start + 2}], val[{start + 3}]]))\n"
+                case 8:
+                    read += f"let val = &self.{info.full_width_reg};\n"
+                    read += f"ILVal::Quad(u64::from_le_bytes([val[{start}], val[{start + 1}], val[{start + 2}], val[{start + 3}], val[{start + 4}], val[{start + 5}], val[{start + 6}], val[{start + 7}]]))\n"
+                case _:
+                    read += f"let val = &self.{info.full_width_reg};\n"
+                    read += f"ILVal::Big(Big::from(&val[{start}..{end}]))\n"
 
     return read
 
