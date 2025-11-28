@@ -2,7 +2,7 @@ use crate::arch::Little;
 use crate::arch::{FileDescriptor, Intrinsic, RegState, State};
 use crate::arch::{Register, SyscallResult};
 use crate::os::linux::LinuxSyscalls;
-use crate::val::ILVal;
+use val::ILVal;
 use from_id::FromId;
 use softmew::{MMU, Perm, fault::Fault, page::Page, page::SimplePage};
 use std::collections::{HashMap, VecDeque};
