@@ -46,6 +46,9 @@ class Register:
     def __str__(self) -> str:
         return self.name
 
+    def __lt__(self, other) -> bool:
+        return self.name < other.name
+
     @property
     def full_width(self) -> bool:
         return self.parent is None
@@ -71,9 +74,12 @@ def list_archs(_args):
 
 def gen_reg_enum(arch: bn.Architecture, regs: Dict[str, Register], file):
     reg_type = f"{arch}Reg"
+    reg_names = list(regs.keys())
+    reg_names = sorted(reg_names)
     file.write("#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]\n")
     file.write(f"pub enum {reg_type} {{\n")
-    for reg in regs.values():
+    for reg_name in reg_names:
+        reg = regs[reg_name]
         file.write(f"\t{reg.name},\n")
     file.write("}\n\n")
     file.write(f"impl TryFrom<u32> for {reg_type} {{\n")
@@ -242,10 +248,11 @@ def gen_reg_file(arch: bn.Architecture, regs: Dict[str, Register], file):
     reg_id = f"{arch}Reg"
     # Binary Ninja's list of full width registers is not the most precise. Need to make our own list of all of the
     # expected full width registers.
-    full_width = set()
+    full_width = []
     for reg in regs.values():
         if reg.full_width:
-            full_width.add(reg)
+            full_width.append(reg)
+    full_width = sorted(full_width)
     file.write("#[derive(Clone, Copy, Debug, Default)]\n")
     file.write(f"pub struct {reg_file} {{\n")
     for r in full_width:
