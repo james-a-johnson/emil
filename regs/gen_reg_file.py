@@ -1,8 +1,61 @@
 import argparse
+from dataclasses import dataclass, field
+from typing import Dict, Optional
 
 import binaryninja as bn
 
 NATIVE_SIZES: set[int] = set([1, 2, 4, 8])
+
+
+def map_reg_name(name: str) -> str:
+    """Convert a register name to something that is valid for a rust field.
+
+    Binary ninja may use a name for a register that is not a valid identifier in rust. This method will
+    convert it to one that can be used as a rust field.
+    """
+    new_name = ""
+    for c in name:
+        match c:
+            case ".":
+                new_name += "_"
+            case "[" | "]":
+                continue
+            case _:
+                new_name += c
+    return new_name
+
+
+@dataclass
+class Register:
+    name: str = field(init=False)
+    """Name of the register that should be used in the struct"""
+    arch_name: str
+    """Name used by Binary Ninja for the register"""
+    size: int
+    offset: int
+    index: int
+    """Index of the register as defined by Binary Ninja"""
+    parent: Optional[str]
+
+    def __post_init__(self):
+        self.name = map_reg_name(self.arch_name)
+
+    def __hash__(self) -> int:
+        return self.arch_name.__hash__()
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def full_width(self) -> bool:
+        return self.parent is None
+
+    @staticmethod
+    def from_bn_reg(name: str, info: bn.RegisterInfo) -> "Register":
+        parent = info.full_width_reg if name != info.full_width_reg else None
+        if info.index is None:
+            raise ValueError(f"{name} has no index")
+        return Register(name, info.size, info.offset, info.index, parent)
 
 
 def mask(size: int) -> int:
@@ -16,21 +69,19 @@ def list_archs(_args):
         print(arch)
 
 
-def gen_reg_enum(arch, file):
-    regs = arch.regs
+def gen_reg_enum(arch: bn.Architecture, regs: Dict[str, Register], file):
     reg_type = f"{arch}Reg"
     file.write("#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]\n")
     file.write(f"pub enum {reg_type} {{\n")
-    for k, _v in regs.items():
-        file.write(f"    {k},\n")
+    for reg in regs.values():
+        file.write(f"\t{reg.name},\n")
     file.write("}\n\n")
     file.write(f"impl TryFrom<u32> for {reg_type} {{\n")
     file.write("\ttype Error = u32;\n\n")
     file.write("\tfn try_from(reg_id: u32) -> Result<Self, u32> {\n")
     file.write("\t\tmatch reg_id {\n")
-    for k, v in regs.items():
-        reg_id = v.index
-        file.write(f"\t\t\t{reg_id} => Ok(Self::{k}),\n")
+    for reg in regs.values():
+        file.write(f"\t\t\t{reg.index} => Ok(Self::{reg.name}),\n")
     file.write("\t\t\t_ => Err(reg_id),\n")
     file.write("\t\t}\n\t}\n}\n\n")
     file.write(f"impl std::fmt::Display for {reg_type} {{\n")
@@ -42,27 +93,30 @@ def gen_reg_enum(arch, file):
     file.write(f"impl Register for {reg_type} {{}}\n\n")
 
 
-def gen_read_reg(arch: bn.Architecture, name: str, info: bn.RegisterInfo) -> str:
+def gen_read_reg(reg: Register, all: Dict[str, Register]) -> str:
     read = ""
-    full_width = arch.regs[info.full_width_reg]
-    if info.offset == 0 and info.size == full_width.size:
-        match info.size:
+    if reg.full_width:
+        match reg.size:
             case 1:
-                read += f"ILVal::Byte(self.{info.full_width_reg})\n"
+                read += f"ILVal::Byte(self.{reg.name})\n"
             case 2:
-                read += f"ILVal::Short(self.{info.full_width_reg})\n"
+                read += f"ILVal::Short(self.{reg.name})\n"
             case 4:
-                read += f"ILVal::Word(self.{info.full_width_reg})\n"
+                read += f"ILVal::Word(self.{reg.name})\n"
             case 8:
-                read += f"ILVal::Quad(self.{info.full_width_reg})\n"
+                read += f"ILVal::Quad(self.{reg.name})\n"
             case _:
-                read += f"ILVal::Big(Big::from(self.{info.full_width_reg}))\n"
+                read += f"ILVal::Big(Big::from(self.{reg.name}))\n"
     else:
+        assert reg.parent is not None, (
+            "This case is checked by handling full width registers above"
+        )
+        full_width = all[reg.parent]
         if full_width.size in NATIVE_SIZES:
-            read += f"let val = self.{info.full_width_reg};\n"
-            if info.offset != 0:
-                read += f"let val = val >> (8 * {info.offset});\n"
-            match info.size:
+            read += f"let val = self.{full_width.name};\n"
+            if reg.offset != 0:
+                read += f"let val = val >> (8 * {reg.offset});\n"
+            match reg.size:
                 case 1:
                     read += "ILVal::Byte(val as u8)\n"
                 case 2:
@@ -72,55 +126,46 @@ def gen_read_reg(arch: bn.Architecture, name: str, info: bn.RegisterInfo) -> str
                 case 8:
                     read += "ILVal::Quad(val as u64)\n"
                 case _:
-                    read += (
-                        f"ILVal::Big(Big::from(&val.to_le_bytes()[0..{info.size}))\n"
-                    )
+                    read += f"ILVal::Big(Big::from(&val.to_le_bytes()[0..{reg.size}))\n"
         else:
             # Working on a register that is just stored as an array of bytes. Need to just use indexes into it
             # to get the value out.
-            offset = info.offset
-            size = info.size
+            offset = reg.offset
+            size = reg.size
             start = offset
             end = offset + size
-            match info.size:
+            match reg.size:
                 case 1:
-                    read += f"ILVal::Byte(self.{info.full_width_reg}[{start}])\n"
+                    read += f"ILVal::Byte(self.{full_width.name}[{start}])\n"
                 case 2:
-                    read += f"let val = &self.{info.full_width_reg};\n"
+                    read += f"let val = &self.{full_width.name};\n"
                     read += f"ILVal::Short(u16::from_le_bytes([val[{start}], val[{start + 1}]]))\n"
                 case 4:
-                    read += f"let val = &self.{info.full_width_reg};\n"
+                    read += f"let val = &self.{full_width.name};\n"
                     read += f"ILVal::Word(u32::from_le_bytes([val[{start}], val[{start + 1}], val[{start + 2}], val[{start + 3}]]))\n"
                 case 8:
-                    read += f"let val = &self.{info.full_width_reg};\n"
+                    read += f"let val = &self.{full_width.name};\n"
                     read += f"ILVal::Quad(u64::from_le_bytes([val[{start}], val[{start + 1}], val[{start + 2}], val[{start + 3}], val[{start + 4}], val[{start + 5}], val[{start + 6}], val[{start + 7}]]))\n"
                 case _:
-                    read += f"let val = &self.{info.full_width_reg};\n"
+                    read += f"let val = &self.{full_width.name};\n"
                     read += f"ILVal::Big(Big::from(&val[{start}..{end}]))\n"
 
     return read
 
 
-def gen_reg_file(arch: bn.Architecture, file):
+def gen_reg_file(arch: bn.Architecture, regs: Dict[str, Register], file):
     reg_file = f"{arch}RegFile"
     reg_id = f"{arch}Reg"
-    regs = arch.regs
     # Binary Ninja's list of full width registers is not the most precise. Need to make our own list of all of the
     # expected full width registers.
     full_width = set()
-    for reg in arch.full_width_regs:
-        full_width.add(reg)
-    for reg, info in arch.regs.items():
-        if reg in full_width:
-            continue
-        if info.full_width_reg in full_width:
-            continue
-        full_width.add(info.full_width_reg)
+    for reg in regs.values():
+        if reg.full_width:
+            full_width.add(reg)
     file.write("#[derive(Clone, Copy, Debug, Default)]\n")
     file.write(f"pub struct {reg_file} {{\n")
     for r in full_width:
-        full_reg = regs[r]
-        match full_reg.size:
+        match r.size:
             case 1:
                 file.write(f"\tpub {r}: u8,\n")
             case 2:
@@ -137,9 +182,9 @@ def gen_reg_file(arch: bn.Architecture, file):
     file.write(f"\ttype RegID = {reg_id};\n\n")
     file.write("\tfn read(&self, id: Self::RegID) -> ILVal {\n")
     file.write("\t\tmatch id {\n")
-    for reg, info in regs.items():
-        file.write(f"\t\t\t{reg_id}::{reg} => {{\n")
-        read = gen_read_reg(arch, reg, info)
+    for reg in regs.values():
+        file.write(f"\t\t\t{reg_id}::{reg.name} => {{\n")
+        read = gen_read_reg(reg, regs)
         for line in read.split("\n"):
             if line == "":
                 continue
@@ -157,14 +202,16 @@ def gen_reg_file(arch: bn.Architecture, file):
 
 def gen_arch(args):
     arch = bn.Architecture[args.arch]
+    all_regs = [Register.from_bn_reg(name, info) for name, info in arch.regs.items()]
+    regs: Dict[str, Register] = {reg.name: reg for reg in all_regs}
     file = args.outfile
     file.write(f"//! Register file definition for {arch}.\n//!\n")
     file.write("//! This file was generated by `gen_reg_file.py`\n\n")
     file.write("#![allow(non_camel_case_types)]\n\n")
     file.write("use crate::{Register, RegState};\n")
     file.write("use val::{Big, ILVal};\n\n")
-    gen_reg_enum(arch, file)
-    gen_reg_file(arch, file)
+    gen_reg_enum(arch, regs, file)
+    gen_reg_file(arch, regs, file)
 
 
 def main():
