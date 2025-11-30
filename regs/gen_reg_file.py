@@ -115,7 +115,7 @@ def gen_read_reg(reg: Register, all: Dict[str, Register]) -> str:
         if full_width.size in NATIVE_SIZES:
             read += f"let val = self.{full_width.name};\n"
             if reg.offset != 0:
-                read += f"let val = val >> (8 * {reg.offset});\n"
+                read += f"let val = val >> ({8 * reg.offset});\n"
             match reg.size:
                 case 1:
                     read += "ILVal::Byte(val as u8)\n"
@@ -151,6 +151,90 @@ def gen_read_reg(reg: Register, all: Dict[str, Register]) -> str:
                     read += f"ILVal::Big(Big::from(&val[{start}..{end}]))\n"
 
     return read
+
+
+def gen_write_reg(reg: Register, all: Dict[str, Register]) -> str:
+    write = ""
+    if reg.full_width:
+        match reg.size:
+            case 1:
+                write += f"self.{reg.name} = val.get_byte();\n"
+            case 2:
+                write += f"self.{reg.name} = val.get_short();\n"
+            case 4:
+                write += f"self.{reg.name} = val.get_word();\n"
+            case 8:
+                write += f"self.{reg.name} = val.get_quad();\n"
+            case _:
+                write += "let big = val.get_big();\n"
+                write += f'let arr: [u8; {reg.size}] = big.as_ref().try_into().expect("Value wrong size for {reg.name}");\n'
+                write += f"self.{reg.name} = arr;\n"
+    else:
+        assert reg.parent is not None, (
+            "This case is checked by handling full width registers above"
+        )
+        full_width = all[reg.parent]
+        if full_width.size in NATIVE_SIZES:
+            match reg.size:
+                case 1:
+                    mask = 0xFF << (reg.offset * 8)
+                    write += "let val = val.get_byte();\n"
+                    write += f"let val = (val as u{full_width.size * 8}) << ({8 * reg.offset});\n"
+                    write += f"self.{full_width.name} &= !{mask};\n"
+                    write += f"self.{full_width.name} |= val;\n"
+                case 2:
+                    mask = 0xFFFF << (reg.offset * 8)
+                    write += "let val = val.get_short();\n"
+                    write += f"let val = (val as u{full_width.size * 8}) << ({8 * reg.offset});\n"
+                    write += f"self.{full_width.name} &= !{mask};\n"
+                    write += f"self.{full_width.name} |= val;\n"
+                case 4:
+                    mask = 0xFFFFFFFF << (reg.offset * 8)
+                    write += "let val = val.get_word();\n"
+                    write += f"let val = (val as u{full_width.size * 8}) << ({8 * reg.offset});\n"
+                    write += f"self.{full_width.name} &= !{mask};\n"
+                    write += f"self.{full_width.name} |= val;\n"
+                case 8:
+                    mask = 0xFFFFFFFFFFFFFFFF << (reg.offset * 8)
+                    write += "let val = val.get_quad();\n"
+                    write += f"let val = (val as u{full_width.size * 8}) << ({8 * reg.offset});\n"
+                    write += f"self.{full_width.name} &= !{mask};\n"
+                    write += f"self.{full_width.name} |= val;\n"
+                case _:
+                    # In this case, treat the native sized register as just an array of bytes and then copy stuff in.
+                    write += f"let bytes = unsafe {{ std::slice::from_raw_parts_mut(&mut self.{full_width.name} as *mut u8, {full_width.size * 8}) }};\n"
+                    write += "let val = val.get_big();\n"
+                    write += f"bytes[{reg.offset}..][..{reg.size}].copy_from_slice(val.as_ref())\n;"
+        else:
+            # Working on a register that is just stored as an array of bytes. Need to just use indexes into it
+            # to set it.
+            match reg.size:
+                case 1:
+                    write += f"self.{full_width.name}[{reg.offset}] = val.get_byte();\n"
+                case 2:
+                    write += "let val = val.get_short().to_le_bytes();\n"
+                    write += f"self.{full_width.name}[{reg.offset}] = val[0];\n"
+                    write += f"self.{full_width.name}[{reg.offset + 1}] = val[1];\n"
+                case 4:
+                    write += "let val = val.get_word().to_le_bytes();\n"
+                    write += f"self.{full_width.name}[{reg.offset}] = val[0];\n"
+                    write += f"self.{full_width.name}[{reg.offset + 1}] = val[1];\n"
+                    write += f"self.{full_width.name}[{reg.offset + 2}] = val[2];\n"
+                    write += f"self.{full_width.name}[{reg.offset + 3}] = val[3];\n"
+                case 8:
+                    write += "let val = val.get_quad().to_le_bytes();\n"
+                    write += f"self.{full_width.name}[{reg.offset}] = val[0];\n"
+                    write += f"self.{full_width.name}[{reg.offset + 1}] = val[1];\n"
+                    write += f"self.{full_width.name}[{reg.offset + 2}] = val[2];\n"
+                    write += f"self.{full_width.name}[{reg.offset + 3}] = val[3];\n"
+                    write += f"self.{full_width.name}[{reg.offset + 4}] = val[4];\n"
+                    write += f"self.{full_width.name}[{reg.offset + 5}] = val[5];\n"
+                    write += f"self.{full_width.name}[{reg.offset + 6}] = val[6];\n"
+                    write += f"self.{full_width.name}[{reg.offset + 7}] = val[7];\n"
+                case _:
+                    write += "let val = val.get_big();\n"
+                    write += f"self.{full_width.name}[{reg.offset}..][..{reg.size}].copy_from_slice(val.as_ref());\n"
+    return write
 
 
 def gen_reg_file(arch: bn.Architecture, regs: Dict[str, Register], file):
@@ -194,9 +278,19 @@ def gen_reg_file(arch: bn.Architecture, regs: Dict[str, Register], file):
     file.write("\t\t}\n")
     file.write("\t}\n\n")
 
-    file.write(
-        '\tfn write(&mut self, id: Self::RegID, val: &ILVal) { unimplemented!("Writing not supported yet") }\n'
-    )
+    file.write("\tfn write(&mut self, id: Self::RegID, val: &ILVal) {\n")
+    file.write("\t\tmatch id {\n")
+    for reg in regs.values():
+        file.write(f"\t\t\t{reg_id}::{reg.name} => {{\n")
+        write = gen_write_reg(reg, regs)
+        for line in write.split("\n"):
+            if line == "":
+                continue
+            file.write(f"\t\t\t\t{line}\n")
+        file.write("\t\t\t}\n")
+    file.write("\t\t}")
+    file.write("\t}")
+
     file.write("}\n\n")
 
 
