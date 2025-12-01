@@ -55,6 +55,7 @@ impl Intrinsic for ArmIntrinsic {
         match intrinsic_name.as_ref() {
             "__dc" => Ok(Self::Dc),
             "__dmb" => Ok(Self::Dmb),
+            "SystemHintOp_BTI" => Ok(Self::BtiHint),
             // TODO: Fix this name
             "btihint" => Ok(Self::BtiHint),
             "_CountLeadingZeros" => {
@@ -79,7 +80,7 @@ impl Intrinsic for ArmIntrinsic {
                     .map_err(|e| format!("Bad source register for rbit: {e}"))?;
                 Ok(Self::Rbit(dest_reg, src_reg))
             }
-            "__ldaxr" => {
+            "__ldaxr" | "__ldxr" => {
                 // ldaxr, load acquire exclusive
                 let dest_reg = get_reg_from_outputs(intrinsic, 0)
                     .map_err(|e| format!("Couldn't get register to load into for ldaxr: {e}"))?;
@@ -87,7 +88,7 @@ impl Intrinsic for ArmIntrinsic {
                     .map_err(|e| format!("Couldn't get source register for ldaxr: {e}"))?;
                 Ok(Self::Ldxr(dest_reg, source_reg))
             }
-            "__stlxr" => {
+            "__stlxr" | "__stxr" => {
                 // stxr store exclusive
                 let dest_reg = get_reg_from_outputs(intrinsic, 0)
                     .map_err(|e| format!("Bad output reg for stxr: {e}"))?;
