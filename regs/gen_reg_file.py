@@ -96,7 +96,12 @@ def gen_reg_enum(arch: bn.Architecture, regs: Dict[str, Register], file):
     )
     file.write('\t\twrite!(f, "{:?}", self)\n')
     file.write("\t}\n}\n\n")
-    file.write(f"impl Register for {reg_type} {{}}\n\n")
+    file.write(f"impl Register for {reg_type} {{\n")
+    file.write("\tfn size(&self) -> u8 {\n")
+    file.write("\t\tmatch self {\n")
+    for reg in regs.values():
+        file.write(f"\t\t\tSelf::{reg.name} => {reg.size},\n")
+    file.write("\t\t}\n\t}\n}\n\n")
 
 
 def gen_read_reg(reg: Register, all: Dict[str, Register]) -> str:
@@ -295,8 +300,8 @@ def gen_reg_file(arch: bn.Architecture, regs: Dict[str, Register], file):
                 continue
             file.write(f"\t\t\t\t{line}\n")
         file.write("\t\t\t}\n")
-    file.write("\t\t}")
-    file.write("\t}")
+    file.write("\t\t}\n")
+    file.write("\t}\n")
 
     file.write("}\n\n")
 

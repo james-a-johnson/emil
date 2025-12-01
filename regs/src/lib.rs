@@ -14,7 +14,10 @@ const _: () = assert!(
 /// Since Binary Ninja represents each regiter using a unique u32, the type needs to implement [`TryFrom`]
 /// for a u32 so that it can be parsed out from an LLIL instruction when being convereted to the internal
 /// representation.
-pub trait Register: TryFrom<u32> + Debug + Display + Clone + Copy {}
+pub trait Register: TryFrom<u32> + Debug + Display + Clone + Copy {
+    /// Size of the specific register in bytes.
+    fn size(&self) -> u8;
+}
 
 /// State of all of the registers of a system.
 pub trait RegState {
