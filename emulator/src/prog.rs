@@ -1,7 +1,7 @@
 use crate::arch::Intrinsic;
 use crate::arch::{Endian, RegState};
 use crate::emil::Emil;
-use crate::val::ILRef;
+use val::ILRef;
 use binaryninja::architecture::{Flag, Register as _};
 use binaryninja::low_level_il::expression::{
     ExpressionHandler, LowLevelILExpression as Expr, LowLevelILExpressionKind as ExprKind,

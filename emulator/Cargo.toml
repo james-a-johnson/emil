@@ -8,3 +8,5 @@ edition = "2024"
 binaryninja = { git = "https://github.com/Vector35/binaryninja-api.git", rev = "0317c1a5c51e623a00249ecdefa0c5dd582e0eb1" }
 softmew = { path = "../softmew" }
 from_id = { path = "../from_id" }
+val = { path = "../val" }
+regs = { path = "../regs" }

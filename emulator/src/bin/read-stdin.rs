@@ -9,7 +9,7 @@ use emil::emulate::{Emulate, Emulator, Exit, HookStatus};
 use emil::load::*;
 use emil::os::linux::{AuxVal, Environment, add_default_auxv};
 use emil::prog::Program;
-use emil::val::ILVal;
+use val::ILVal;
 
 use softmew::Perm;
 use softmew::page::{Page, SimplePage};
@@ -80,7 +80,7 @@ fn main() {
         .map_memory(0x80000000, 0x100000, Perm::READ | Perm::WRITE)
         .unwrap();
 
-    state.regs_mut()[Arm64Reg::sp] = sp_val;
+    state.regs_mut().sp = sp_val;
 
     let mut emu = Emulator::new(prog, state);
     emu.add_hook(0x400300, strlen_hook).unwrap();
@@ -132,9 +132,7 @@ fn strlen_hook<P: Page>(
         addr += 1;
         len += 1;
     }
-    state
-        .regs()
-        .write(Arm64Reg::x0, &emil::val::ILVal::Quad(len));
+    state.regs().write(Arm64Reg::x0, &val::ILVal::Quad(len));
     HookStatus::Goto(ret)
 }
 
@@ -174,10 +172,8 @@ fn rindex_hook<P: Page>(
     }
 
     match last {
-        Some(addr) => state
-            .regs()
-            .write(Arm64Reg::x0, &emil::val::ILVal::Quad(addr)),
-        None => state.regs().write(Arm64Reg::x0, &emil::val::ILVal::Quad(0)),
+        Some(addr) => state.regs().write(Arm64Reg::x0, &val::ILVal::Quad(addr)),
+        None => state.regs().write(Arm64Reg::x0, &val::ILVal::Quad(0)),
     };
 
     HookStatus::Goto(ret)

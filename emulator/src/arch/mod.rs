@@ -4,6 +4,7 @@
 //     print(f"{name} = {reg.index}")
 // ```
 
+pub use regs::{RegState, Register};
 pub use softmew::Perm;
 pub use softmew::fault::Fault;
 use softmew::page::Page;
@@ -20,12 +21,11 @@ use std::{
 
 pub mod amd64;
 pub mod arm64;
-pub mod generic;
 pub mod riscv;
 
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
-use crate::val::{Big as BigInt, ILVal};
+use val::{Big as BigInt, ILVal};
 
 /// Result of a system call.
 ///
@@ -51,26 +51,6 @@ impl From<Fault> for SyscallResult {
     fn from(value: Fault) -> Self {
         Self::Error(value)
     }
-}
-
-pub trait Register: TryFrom<u32> + Debug + Display + Clone + Copy {
-    fn id(&self) -> u32;
-}
-
-/// State of all of the registers of a system.
-pub trait RegState {
-    type RegID: Register;
-
-    /// Read the register with the given ID.
-    fn read(&self, id: Self::RegID) -> ILVal;
-
-    /// Set the register to the given value.
-    ///
-    /// You may assume that the `val` has the correct size for the register.
-    /// Binary Ninja will correctly size the value for the given register
-    /// write so if the value has the wrong size then the program is invalid
-    /// and it makes sense to panic.
-    fn write(&mut self, id: Self::RegID, val: &ILVal);
 }
 
 /// Intrinsic instruction.
