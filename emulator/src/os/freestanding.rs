@@ -4,7 +4,7 @@ use softmew::{MMU, page::SimplePage};
 
 use crate::arch::{
     Little, State,
-    amd64::{Amd64Intrin, Amd64Regs},
+    amd64::{Amd64Intrin, Amd64State},
 };
 
 const TEMP_BIT: u32 = 1 << 31;
@@ -51,10 +51,10 @@ impl<E, R, I> Freestanding<E, R, I> {
     }
 }
 
-impl State<SimplePage> for Freestanding<Little, Amd64Regs, Amd64Intrin> {
+impl State<SimplePage> for Freestanding<Little, Amd64State, Amd64Intrin> {
     type Endianness = Little;
     type Intrin = Amd64Intrin;
-    type Registers = Amd64Regs;
+    type Registers = Amd64State;
 
     fn regs(&mut self) -> &mut Self::Registers {
         &mut self.regs
@@ -82,16 +82,16 @@ impl State<SimplePage> for Freestanding<Little, Amd64Regs, Amd64Intrin> {
     }
 
     fn push(&mut self, val: &[u8]) -> Result<(), softmew::fault::Fault> {
-        let mut sp = usize::from_le_bytes(self.regs["rsp"].try_into().expect("rsp is 8 bytes"));
+        let mut sp = self.regs.rsp as usize;
         sp -= val.len();
-        self.regs["rsp"].copy_from_slice(&sp.to_be_bytes());
+        self.regs.rsp = sp as u64;
         self.memory.write_perm(sp, val)
     }
 
     fn pop(&mut self, data: &mut [u8]) -> Result<(), softmew::fault::Fault> {
-        let sp = usize::from_le_bytes(self.regs["rsp"].try_into().expect("rsp is 8 bytes"));
+        let sp = self.regs.rsp as usize;
         let updated_sp = sp - data.len();
-        self.regs["rsp"].copy_from_slice(&updated_sp.to_be_bytes());
+        self.regs.rsp = updated_sp as u64;
         self.memory.read_perm(sp, data)
     }
 

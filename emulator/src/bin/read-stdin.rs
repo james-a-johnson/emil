@@ -80,7 +80,7 @@ fn main() {
         .map_memory(0x80000000, 0x100000, Perm::READ | Perm::WRITE)
         .unwrap();
 
-    state.regs_mut()[Arm64Reg::sp] = sp_val;
+    state.regs_mut().sp = sp_val;
 
     let mut emu = Emulator::new(prog, state);
     emu.add_hook(0x400300, strlen_hook).unwrap();

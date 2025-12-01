@@ -1,12 +1,12 @@
 use crate::arch::Little;
-use crate::arch::{FileDescriptor, Intrinsic, RegState, State};
-use crate::arch::{Register, SyscallResult};
+use crate::arch::SyscallResult;
+use crate::arch::{FileDescriptor, Intrinsic, State};
 use crate::os::linux::LinuxSyscalls;
-use val::ILVal;
-use from_id::FromId;
+pub use regs::rv64gc::{rv64gcReg as Rv64Reg, rv64gcRegFile as Rv64State};
 use softmew::{MMU, Perm, fault::Fault, page::Page, page::SimplePage};
 use std::collections::{HashMap, VecDeque};
-use std::ops::{Index, IndexMut, Range};
+use std::ops::Range;
+use val::ILVal;
 
 #[derive(Clone, Copy, Debug)]
 pub struct RVIntrinsic(u32);
@@ -141,7 +141,7 @@ impl State<SimplePage> for LinuxRV64 {
     }
 
     fn syscall(&mut self, _addr: u64) -> SyscallResult {
-        match self.regs[Rv64Reg::a7] {
+        match self.regs.a7 {
             0x30 => self.faccessat(),
             0x3f => self.read(),
             0x40 => self.write(),
@@ -165,23 +165,23 @@ impl State<SimplePage> for LinuxRV64 {
     }
 
     fn save_ret_addr(&mut self, addr: u64) -> Result<(), Fault> {
-        self.regs[Rv64Reg::ra] = addr;
+        self.regs.ra = addr;
         Ok(())
     }
 
     fn push(&mut self, val: &[u8]) -> Result<(), Fault> {
-        let sp = self.regs[Rv64Reg::sp];
+        let sp = self.regs.sp;
         let updated = sp - val.len() as u64;
         self.mem.write_perm(updated as usize, val)?;
-        self.regs[Rv64Reg::sp] = updated;
+        self.regs.sp = updated;
         Ok(())
     }
 
     fn pop(&mut self, data: &mut [u8]) -> Result<(), Fault> {
-        let sp = self.regs[Rv64Reg::sp];
+        let sp = self.regs.sp;
         let updated = sp + data.len() as u64;
         self.mem.read_perm(sp as usize, data)?;
-        self.regs[Rv64Reg::sp] = updated;
+        self.regs.sp = updated;
         Ok(())
     }
 
@@ -198,18 +198,18 @@ impl State<SimplePage> for LinuxRV64 {
 
 impl LinuxSyscalls for LinuxRV64 {
     fn set_syscall_return(&mut self, ret: ILVal) {
-        self.regs.gregs[(Rv64Reg::a0 as u32) as usize] = ret.extend_64();
+        self.regs.a0 = ret.extend_64();
     }
 
     fn faccessat(&mut self) -> SyscallResult {
-        self.regs[Rv64Reg::a0] = (-2_i64) as u64;
+        self.regs.a0 = (-2_i64) as u64;
         SyscallResult::Continue
     }
 
     fn read(&mut self) -> SyscallResult {
-        let fd = self.regs[Rv64Reg::a0];
-        let ptr = self.regs[Rv64Reg::a1] as usize;
-        let len = self.regs[Rv64Reg::a2] as usize;
+        let fd = self.regs.a0;
+        let ptr = self.regs.a1 as usize;
+        let len = self.regs.a2 as usize;
         match self.fds.get_mut(&(fd as u32)) {
             Some(file) => {
                 let page = self.mem.get_mapping_mut(ptr).unwrap();
@@ -217,21 +217,21 @@ impl LinuxSyscalls for LinuxRV64 {
                 let buf = &mut page.as_mut()[ptr - start..][..len];
                 let res = file.read(buf);
                 match res {
-                    Ok(b) => self.regs[Rv64Reg::a0] = b as u64,
+                    Ok(b) => self.regs.a0 = b as u64,
                     Err(e) => {
-                        self.regs[Rv64Reg::a0] = e.raw_os_error().unwrap_or(-9) as u64;
+                        self.regs.a0 = e.raw_os_error().unwrap_or(-9) as u64;
                     }
                 }
             }
-            None => self.regs[Rv64Reg::a0] = (-9_i64) as u64,
+            None => self.regs.a0 = (-9_i64) as u64,
         };
         SyscallResult::Continue
     }
 
     fn write(&mut self) -> SyscallResult {
-        let fd = self.regs[Rv64Reg::a0];
-        let ptr = self.regs[Rv64Reg::a1];
-        let len = self.regs[Rv64Reg::a2];
+        let fd = self.regs.a0;
+        let ptr = self.regs.a1;
+        let len = self.regs.a2;
         let mut data = vec![0; len as usize];
         self.mem
             .read_perm(ptr as usize, &mut data)
@@ -240,30 +240,30 @@ impl LinuxSyscalls for LinuxRV64 {
             Some(file) => {
                 let res = file.write(&data);
                 match res {
-                    Ok(b) => self.regs[Rv64Reg::a0] = b as u64,
+                    Ok(b) => self.regs.a0 = b as u64,
                     Err(e) => {
-                        self.regs[Rv64Reg::a0] = e.raw_os_error().unwrap_or(-9) as u64;
+                        self.regs.a0 = e.raw_os_error().unwrap_or(-9) as u64;
                     }
                 }
             }
-            None => self.regs[Rv64Reg::a0] = len,
+            None => self.regs.a0 = len,
         }
         SyscallResult::Continue
     }
 
     fn set_tid_address(&mut self) -> SyscallResult {
-        self.regs[Rv64Reg::a0] = 100;
+        self.regs.a0 = 100;
         SyscallResult::Continue
     }
 
     fn set_robust_list(&mut self) -> SyscallResult {
-        self.regs[Rv64Reg::a0] = 0;
+        self.regs.a0 = 0;
         SyscallResult::Continue
     }
 
     fn uname(&mut self) -> SyscallResult {
-        let addr = self.regs[Rv64Reg::a0];
-        self.regs[Rv64Reg::a0] = (-14_i64) as u64;
+        let addr = self.regs.a0;
+        self.regs.a0 = (-14_i64) as u64;
         if self.mem.write_perm(addr as usize, b"Linux\x00").is_err() {
             return SyscallResult::Continue;
         }
@@ -302,57 +302,57 @@ impl LinuxSyscalls for LinuxRV64 {
         {
             return SyscallResult::Continue;
         }
-        self.regs[Rv64Reg::a0] = 0;
+        self.regs.a0 = 0;
         SyscallResult::Continue
     }
 
     fn getrandom(&mut self) -> SyscallResult {
-        let addr = self.regs[Rv64Reg::a0];
-        let size = self.regs[Rv64Reg::a1];
-        self.regs[Rv64Reg::a0] = (-14_i64) as u64;
+        let addr = self.regs.a0;
+        let size = self.regs.a1;
+        self.regs.a0 = (-14_i64) as u64;
         for i in addr..(addr + size) {
             if self.mem.write_perm(i as usize, &[0xee]).is_err() {
                 return SyscallResult::Continue;
             }
         }
 
-        self.regs[Rv64Reg::a0] = 0;
+        self.regs.a0 = 0;
         SyscallResult::Continue
     }
 
     fn getuid(&mut self) -> SyscallResult {
-        self.regs[Rv64Reg::a0] = 1000;
+        self.regs.a0 = 1000;
         SyscallResult::Continue
     }
 
     fn geteuid(&mut self) -> SyscallResult {
-        self.regs[Rv64Reg::a0] = 1000;
+        self.regs.a0 = 1000;
         SyscallResult::Continue
     }
 
     fn getgid(&mut self) -> SyscallResult {
-        self.regs[Rv64Reg::a0] = 1000;
+        self.regs.a0 = 1000;
         SyscallResult::Continue
     }
 
     fn getegid(&mut self) -> SyscallResult {
-        self.regs[Rv64Reg::a0] = 1000;
+        self.regs.a0 = 1000;
         SyscallResult::Continue
     }
 
     fn brk(&mut self) -> SyscallResult {
-        let addr = self.regs[Rv64Reg::a0];
+        let addr = self.regs.a0;
         if addr < self.heap.start {
-            self.regs[Rv64Reg::a0] = self.heap.start;
+            self.regs.a0 = self.heap.start;
         } else if addr > self.heap.end {
-            self.regs[Rv64Reg::a0] = self.heap.end;
+            self.regs.a0 = self.heap.end;
         }
         SyscallResult::Continue
     }
 
     fn mmap(&mut self) -> SyscallResult {
-        let addr = self.regs[Rv64Reg::a0];
-        let len = self.regs[Rv64Reg::a1];
+        let addr = self.regs.a0;
+        let len = self.regs.a1;
 
         if addr != 0 {
             // Just map at any address that has the required size
@@ -362,217 +362,29 @@ impl LinuxSyscalls for LinuxRV64 {
                     .mem
                     .map_memory(addrs.start, len as usize, Perm::READ | Perm::WRITE);
                 if page.is_ok() {
-                    self.regs[Rv64Reg::a0] = addrs.start as u64;
+                    self.regs.a0 = addrs.start as u64;
                     return SyscallResult::Continue;
                 }
             }
-            self.regs[Rv64Reg::a0] = u64::MAX;
+            self.regs.a0 = u64::MAX;
             return SyscallResult::Continue;
         } else {
             let page = self
                 .mem
                 .map_memory(addr as usize, len as usize, Perm::READ | Perm::WRITE);
             if page.is_ok() {
-                self.regs[Rv64Reg::a0] = addr;
+                self.regs.a0 = addr;
                 return SyscallResult::Continue;
             }
-            self.regs[Rv64Reg::a0] = u64::MAX;
+            self.regs.a0 = u64::MAX;
             return SyscallResult::Continue;
         }
     }
 
     fn writev(&mut self) -> SyscallResult {
-        let _fd = self.regs[Rv64Reg::a0];
-        let _iov = self.regs[Rv64Reg::a1];
-        let _iocnt = self.regs[Rv64Reg::a2];
+        let _fd = self.regs.a0;
+        let _iov = self.regs.a1;
+        let _iocnt = self.regs.a2;
         SyscallResult::Continue
-    }
-}
-
-#[derive(Default, Clone, Copy, Debug)]
-pub struct Rv64State {
-    gregs: [u64; 32],
-}
-
-impl RegState for Rv64State {
-    type RegID = Rv64Reg;
-
-    fn read(&self, id: Self::RegID) -> ILVal {
-        ILVal::Quad(self[id])
-    }
-
-    fn write(&mut self, id: Self::RegID, val: &ILVal) {
-        self[id] = val.get_quad()
-    }
-}
-
-impl Index<Rv64Reg> for Rv64State {
-    type Output = u64;
-
-    fn index(&self, reg: Rv64Reg) -> &u64 {
-        match reg {
-            Rv64Reg::zero => &0,
-            Rv64Reg::ra
-            | Rv64Reg::sp
-            | Rv64Reg::gp
-            | Rv64Reg::tp
-            | Rv64Reg::t0
-            | Rv64Reg::t1
-            | Rv64Reg::t2
-            | Rv64Reg::s0
-            | Rv64Reg::s1
-            | Rv64Reg::a0
-            | Rv64Reg::a1
-            | Rv64Reg::a2
-            | Rv64Reg::a3
-            | Rv64Reg::a4
-            | Rv64Reg::a5
-            | Rv64Reg::a6
-            | Rv64Reg::a7
-            | Rv64Reg::s2
-            | Rv64Reg::s3
-            | Rv64Reg::s4
-            | Rv64Reg::s5
-            | Rv64Reg::s6
-            | Rv64Reg::s7
-            | Rv64Reg::s8
-            | Rv64Reg::s9
-            | Rv64Reg::s10
-            | Rv64Reg::s11
-            | Rv64Reg::t3
-            | Rv64Reg::t4
-            | Rv64Reg::t5
-            | Rv64Reg::t6 => {
-                let idx = (reg as u32) as usize;
-                unsafe { self.gregs.get_unchecked(idx) }
-            }
-            _ => panic!("Trying to get floating point register from gpr get"),
-        }
-    }
-}
-
-impl IndexMut<Rv64Reg> for Rv64State {
-    fn index_mut(&mut self, reg: Rv64Reg) -> &mut u64 {
-        match reg {
-            // Setting zero is explicitly a no-op
-            Rv64Reg::zero
-            | Rv64Reg::ra
-            | Rv64Reg::sp
-            | Rv64Reg::gp
-            | Rv64Reg::tp
-            | Rv64Reg::t0
-            | Rv64Reg::t1
-            | Rv64Reg::t2
-            | Rv64Reg::s0
-            | Rv64Reg::s1
-            | Rv64Reg::a0
-            | Rv64Reg::a1
-            | Rv64Reg::a2
-            | Rv64Reg::a3
-            | Rv64Reg::a4
-            | Rv64Reg::a5
-            | Rv64Reg::a6
-            | Rv64Reg::a7
-            | Rv64Reg::s2
-            | Rv64Reg::s3
-            | Rv64Reg::s4
-            | Rv64Reg::s5
-            | Rv64Reg::s6
-            | Rv64Reg::s7
-            | Rv64Reg::s8
-            | Rv64Reg::s9
-            | Rv64Reg::s10
-            | Rv64Reg::s11
-            | Rv64Reg::t3
-            | Rv64Reg::t4
-            | Rv64Reg::t5
-            | Rv64Reg::t6 => {
-                let idx = (reg as u32) as usize;
-                unsafe { self.gregs.get_unchecked_mut(idx) }
-            }
-            _ => panic!("Trying to get floating point register from gpr get"),
-        }
-    }
-}
-
-#[allow(non_camel_case_types)]
-#[repr(u32)]
-#[derive(FromId, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Rv64Reg {
-    zero = 0,
-    ra = 1,
-    sp = 2,
-    gp = 3,
-    tp = 4,
-    t0 = 5,
-    t1 = 6,
-    t2 = 7,
-    s0 = 8,
-    s1 = 9,
-    a0 = 10,
-    a1 = 11,
-    a2 = 12,
-    a3 = 13,
-    a4 = 14,
-    a5 = 15,
-    a6 = 16,
-    a7 = 17,
-    s2 = 18,
-    s3 = 19,
-    s4 = 20,
-    s5 = 21,
-    s6 = 22,
-    s7 = 23,
-    s8 = 24,
-    s9 = 25,
-    s10 = 26,
-    s11 = 27,
-    t3 = 28,
-    t4 = 29,
-    t5 = 30,
-    t6 = 31,
-    ft0 = 32,
-    ft1 = 33,
-    ft2 = 34,
-    ft3 = 35,
-    ft4 = 36,
-    ft5 = 37,
-    ft6 = 38,
-    ft7 = 39,
-    fs0 = 40,
-    fs1 = 41,
-    fa0 = 42,
-    fa1 = 43,
-    fa2 = 44,
-    fa3 = 45,
-    fa4 = 46,
-    fa5 = 47,
-    fa6 = 48,
-    fa7 = 49,
-    fs2 = 50,
-    fs3 = 51,
-    fs4 = 52,
-    fs5 = 53,
-    fs6 = 54,
-    fs7 = 55,
-    fs8 = 56,
-    fs9 = 57,
-    fs10 = 58,
-    fs11 = 59,
-    ft8 = 60,
-    ft9 = 61,
-    ft10 = 62,
-    ft11 = 63,
-}
-
-impl std::fmt::Display for Rv64Reg {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", *self)
-    }
-}
-
-impl Register for Rv64Reg {
-    fn id(&self) -> u32 {
-        *self as u32
     }
 }
