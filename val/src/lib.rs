@@ -758,7 +758,11 @@ impl Shl for &ILVal {
             (ILVal::Quad(l), ILVal::Short(r)) => ILVal::Quad(l.unbounded_shl((*r & 63) as u32)),
             (ILVal::Quad(l), ILVal::Word(r)) => ILVal::Quad(l.unbounded_shl((*r & 63) as u32)),
             (ILVal::Quad(l), ILVal::Quad(r)) => ILVal::Quad(l.unbounded_shl((*r & 63) as u32)),
-            _ => panic!("Incompatible sizes for shift left operation"),
+            (ILVal::Big(l), ILVal::Byte(r)) => ILVal::Big(l << *r),
+            (ILVal::Big(l), ILVal::Short(r)) => ILVal::Big(l << *r),
+            (ILVal::Big(l), ILVal::Word(r)) => ILVal::Big(l << *r),
+            (ILVal::Big(l), ILVal::Quad(r)) => ILVal::Big(l << *r),
+            _ => panic!("Incompatible sizes for shift left operation: {self:?} << {rhs:?}"),
         }
     }
 }
@@ -778,7 +782,11 @@ impl Shr for &ILVal {
             (ILVal::Quad(l), ILVal::Short(r)) => ILVal::Quad(l.unbounded_shr((*r & 63) as u32)),
             (ILVal::Quad(l), ILVal::Word(r)) => ILVal::Quad(l.unbounded_shr((*r & 63) as u32)),
             (ILVal::Quad(l), ILVal::Quad(r)) => ILVal::Quad(l.unbounded_shr((*r & 63) as u32)),
-            _ => panic!("Incompatible sizes for shift right operation"),
+            (ILVal::Big(l), ILVal::Byte(r)) => ILVal::Big(l >> *r),
+            (ILVal::Big(l), ILVal::Short(r)) => ILVal::Big(l >> *r),
+            (ILVal::Big(l), ILVal::Word(r)) => ILVal::Big(l >> *r),
+            (ILVal::Big(l), ILVal::Quad(r)) => ILVal::Big(l >> *r),
+            _ => panic!("Incompatible sizes for shift right operation: {self:?} >> {rhs:?}"),
         }
     }
 }
