@@ -16,7 +16,7 @@
 use crate::ILVal;
 
 use std::fmt::{Debug, LowerHex, UpperHex};
-use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Shl, Sub};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Shl, Shr, Sub};
 
 /// Big integer type that can represent any number of bytes.
 ///
@@ -384,6 +384,52 @@ big_shl!(u16);
 big_shl!(u32);
 big_shl!(u64);
 
+macro_rules! big_shr {
+    ($integer:ty) => {
+        impl Shr<$integer> for &Big {
+            type Output = Big;
+
+            fn shr(self, rhs: $integer) -> Big {
+                if rhs == 0 {
+                    return self.clone();
+                }
+
+                let mut shifted = self.0.clone();
+
+                let byte_shift = (rhs / 8) as usize;
+                let bit_shift = (rhs % 8) as u8;
+
+                if byte_shift > 0 {
+                    for idx in 0..(shifted.len() - byte_shift) {
+                        shifted[idx] = shifted[idx + byte_shift];
+                    }
+
+                    for idx in (shifted.len() - byte_shift)..(shifted.len()) {
+                        shifted[idx] = 0;
+                    }
+                }
+
+                if bit_shift > 0 {
+                    let mut carry = 0;
+
+                    for val in shifted.iter_mut().rev() {
+                        let new_carry = (*val & ((1 << bit_shift) - 1)) << (8 - bit_shift);
+                        *val = (*val >> bit_shift) | carry;
+                        carry = new_carry;
+                    }
+                }
+
+                Big(shifted)
+            }
+        }
+    };
+}
+
+big_shr!(u8);
+big_shr!(u16);
+big_shr!(u32);
+big_shr!(u64);
+
 impl BitAnd for &Big {
     type Output = Big;
 
@@ -560,5 +606,12 @@ mod test {
         let small = Big::from([0xff, 0x10]);
         let small_shift = &small << 2_u8;
         assert_eq!(small_shift, [0b11111100, 0x43]);
+    }
+
+    #[test]
+    fn shift_right() {
+        let small = Big::from([0x0f, 0xff]);
+        let small_shift = &small >> 2_u8;
+        assert_eq!(small_shift, [0b11000011, 0b00111111]);
     }
 }
