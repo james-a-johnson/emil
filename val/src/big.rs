@@ -16,7 +16,7 @@
 use crate::ILVal;
 
 use std::fmt::{Debug, LowerHex, UpperHex};
-use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Sub};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Shl, Sub};
 
 /// Big integer type that can represent any number of bytes.
 ///
@@ -336,6 +336,54 @@ impl Neg for &Big {
     }
 }
 
+macro_rules! big_shl {
+    ($integer:ty) => {
+        impl Shl<$integer> for &Big {
+            type Output = Big;
+
+            fn shl(self, rhs: $integer) -> Big {
+                if rhs == 0 {
+                    return self.clone();
+                }
+
+                let mut shifted = self.0.clone();
+
+                let byte_shift = (rhs / 8) as usize;
+                let bit_shift = (rhs % 8) as u8;
+
+                if byte_shift > 0 {
+                    let mut idx = self.0.len() - 1;
+                    while idx >= byte_shift {
+                        shifted[idx] = shifted[idx - byte_shift];
+                        idx -= 1;
+                    }
+
+                    for idx in 0..(byte_shift - 1) {
+                        shifted[idx] = 0;
+                    }
+                }
+
+                if bit_shift > 0 {
+                    let mut carry = 0;
+
+                    for val in &mut shifted {
+                        let new_carry = *val >> (8 - bit_shift);
+                        *val = (*val << bit_shift) | carry;
+                        carry = new_carry;
+                    }
+                }
+
+                Big(shifted)
+            }
+        }
+    };
+}
+
+big_shl!(u8);
+big_shl!(u16);
+big_shl!(u32);
+big_shl!(u64);
+
 impl BitAnd for &Big {
     type Output = Big;
 
@@ -505,5 +553,12 @@ mod test {
         let neg = -&value;
         assert_eq!(not, [0xff, 0x00, 0xfe]);
         assert_eq!(neg, [0x00, 0x01, 0xfe]);
+    }
+
+    #[test]
+    fn shift_left() {
+        let small = Big::from([0xff, 0x10]);
+        let small_shift = &small << 2_u8;
+        assert_eq!(small_shift, [0b11111100, 0x43]);
     }
 }
