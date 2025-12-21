@@ -14,7 +14,10 @@ use std::collections::{HashMap, VecDeque};
 use std::ffi::{CString, OsString};
 use std::fs::OpenOptions;
 use std::ops::Range;
+#[cfg(unix)]
 use std::os::unix::ffi::OsStringExt;
+#[cfg(windows)]
+use std::os::windows::ffi::OsStringExt;
 use std::path::PathBuf;
 
 pub use regs::aarch64::{aarch64Reg as Arm64Reg, aarch64RegFile as Arm64State};
@@ -688,15 +691,15 @@ impl LinuxSyscalls for LinuxArm64 {
                 self.regs.x0 = (-14_i64) as u64;
                 return SyscallResult::Continue;
             }
+            path.push(buf[0]);
+            path_addr += 1;
             if buf[0] == 0 {
                 break;
             }
-            path.push(buf[0]);
-            path_addr += 1;
         }
 
-        let string = OsString::from_vec(path);
-        let path = PathBuf::from(string);
+        let os_str = parse_path(path);
+        let path = PathBuf::from(os_str);
 
         let mut open_options = OpenOptions::new();
         match options & 0b11 {
@@ -746,3 +749,19 @@ impl LinuxSyscalls for LinuxArm64 {
         SyscallResult::Continue
     }
 }
+
+#[cfg(unix)]
+#[inline]
+fn parse_path(bytes: Vec<u8>) -> OsString {
+    OsString::from_vec(bytes)
+}
+
+#[cfg(windows)]
+#[inline]
+fn parse_path(bytes: Vec<u8>) -> OsString {
+    let data = bytes.into_iter().map(|b| b as u16).collect::<Vec<u16>>();
+    OsString::from_wide(&data)
+}
+
+#[cfg(not(any(unix, windows)))]
+compile_error!("Host os not supported yet");

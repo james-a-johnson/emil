@@ -19,3 +19,6 @@ issue where the `echo` program stopped working. It worked on
 
 git bisect told me the commit `183ef5e2f0ba6124efac98efba67757f1e8b2aa9` broke it.
 That doesn't seem to be relevant at all so not sure what happened.
+
+Make sure the tag used for the binary ninja rust dependency matches the version of
+binary ninja that is being used. Otherwise really weird errors will occur.
