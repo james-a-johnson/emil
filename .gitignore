@@ -22,3 +22,6 @@ Cargo.lock
 #.idea/
 
 **/*.bndb
+
+# Cmake build stuff
+**/build/
