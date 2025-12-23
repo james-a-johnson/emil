@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 
 project(emil CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 set(HEADLESS 0)
 set(CMAKE_CXX_STANDARD 20)
 
