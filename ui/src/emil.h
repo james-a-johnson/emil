@@ -7,10 +7,13 @@ class EmilSidebarWidget : public SidebarWidget {
     Q_OBJECT
     BinaryViewRef m_data;
     ViewFrame *m_currentFrame;
+    QWidget *m_headerWidget;
 
 public:
     explicit EmilSidebarWidget(BinaryViewRef data);
     ~EmilSidebarWidget() override;
+
+    void notifyRefresh() override;
 };
 
 class EmilSidebarWidgetType : public SidebarWidgetType {
