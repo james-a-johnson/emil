@@ -1429,7 +1429,7 @@ impl RegState for x86RegFile {
 
 pub mod gdb {
 	use super::*;
-	use gdbstub::arch::{RegId, Registers};
+	use gdbstub::arch::{Arch, RegId, Registers};
 	use std::num::NonZeroUsize;
 
 	impl RegId for x86Reg {
@@ -1640,6 +1640,124 @@ pub mod gdb {
 			self.xmm6.copy_from_slice(&bytes[572..][..16]);
 			self.xmm7.copy_from_slice(&bytes[588..][..16]);
 			Ok(())
+		}
+	}
+
+	#[derive(Clone, Copy, Debug, Hash)]
+	pub enum x86Arch {}
+	
+	impl x86Arch {
+		pub const XML: &'static str = r#"
+			<?xml version="1.0"?>
+			<!DOCTYPE target SYSTEM "gdb-target.dtd">
+			<target version="1.0">
+				<architecture>x86</architecture>
+				<feature name="emil.x86.core">
+					<reg name="bnd0" bitsize="128" regnum="3 />
+					<reg name="bnd1" bitsize="128" regnum="4 />
+					<reg name="bnd2" bitsize="128" regnum="5 />
+					<reg name="bnd3" bitsize="128" regnum="6 />
+					<reg name="cr0" bitsize="32" regnum="7 />
+					<reg name="cr1" bitsize="32" regnum="8 />
+					<reg name="cr10" bitsize="32" regnum="17 />
+					<reg name="cr11" bitsize="32" regnum="18 />
+					<reg name="cr12" bitsize="32" regnum="19 />
+					<reg name="cr13" bitsize="32" regnum="20 />
+					<reg name="cr14" bitsize="32" regnum="21 />
+					<reg name="cr15" bitsize="32" regnum="22 />
+					<reg name="cr2" bitsize="32" regnum="9 />
+					<reg name="cr3" bitsize="32" regnum="10 />
+					<reg name="cr4" bitsize="32" regnum="11 />
+					<reg name="cr5" bitsize="32" regnum="12 />
+					<reg name="cr6" bitsize="32" regnum="13 />
+					<reg name="cr7" bitsize="32" regnum="14 />
+					<reg name="cr8" bitsize="32" regnum="15 />
+					<reg name="cr9" bitsize="32" regnum="16 />
+					<reg name="cs" bitsize="16" regnum="230 />
+					<reg name="dr0" bitsize="32" regnum="23 />
+					<reg name="dr1" bitsize="32" regnum="24 />
+					<reg name="dr2" bitsize="32" regnum="25 />
+					<reg name="dr3" bitsize="32" regnum="26 />
+					<reg name="dr4" bitsize="32" regnum="27 />
+					<reg name="dr5" bitsize="32" regnum="28 />
+					<reg name="dr6" bitsize="32" regnum="29 />
+					<reg name="dr7" bitsize="32" regnum="30 />
+					<reg name="ds" bitsize="16" regnum="232 />
+					<reg name="eax" bitsize="32" regnum="66 />
+					<reg name="ebp" bitsize="32" regnum="71 />
+					<reg name="ebx" bitsize="32" regnum="69 />
+					<reg name="ecx" bitsize="32" regnum="67 />
+					<reg name="edi" bitsize="32" regnum="73 />
+					<reg name="edx" bitsize="32" regnum="68 />
+					<reg name="eflags" bitsize="32" regnum="32 />
+					<reg name="eip" bitsize="32" regnum="168 />
+					<reg name="emil_pc" bitsize="32" regnum="4105 />
+					<reg name="es" bitsize="16" regnum="229 />
+					<reg name="esi" bitsize="32" regnum="72 />
+					<reg name="esp" bitsize="32" regnum="70 />
+					<reg name="fs" bitsize="16" regnum="233 />
+					<reg name="fsbase" bitsize="32" regnum="198 />
+					<reg name="gdtr" bitsize="48" regnum="191 />
+					<reg name="gs" bitsize="16" regnum="234 />
+					<reg name="gsbase" bitsize="32" regnum="199 />
+					<reg name="idtr" bitsize="48" regnum="193 />
+					<reg name="ldtr" bitsize="48" regnum="192 />
+					<reg name="msrs" bitsize="64" regnum="197 />
+					<reg name="mxcsr" bitsize="32" regnum="188 />
+					<reg name="rflags" bitsize="64" regnum="33 />
+					<reg name="ss" bitsize="16" regnum="231 />
+					<reg name="st0" bitsize="80" regnum="260 />
+					<reg name="st1" bitsize="80" regnum="261 />
+					<reg name="st2" bitsize="80" regnum="262 />
+					<reg name="st3" bitsize="80" regnum="263 />
+					<reg name="st4" bitsize="80" regnum="264 />
+					<reg name="st5" bitsize="80" regnum="265 />
+					<reg name="st6" bitsize="80" regnum="266 />
+					<reg name="st7" bitsize="80" regnum="267 />
+					<reg name="top" bitsize="16" regnum="4104 />
+					<reg name="tr" bitsize="32" regnum="194 />
+					<reg name="tsc" bitsize="32" regnum="195 />
+					<reg name="tscaux" bitsize="32" regnum="196 />
+					<reg name="x87_r0" bitsize="80" regnum="4096 />
+					<reg name="x87_r1" bitsize="80" regnum="4097 />
+					<reg name="x87_r2" bitsize="80" regnum="4098 />
+					<reg name="x87_r3" bitsize="80" regnum="4099 />
+					<reg name="x87_r4" bitsize="80" regnum="4100 />
+					<reg name="x87_r5" bitsize="80" regnum="4101 />
+					<reg name="x87_r6" bitsize="80" regnum="4102 />
+					<reg name="x87_r7" bitsize="80" regnum="4103 />
+					<reg name="x87control" bitsize="16" regnum="218 />
+					<reg name="x87lastcs" bitsize="16" regnum="225 />
+					<reg name="x87lastdp" bitsize="32" regnum="228 />
+					<reg name="x87lastds" bitsize="16" regnum="227 />
+					<reg name="x87lastip" bitsize="32" regnum="226 />
+					<reg name="x87opcode" bitsize="16" regnum="224 />
+					<reg name="x87pop" bitsize="32" regnum="222 />
+					<reg name="x87pop2" bitsize="32" regnum="223 />
+					<reg name="x87push" bitsize="32" regnum="221 />
+					<reg name="x87status" bitsize="16" regnum="219 />
+					<reg name="x87tag" bitsize="16" regnum="220 />
+					<reg name="xcr0" bitsize="64" regnum="268 />
+					<reg name="xmm0" bitsize="128" regnum="269 />
+					<reg name="xmm1" bitsize="128" regnum="270 />
+					<reg name="xmm2" bitsize="128" regnum="271 />
+					<reg name="xmm3" bitsize="128" regnum="272 />
+					<reg name="xmm4" bitsize="128" regnum="273 />
+					<reg name="xmm5" bitsize="128" regnum="274 />
+					<reg name="xmm6" bitsize="128" regnum="275 />
+					<reg name="xmm7" bitsize="128" regnum="276 />
+				</feature>
+			</target>
+		"#;
+	}
+	
+	impl Arch for x86Arch {
+		type Usize = u32;
+		type Registers = x86RegFile;
+		type BreakpointKind = ();
+		type RegId = x86Reg;
+		fn target_description_xml() -> Option<&'static str> {
+			Some(Self::XML)
 		}
 	}
 }

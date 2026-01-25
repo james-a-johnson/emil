@@ -457,6 +457,57 @@ def gen_registers_trait(arch: Architecture) -> str:
     return impl
 
 
+def gen_gdb_xml(arch: Architecture) -> str:
+    xml = '<?xml version="1.0"?>\n<!DOCTYPE target SYSTEM "gdb-target.dtd">\n<target version="1.0">\n'
+    xml += f"\t<architecture>{arch}</architecture>\n"
+    xml += f'\t<feature name="emil.{arch}.core">\n'
+    for reg in arch.full_size:
+        xml += (
+            f'\t\t<reg name="{reg}" bitsize="{reg.size * 8}" regnum="{reg.index} />\n'
+        )
+    xml += "\t</feature>\n"
+    xml += "</target>\n"
+    return xml
+
+
+def gen_gdb_arch(arch: Architecture) -> str:
+    impl = ""
+    impl += "#[derive(Clone, Copy, Debug, Hash)]\n"
+    impl += f"pub enum {arch}Arch {{}}\n\n"
+    xml = gen_gdb_xml(arch)
+    impl += f"impl {arch}Arch {{\n"
+    impl += "\tpub const XML: &'static str = r#\"\n"
+    for xml_line in xml.splitlines():
+        impl += f"\t\t{xml_line}\n"
+    impl += '\t"#;\n'
+    impl += "}\n\n"
+    impl += f"impl Arch for {arch}Arch {{\n"
+    match arch.usize:
+        case 1:
+            impl += "\ttype Usize = u8;\n"
+        case 2:
+            impl += "\ttype Usize = u16;\n"
+        case 4:
+            impl += "\ttype Usize = u32;\n"
+        case 8:
+            impl += "\ttype Usize = u64;\n"
+        case _:
+            raise ValueError(
+                f"Don't support emulating architectures where usize is {arch.usize} bytes"
+            )
+    impl += f"\ttype Registers = {arch}RegFile;\n"
+    impl += "\ttype BreakpointKind = ();\n"
+    impl += f"\ttype RegId = {arch}Reg;\n"
+
+    impl += "\tfn target_description_xml() -> Option<&'static str> {\n"
+    impl += "\t\tSome(Self::XML)\n"
+    impl += "\t}\n"
+
+    impl += "}"
+
+    return impl
+
+
 def gen_gdb_info(arch: Architecture, file):
     """Add the gdb module to the architecture description.
 
@@ -464,7 +515,7 @@ def gen_gdb_info(arch: Architecture, file):
     """
     file.write("pub mod gdb {\n")
     file.write("\tuse super::*;\n")
-    file.write("\tuse gdbstub::arch::{RegId, Registers};\n")
+    file.write("\tuse gdbstub::arch::{Arch, RegId, Registers};\n")
     file.write("\tuse std::num::NonZeroUsize;\n\n")
     reg_id_impl = gen_regid_trait(arch)
     for impl_line in reg_id_impl.splitlines():
@@ -473,6 +524,11 @@ def gen_gdb_info(arch: Architecture, file):
 
     regs_impl = gen_registers_trait(arch)
     for impl_line in regs_impl.splitlines():
+        file.write(f"\t{impl_line}\n")
+    file.write("\n")
+
+    arch_impl = gen_gdb_arch(arch)
+    for impl_line in arch_impl.splitlines():
         file.write(f"\t{impl_line}\n")
     file.write("}\n")
 

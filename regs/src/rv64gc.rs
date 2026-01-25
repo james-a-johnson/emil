@@ -705,7 +705,7 @@ impl RegState for rv64gcRegFile {
 
 pub mod gdb {
 	use super::*;
-	use gdbstub::arch::{RegId, Registers};
+	use gdbstub::arch::{Arch, RegId, Registers};
 	use std::num::NonZeroUsize;
 
 	impl RegId for rv64gcReg {
@@ -860,6 +860,96 @@ pub mod gdb {
 			self.tp = u64::from_le_bytes(bytes[504..][..8].try_into().unwrap());
 			self.zero = u64::from_le_bytes(bytes[512..][..8].try_into().unwrap());
 			Ok(())
+		}
+	}
+
+	#[derive(Clone, Copy, Debug, Hash)]
+	pub enum rv64gcArch {}
+	
+	impl rv64gcArch {
+		pub const XML: &'static str = r#"
+			<?xml version="1.0"?>
+			<!DOCTYPE target SYSTEM "gdb-target.dtd">
+			<target version="1.0">
+				<architecture>rv64gc</architecture>
+				<feature name="emil.rv64gc.core">
+					<reg name="a0" bitsize="64" regnum="10 />
+					<reg name="a1" bitsize="64" regnum="11 />
+					<reg name="a2" bitsize="64" regnum="12 />
+					<reg name="a3" bitsize="64" regnum="13 />
+					<reg name="a4" bitsize="64" regnum="14 />
+					<reg name="a5" bitsize="64" regnum="15 />
+					<reg name="a6" bitsize="64" regnum="16 />
+					<reg name="a7" bitsize="64" regnum="17 />
+					<reg name="emil_pc" bitsize="64" regnum="64 />
+					<reg name="fa0" bitsize="64" regnum="42 />
+					<reg name="fa1" bitsize="64" regnum="43 />
+					<reg name="fa2" bitsize="64" regnum="44 />
+					<reg name="fa3" bitsize="64" regnum="45 />
+					<reg name="fa4" bitsize="64" regnum="46 />
+					<reg name="fa5" bitsize="64" regnum="47 />
+					<reg name="fa6" bitsize="64" regnum="48 />
+					<reg name="fa7" bitsize="64" regnum="49 />
+					<reg name="fs0" bitsize="64" regnum="40 />
+					<reg name="fs1" bitsize="64" regnum="41 />
+					<reg name="fs10" bitsize="64" regnum="58 />
+					<reg name="fs11" bitsize="64" regnum="59 />
+					<reg name="fs2" bitsize="64" regnum="50 />
+					<reg name="fs3" bitsize="64" regnum="51 />
+					<reg name="fs4" bitsize="64" regnum="52 />
+					<reg name="fs5" bitsize="64" regnum="53 />
+					<reg name="fs6" bitsize="64" regnum="54 />
+					<reg name="fs7" bitsize="64" regnum="55 />
+					<reg name="fs8" bitsize="64" regnum="56 />
+					<reg name="fs9" bitsize="64" regnum="57 />
+					<reg name="ft0" bitsize="64" regnum="32 />
+					<reg name="ft1" bitsize="64" regnum="33 />
+					<reg name="ft10" bitsize="64" regnum="62 />
+					<reg name="ft11" bitsize="64" regnum="63 />
+					<reg name="ft2" bitsize="64" regnum="34 />
+					<reg name="ft3" bitsize="64" regnum="35 />
+					<reg name="ft4" bitsize="64" regnum="36 />
+					<reg name="ft5" bitsize="64" regnum="37 />
+					<reg name="ft6" bitsize="64" regnum="38 />
+					<reg name="ft7" bitsize="64" regnum="39 />
+					<reg name="ft8" bitsize="64" regnum="60 />
+					<reg name="ft9" bitsize="64" regnum="61 />
+					<reg name="gp" bitsize="64" regnum="3 />
+					<reg name="ra" bitsize="64" regnum="1 />
+					<reg name="s0" bitsize="64" regnum="8 />
+					<reg name="s1" bitsize="64" regnum="9 />
+					<reg name="s10" bitsize="64" regnum="26 />
+					<reg name="s11" bitsize="64" regnum="27 />
+					<reg name="s2" bitsize="64" regnum="18 />
+					<reg name="s3" bitsize="64" regnum="19 />
+					<reg name="s4" bitsize="64" regnum="20 />
+					<reg name="s5" bitsize="64" regnum="21 />
+					<reg name="s6" bitsize="64" regnum="22 />
+					<reg name="s7" bitsize="64" regnum="23 />
+					<reg name="s8" bitsize="64" regnum="24 />
+					<reg name="s9" bitsize="64" regnum="25 />
+					<reg name="sp" bitsize="64" regnum="2 />
+					<reg name="t0" bitsize="64" regnum="5 />
+					<reg name="t1" bitsize="64" regnum="6 />
+					<reg name="t2" bitsize="64" regnum="7 />
+					<reg name="t3" bitsize="64" regnum="28 />
+					<reg name="t4" bitsize="64" regnum="29 />
+					<reg name="t5" bitsize="64" regnum="30 />
+					<reg name="t6" bitsize="64" regnum="31 />
+					<reg name="tp" bitsize="64" regnum="4 />
+					<reg name="zero" bitsize="64" regnum="0 />
+				</feature>
+			</target>
+		"#;
+	}
+	
+	impl Arch for rv64gcArch {
+		type Usize = u64;
+		type Registers = rv64gcRegFile;
+		type BreakpointKind = ();
+		type RegId = rv64gcReg;
+		fn target_description_xml() -> Option<&'static str> {
+			Some(Self::XML)
 		}
 	}
 }

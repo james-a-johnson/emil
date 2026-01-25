@@ -3237,7 +3237,7 @@ impl RegState for x86_64RegFile {
 
 pub mod gdb {
 	use super::*;
-	use gdbstub::arch::{RegId, Registers};
+	use gdbstub::arch::{Arch, RegId, Registers};
 	use std::num::NonZeroUsize;
 
 	impl RegId for x86_64Reg {
@@ -3532,6 +3532,166 @@ pub mod gdb {
 			self.zmm8.copy_from_slice(&bytes[2724..][..64]);
 			self.zmm9.copy_from_slice(&bytes[2788..][..64]);
 			Ok(())
+		}
+	}
+
+	#[derive(Clone, Copy, Debug, Hash)]
+	pub enum x86_64Arch {}
+	
+	impl x86_64Arch {
+		pub const XML: &'static str = r#"
+			<?xml version="1.0"?>
+			<!DOCTYPE target SYSTEM "gdb-target.dtd">
+			<target version="1.0">
+				<architecture>x86_64</architecture>
+				<feature name="emil.x86_64.core">
+					<reg name="bnd0" bitsize="128" regnum="3 />
+					<reg name="bnd1" bitsize="128" regnum="4 />
+					<reg name="bnd2" bitsize="128" regnum="5 />
+					<reg name="bnd3" bitsize="128" regnum="6 />
+					<reg name="bndcfgu" bitsize="64" regnum="1 />
+					<reg name="bndstatus" bitsize="64" regnum="2 />
+					<reg name="cr0" bitsize="64" regnum="7 />
+					<reg name="cr1" bitsize="64" regnum="8 />
+					<reg name="cr10" bitsize="64" regnum="17 />
+					<reg name="cr11" bitsize="64" regnum="18 />
+					<reg name="cr12" bitsize="64" regnum="19 />
+					<reg name="cr13" bitsize="64" regnum="20 />
+					<reg name="cr14" bitsize="64" regnum="21 />
+					<reg name="cr15" bitsize="64" regnum="22 />
+					<reg name="cr2" bitsize="64" regnum="9 />
+					<reg name="cr3" bitsize="64" regnum="10 />
+					<reg name="cr4" bitsize="64" regnum="11 />
+					<reg name="cr5" bitsize="64" regnum="12 />
+					<reg name="cr6" bitsize="64" regnum="13 />
+					<reg name="cr7" bitsize="64" regnum="14 />
+					<reg name="cr8" bitsize="64" regnum="15 />
+					<reg name="cr9" bitsize="64" regnum="16 />
+					<reg name="cs" bitsize="16" regnum="230 />
+					<reg name="dr0" bitsize="64" regnum="23 />
+					<reg name="dr1" bitsize="64" regnum="24 />
+					<reg name="dr2" bitsize="64" regnum="25 />
+					<reg name="dr3" bitsize="64" regnum="26 />
+					<reg name="dr4" bitsize="64" regnum="27 />
+					<reg name="dr5" bitsize="64" regnum="28 />
+					<reg name="dr6" bitsize="64" regnum="29 />
+					<reg name="dr7" bitsize="64" regnum="30 />
+					<reg name="ds" bitsize="16" regnum="232 />
+					<reg name="emil_pc" bitsize="64" regnum="4105 />
+					<reg name="es" bitsize="16" regnum="229 />
+					<reg name="fs" bitsize="16" regnum="233 />
+					<reg name="fsbase" bitsize="64" regnum="198 />
+					<reg name="gdtr" bitsize="48" regnum="191 />
+					<reg name="gs" bitsize="16" regnum="234 />
+					<reg name="gsbase" bitsize="64" regnum="199 />
+					<reg name="idtr" bitsize="48" regnum="193 />
+					<reg name="k0" bitsize="64" regnum="170 />
+					<reg name="k1" bitsize="64" regnum="171 />
+					<reg name="k2" bitsize="64" regnum="172 />
+					<reg name="k3" bitsize="64" regnum="173 />
+					<reg name="k4" bitsize="64" regnum="174 />
+					<reg name="k5" bitsize="64" regnum="175 />
+					<reg name="k6" bitsize="64" regnum="176 />
+					<reg name="k7" bitsize="64" regnum="177 />
+					<reg name="ldtr" bitsize="48" regnum="192 />
+					<reg name="msrs" bitsize="64" regnum="197 />
+					<reg name="mxcsr" bitsize="64" regnum="188 />
+					<reg name="r10" bitsize="64" regnum="108 />
+					<reg name="r11" bitsize="64" regnum="109 />
+					<reg name="r12" bitsize="64" regnum="110 />
+					<reg name="r13" bitsize="64" regnum="111 />
+					<reg name="r14" bitsize="64" regnum="112 />
+					<reg name="r15" bitsize="64" regnum="113 />
+					<reg name="r8" bitsize="64" regnum="106 />
+					<reg name="r9" bitsize="64" regnum="107 />
+					<reg name="rax" bitsize="64" regnum="98 />
+					<reg name="rbp" bitsize="64" regnum="103 />
+					<reg name="rbx" bitsize="64" regnum="101 />
+					<reg name="rcx" bitsize="64" regnum="99 />
+					<reg name="rdi" bitsize="64" regnum="105 />
+					<reg name="rdx" bitsize="64" regnum="100 />
+					<reg name="rflags" bitsize="64" regnum="33 />
+					<reg name="rip" bitsize="64" regnum="167 />
+					<reg name="rsi" bitsize="64" regnum="104 />
+					<reg name="rsp" bitsize="64" regnum="102 />
+					<reg name="ss" bitsize="16" regnum="231 />
+					<reg name="ssp" bitsize="64" regnum="186 />
+					<reg name="st0" bitsize="80" regnum="260 />
+					<reg name="st1" bitsize="80" regnum="261 />
+					<reg name="st2" bitsize="80" regnum="262 />
+					<reg name="st3" bitsize="80" regnum="263 />
+					<reg name="st4" bitsize="80" regnum="264 />
+					<reg name="st5" bitsize="80" regnum="265 />
+					<reg name="st6" bitsize="80" regnum="266 />
+					<reg name="st7" bitsize="80" regnum="267 />
+					<reg name="top" bitsize="16" regnum="4104 />
+					<reg name="tr" bitsize="64" regnum="194 />
+					<reg name="tsc" bitsize="64" regnum="195 />
+					<reg name="tscaux" bitsize="64" regnum="196 />
+					<reg name="x87_r0" bitsize="80" regnum="4096 />
+					<reg name="x87_r1" bitsize="80" regnum="4097 />
+					<reg name="x87_r2" bitsize="80" regnum="4098 />
+					<reg name="x87_r3" bitsize="80" regnum="4099 />
+					<reg name="x87_r4" bitsize="80" regnum="4100 />
+					<reg name="x87_r5" bitsize="80" regnum="4101 />
+					<reg name="x87_r6" bitsize="80" regnum="4102 />
+					<reg name="x87_r7" bitsize="80" regnum="4103 />
+					<reg name="x87control" bitsize="16" regnum="218 />
+					<reg name="x87lastcs" bitsize="16" regnum="225 />
+					<reg name="x87lastdp" bitsize="64" regnum="228 />
+					<reg name="x87lastds" bitsize="16" regnum="227 />
+					<reg name="x87lastip" bitsize="64" regnum="226 />
+					<reg name="x87opcode" bitsize="16" regnum="224 />
+					<reg name="x87pop" bitsize="64" regnum="222 />
+					<reg name="x87pop2" bitsize="64" regnum="223 />
+					<reg name="x87push" bitsize="64" regnum="221 />
+					<reg name="x87status" bitsize="16" regnum="219 />
+					<reg name="x87tag" bitsize="16" regnum="220 />
+					<reg name="xcr0" bitsize="64" regnum="268 />
+					<reg name="zmm0" bitsize="512" regnum="333 />
+					<reg name="zmm1" bitsize="512" regnum="334 />
+					<reg name="zmm10" bitsize="512" regnum="343 />
+					<reg name="zmm11" bitsize="512" regnum="344 />
+					<reg name="zmm12" bitsize="512" regnum="345 />
+					<reg name="zmm13" bitsize="512" regnum="346 />
+					<reg name="zmm14" bitsize="512" regnum="347 />
+					<reg name="zmm15" bitsize="512" regnum="348 />
+					<reg name="zmm16" bitsize="512" regnum="349 />
+					<reg name="zmm17" bitsize="512" regnum="350 />
+					<reg name="zmm18" bitsize="512" regnum="351 />
+					<reg name="zmm19" bitsize="512" regnum="352 />
+					<reg name="zmm2" bitsize="512" regnum="335 />
+					<reg name="zmm20" bitsize="512" regnum="353 />
+					<reg name="zmm21" bitsize="512" regnum="354 />
+					<reg name="zmm22" bitsize="512" regnum="355 />
+					<reg name="zmm23" bitsize="512" regnum="356 />
+					<reg name="zmm24" bitsize="512" regnum="357 />
+					<reg name="zmm25" bitsize="512" regnum="358 />
+					<reg name="zmm26" bitsize="512" regnum="359 />
+					<reg name="zmm27" bitsize="512" regnum="360 />
+					<reg name="zmm28" bitsize="512" regnum="361 />
+					<reg name="zmm29" bitsize="512" regnum="362 />
+					<reg name="zmm3" bitsize="512" regnum="336 />
+					<reg name="zmm30" bitsize="512" regnum="363 />
+					<reg name="zmm31" bitsize="512" regnum="364 />
+					<reg name="zmm4" bitsize="512" regnum="337 />
+					<reg name="zmm5" bitsize="512" regnum="338 />
+					<reg name="zmm6" bitsize="512" regnum="339 />
+					<reg name="zmm7" bitsize="512" regnum="340 />
+					<reg name="zmm8" bitsize="512" regnum="341 />
+					<reg name="zmm9" bitsize="512" regnum="342 />
+				</feature>
+			</target>
+		"#;
+	}
+	
+	impl Arch for x86_64Arch {
+		type Usize = u64;
+		type Registers = x86_64RegFile;
+		type BreakpointKind = ();
+		type RegId = x86_64Reg;
+		fn target_description_xml() -> Option<&'static str> {
+			Some(Self::XML)
 		}
 	}
 }

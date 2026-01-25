@@ -14613,7 +14613,7 @@ impl RegState for aarch64RegFile {
 
 pub mod gdb {
 	use super::*;
-	use gdbstub::arch::{RegId, Registers};
+	use gdbstub::arch::{Arch, RegId, Registers};
 	use std::num::NonZeroUsize;
 
 	impl RegId for aarch64Reg {
@@ -14836,6 +14836,130 @@ pub mod gdb {
 			self.x8 = u64::from_le_bytes(bytes[1796..][..8].try_into().unwrap());
 			self.x9 = u64::from_le_bytes(bytes[1804..][..8].try_into().unwrap());
 			Ok(())
+		}
+	}
+
+	#[derive(Clone, Copy, Debug, Hash)]
+	pub enum aarch64Arch {}
+	
+	impl aarch64Arch {
+		pub const XML: &'static str = r#"
+			<?xml version="1.0"?>
+			<!DOCTYPE target SYSTEM "gdb-target.dtd">
+			<target version="1.0">
+				<architecture>aarch64</architecture>
+				<feature name="emil.aarch64.core">
+					<reg name="emil_pc" bitsize="64" regnum="65535 />
+					<reg name="fp" bitsize="64" regnum="63 />
+					<reg name="lr" bitsize="64" regnum="64 />
+					<reg name="p0" bitsize="256" regnum="1251 />
+					<reg name="p1" bitsize="256" regnum="1252 />
+					<reg name="p10" bitsize="256" regnum="1261 />
+					<reg name="p11" bitsize="256" regnum="1262 />
+					<reg name="p12" bitsize="256" regnum="1263 />
+					<reg name="p13" bitsize="256" regnum="1264 />
+					<reg name="p14" bitsize="256" regnum="1265 />
+					<reg name="p15" bitsize="256" regnum="1266 />
+					<reg name="p16" bitsize="256" regnum="1267 />
+					<reg name="p17" bitsize="256" regnum="1268 />
+					<reg name="p18" bitsize="256" regnum="1269 />
+					<reg name="p19" bitsize="256" regnum="1270 />
+					<reg name="p2" bitsize="256" regnum="1253 />
+					<reg name="p20" bitsize="256" regnum="1271 />
+					<reg name="p21" bitsize="256" regnum="1272 />
+					<reg name="p22" bitsize="256" regnum="1273 />
+					<reg name="p23" bitsize="256" regnum="1274 />
+					<reg name="p24" bitsize="256" regnum="1275 />
+					<reg name="p25" bitsize="256" regnum="1276 />
+					<reg name="p26" bitsize="256" regnum="1277 />
+					<reg name="p27" bitsize="256" regnum="1278 />
+					<reg name="p28" bitsize="256" regnum="1279 />
+					<reg name="p29" bitsize="256" regnum="1280 />
+					<reg name="p3" bitsize="256" regnum="1254 />
+					<reg name="p30" bitsize="256" regnum="1281 />
+					<reg name="p31" bitsize="256" regnum="1282 />
+					<reg name="p4" bitsize="256" regnum="1255 />
+					<reg name="p5" bitsize="256" regnum="1256 />
+					<reg name="p6" bitsize="256" regnum="1257 />
+					<reg name="p7" bitsize="256" regnum="1258 />
+					<reg name="p8" bitsize="256" regnum="1259 />
+					<reg name="p9" bitsize="256" regnum="1260 />
+					<reg name="sp" bitsize="64" regnum="66 />
+					<reg name="syscall_info" bitsize="32" regnum="65534 />
+					<reg name="sysreg_unknown" bitsize="64" regnum="65533 />
+					<reg name="v0" bitsize="128" regnum="67 />
+					<reg name="v1" bitsize="128" regnum="68 />
+					<reg name="v10" bitsize="128" regnum="77 />
+					<reg name="v11" bitsize="128" regnum="78 />
+					<reg name="v12" bitsize="128" regnum="79 />
+					<reg name="v13" bitsize="128" regnum="80 />
+					<reg name="v14" bitsize="128" regnum="81 />
+					<reg name="v15" bitsize="128" regnum="82 />
+					<reg name="v16" bitsize="128" regnum="83 />
+					<reg name="v17" bitsize="128" regnum="84 />
+					<reg name="v18" bitsize="128" regnum="85 />
+					<reg name="v19" bitsize="128" regnum="86 />
+					<reg name="v2" bitsize="128" regnum="69 />
+					<reg name="v20" bitsize="128" regnum="87 />
+					<reg name="v21" bitsize="128" regnum="88 />
+					<reg name="v22" bitsize="128" regnum="89 />
+					<reg name="v23" bitsize="128" regnum="90 />
+					<reg name="v24" bitsize="128" regnum="91 />
+					<reg name="v25" bitsize="128" regnum="92 />
+					<reg name="v26" bitsize="128" regnum="93 />
+					<reg name="v27" bitsize="128" regnum="94 />
+					<reg name="v28" bitsize="128" regnum="95 />
+					<reg name="v29" bitsize="128" regnum="96 />
+					<reg name="v3" bitsize="128" regnum="70 />
+					<reg name="v30" bitsize="128" regnum="97 />
+					<reg name="v31" bitsize="128" regnum="98 />
+					<reg name="v4" bitsize="128" regnum="71 />
+					<reg name="v5" bitsize="128" regnum="72 />
+					<reg name="v6" bitsize="128" regnum="73 />
+					<reg name="v7" bitsize="128" regnum="74 />
+					<reg name="v8" bitsize="128" regnum="75 />
+					<reg name="v9" bitsize="128" regnum="76 />
+					<reg name="x0" bitsize="64" regnum="34 />
+					<reg name="x1" bitsize="64" regnum="35 />
+					<reg name="x10" bitsize="64" regnum="44 />
+					<reg name="x11" bitsize="64" regnum="45 />
+					<reg name="x12" bitsize="64" regnum="46 />
+					<reg name="x13" bitsize="64" regnum="47 />
+					<reg name="x14" bitsize="64" regnum="48 />
+					<reg name="x15" bitsize="64" regnum="49 />
+					<reg name="x16" bitsize="64" regnum="50 />
+					<reg name="x17" bitsize="64" regnum="51 />
+					<reg name="x18" bitsize="64" regnum="52 />
+					<reg name="x19" bitsize="64" regnum="53 />
+					<reg name="x2" bitsize="64" regnum="36 />
+					<reg name="x20" bitsize="64" regnum="54 />
+					<reg name="x21" bitsize="64" regnum="55 />
+					<reg name="x22" bitsize="64" regnum="56 />
+					<reg name="x23" bitsize="64" regnum="57 />
+					<reg name="x24" bitsize="64" regnum="58 />
+					<reg name="x25" bitsize="64" regnum="59 />
+					<reg name="x26" bitsize="64" regnum="60 />
+					<reg name="x27" bitsize="64" regnum="61 />
+					<reg name="x28" bitsize="64" regnum="62 />
+					<reg name="x3" bitsize="64" regnum="37 />
+					<reg name="x4" bitsize="64" regnum="38 />
+					<reg name="x5" bitsize="64" regnum="39 />
+					<reg name="x6" bitsize="64" regnum="40 />
+					<reg name="x7" bitsize="64" regnum="41 />
+					<reg name="x8" bitsize="64" regnum="42 />
+					<reg name="x9" bitsize="64" regnum="43 />
+				</feature>
+			</target>
+		"#;
+	}
+	
+	impl Arch for aarch64Arch {
+		type Usize = u64;
+		type Registers = aarch64RegFile;
+		type BreakpointKind = ();
+		type RegId = aarch64Reg;
+		fn target_description_xml() -> Option<&'static str> {
+			Some(Self::XML)
 		}
 	}
 }
