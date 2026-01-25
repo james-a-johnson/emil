@@ -464,12 +464,17 @@ def gen_gdb_info(arch: Architecture, file):
     """
     file.write("pub mod gdb {\n")
     file.write("\tuse super::*;\n")
-    file.write("\tuse gdbstub::arch::RegId;\n\n")
-    file.write("\tuse std::num::NonZeroUsize;\n")
+    file.write("\tuse gdbstub::arch::{RegId, Registers};\n")
+    file.write("\tuse std::num::NonZeroUsize;\n\n")
     reg_id_impl = gen_regid_trait(arch)
     for impl_line in reg_id_impl.splitlines():
         file.write(f"\t{impl_line}\n")
-    file.write("}")
+    file.write("\n")
+
+    regs_impl = gen_registers_trait(arch)
+    for impl_line in regs_impl.splitlines():
+        file.write(f"\t{impl_line}\n")
+    file.write("}\n")
 
 
 def gen_arch(args):

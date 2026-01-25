@@ -14613,15 +14613,229 @@ impl RegState for aarch64RegFile {
 
 pub mod gdb {
 	use super::*;
-	use gdbstub::arch::RegId;
-
+	use gdbstub::arch::{RegId, Registers};
 	use std::num::NonZeroUsize;
+
 	impl RegId for aarch64Reg {
 		fn from_raw_id(id: usize) -> Option<(Self, Option<NonZeroUsize>)> {
 			let reg_id: u32 = id.try_into().ok()?;
 			let reg: aarch64Reg = reg_id.try_into().ok()?;
 			let size = NonZeroUsize::new(reg.size() as usize);
 			Some((reg, size))
+		}
+	}
+
+	impl Registers for aarch64RegFile {
+		type ProgramCounter = u64;
+	
+		fn pc(&self) -> Self::ProgramCounter {
+			self.emil_pc
+		}
+	
+		fn gdb_serialize(&self, mut write_byte: impl FnMut(Option<u8>)) {
+			self.emil_pc.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fp.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.lr.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.p0.iter().for_each(|b| write_byte(Some(*b)));
+			self.p1.iter().for_each(|b| write_byte(Some(*b)));
+			self.p10.iter().for_each(|b| write_byte(Some(*b)));
+			self.p11.iter().for_each(|b| write_byte(Some(*b)));
+			self.p12.iter().for_each(|b| write_byte(Some(*b)));
+			self.p13.iter().for_each(|b| write_byte(Some(*b)));
+			self.p14.iter().for_each(|b| write_byte(Some(*b)));
+			self.p15.iter().for_each(|b| write_byte(Some(*b)));
+			self.p16.iter().for_each(|b| write_byte(Some(*b)));
+			self.p17.iter().for_each(|b| write_byte(Some(*b)));
+			self.p18.iter().for_each(|b| write_byte(Some(*b)));
+			self.p19.iter().for_each(|b| write_byte(Some(*b)));
+			self.p2.iter().for_each(|b| write_byte(Some(*b)));
+			self.p20.iter().for_each(|b| write_byte(Some(*b)));
+			self.p21.iter().for_each(|b| write_byte(Some(*b)));
+			self.p22.iter().for_each(|b| write_byte(Some(*b)));
+			self.p23.iter().for_each(|b| write_byte(Some(*b)));
+			self.p24.iter().for_each(|b| write_byte(Some(*b)));
+			self.p25.iter().for_each(|b| write_byte(Some(*b)));
+			self.p26.iter().for_each(|b| write_byte(Some(*b)));
+			self.p27.iter().for_each(|b| write_byte(Some(*b)));
+			self.p28.iter().for_each(|b| write_byte(Some(*b)));
+			self.p29.iter().for_each(|b| write_byte(Some(*b)));
+			self.p3.iter().for_each(|b| write_byte(Some(*b)));
+			self.p30.iter().for_each(|b| write_byte(Some(*b)));
+			self.p31.iter().for_each(|b| write_byte(Some(*b)));
+			self.p4.iter().for_each(|b| write_byte(Some(*b)));
+			self.p5.iter().for_each(|b| write_byte(Some(*b)));
+			self.p6.iter().for_each(|b| write_byte(Some(*b)));
+			self.p7.iter().for_each(|b| write_byte(Some(*b)));
+			self.p8.iter().for_each(|b| write_byte(Some(*b)));
+			self.p9.iter().for_each(|b| write_byte(Some(*b)));
+			self.sp.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.syscall_info.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.sysreg_unknown.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.v0.iter().for_each(|b| write_byte(Some(*b)));
+			self.v1.iter().for_each(|b| write_byte(Some(*b)));
+			self.v10.iter().for_each(|b| write_byte(Some(*b)));
+			self.v11.iter().for_each(|b| write_byte(Some(*b)));
+			self.v12.iter().for_each(|b| write_byte(Some(*b)));
+			self.v13.iter().for_each(|b| write_byte(Some(*b)));
+			self.v14.iter().for_each(|b| write_byte(Some(*b)));
+			self.v15.iter().for_each(|b| write_byte(Some(*b)));
+			self.v16.iter().for_each(|b| write_byte(Some(*b)));
+			self.v17.iter().for_each(|b| write_byte(Some(*b)));
+			self.v18.iter().for_each(|b| write_byte(Some(*b)));
+			self.v19.iter().for_each(|b| write_byte(Some(*b)));
+			self.v2.iter().for_each(|b| write_byte(Some(*b)));
+			self.v20.iter().for_each(|b| write_byte(Some(*b)));
+			self.v21.iter().for_each(|b| write_byte(Some(*b)));
+			self.v22.iter().for_each(|b| write_byte(Some(*b)));
+			self.v23.iter().for_each(|b| write_byte(Some(*b)));
+			self.v24.iter().for_each(|b| write_byte(Some(*b)));
+			self.v25.iter().for_each(|b| write_byte(Some(*b)));
+			self.v26.iter().for_each(|b| write_byte(Some(*b)));
+			self.v27.iter().for_each(|b| write_byte(Some(*b)));
+			self.v28.iter().for_each(|b| write_byte(Some(*b)));
+			self.v29.iter().for_each(|b| write_byte(Some(*b)));
+			self.v3.iter().for_each(|b| write_byte(Some(*b)));
+			self.v30.iter().for_each(|b| write_byte(Some(*b)));
+			self.v31.iter().for_each(|b| write_byte(Some(*b)));
+			self.v4.iter().for_each(|b| write_byte(Some(*b)));
+			self.v5.iter().for_each(|b| write_byte(Some(*b)));
+			self.v6.iter().for_each(|b| write_byte(Some(*b)));
+			self.v7.iter().for_each(|b| write_byte(Some(*b)));
+			self.v8.iter().for_each(|b| write_byte(Some(*b)));
+			self.v9.iter().for_each(|b| write_byte(Some(*b)));
+			self.x0.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x1.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x10.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x11.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x12.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x13.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x14.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x15.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x16.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x17.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x18.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x19.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x2.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x20.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x21.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x22.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x23.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x24.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x25.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x26.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x27.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x28.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x3.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x4.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x5.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x6.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x7.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x8.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x9.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+		}
+	
+		fn gdb_deserialize(&mut self, bytes: &[u8]) -> Result<(), ()> {
+			if bytes.len() != 1812 { return Err(()); }
+			self.emil_pc = u64::from_le_bytes(bytes[0..][..8].try_into().unwrap());
+			self.fp = u64::from_le_bytes(bytes[8..][..8].try_into().unwrap());
+			self.lr = u64::from_le_bytes(bytes[16..][..8].try_into().unwrap());
+			self.p0.copy_from_slice(&bytes[24..][..32]);
+			self.p1.copy_from_slice(&bytes[56..][..32]);
+			self.p10.copy_from_slice(&bytes[88..][..32]);
+			self.p11.copy_from_slice(&bytes[120..][..32]);
+			self.p12.copy_from_slice(&bytes[152..][..32]);
+			self.p13.copy_from_slice(&bytes[184..][..32]);
+			self.p14.copy_from_slice(&bytes[216..][..32]);
+			self.p15.copy_from_slice(&bytes[248..][..32]);
+			self.p16.copy_from_slice(&bytes[280..][..32]);
+			self.p17.copy_from_slice(&bytes[312..][..32]);
+			self.p18.copy_from_slice(&bytes[344..][..32]);
+			self.p19.copy_from_slice(&bytes[376..][..32]);
+			self.p2.copy_from_slice(&bytes[408..][..32]);
+			self.p20.copy_from_slice(&bytes[440..][..32]);
+			self.p21.copy_from_slice(&bytes[472..][..32]);
+			self.p22.copy_from_slice(&bytes[504..][..32]);
+			self.p23.copy_from_slice(&bytes[536..][..32]);
+			self.p24.copy_from_slice(&bytes[568..][..32]);
+			self.p25.copy_from_slice(&bytes[600..][..32]);
+			self.p26.copy_from_slice(&bytes[632..][..32]);
+			self.p27.copy_from_slice(&bytes[664..][..32]);
+			self.p28.copy_from_slice(&bytes[696..][..32]);
+			self.p29.copy_from_slice(&bytes[728..][..32]);
+			self.p3.copy_from_slice(&bytes[760..][..32]);
+			self.p30.copy_from_slice(&bytes[792..][..32]);
+			self.p31.copy_from_slice(&bytes[824..][..32]);
+			self.p4.copy_from_slice(&bytes[856..][..32]);
+			self.p5.copy_from_slice(&bytes[888..][..32]);
+			self.p6.copy_from_slice(&bytes[920..][..32]);
+			self.p7.copy_from_slice(&bytes[952..][..32]);
+			self.p8.copy_from_slice(&bytes[984..][..32]);
+			self.p9.copy_from_slice(&bytes[1016..][..32]);
+			self.sp = u64::from_le_bytes(bytes[1048..][..8].try_into().unwrap());
+			self.syscall_info = u32::from_le_bytes(bytes[1056..][..4].try_into().unwrap());
+			self.sysreg_unknown = u64::from_le_bytes(bytes[1060..][..8].try_into().unwrap());
+			self.v0.copy_from_slice(&bytes[1068..][..16]);
+			self.v1.copy_from_slice(&bytes[1084..][..16]);
+			self.v10.copy_from_slice(&bytes[1100..][..16]);
+			self.v11.copy_from_slice(&bytes[1116..][..16]);
+			self.v12.copy_from_slice(&bytes[1132..][..16]);
+			self.v13.copy_from_slice(&bytes[1148..][..16]);
+			self.v14.copy_from_slice(&bytes[1164..][..16]);
+			self.v15.copy_from_slice(&bytes[1180..][..16]);
+			self.v16.copy_from_slice(&bytes[1196..][..16]);
+			self.v17.copy_from_slice(&bytes[1212..][..16]);
+			self.v18.copy_from_slice(&bytes[1228..][..16]);
+			self.v19.copy_from_slice(&bytes[1244..][..16]);
+			self.v2.copy_from_slice(&bytes[1260..][..16]);
+			self.v20.copy_from_slice(&bytes[1276..][..16]);
+			self.v21.copy_from_slice(&bytes[1292..][..16]);
+			self.v22.copy_from_slice(&bytes[1308..][..16]);
+			self.v23.copy_from_slice(&bytes[1324..][..16]);
+			self.v24.copy_from_slice(&bytes[1340..][..16]);
+			self.v25.copy_from_slice(&bytes[1356..][..16]);
+			self.v26.copy_from_slice(&bytes[1372..][..16]);
+			self.v27.copy_from_slice(&bytes[1388..][..16]);
+			self.v28.copy_from_slice(&bytes[1404..][..16]);
+			self.v29.copy_from_slice(&bytes[1420..][..16]);
+			self.v3.copy_from_slice(&bytes[1436..][..16]);
+			self.v30.copy_from_slice(&bytes[1452..][..16]);
+			self.v31.copy_from_slice(&bytes[1468..][..16]);
+			self.v4.copy_from_slice(&bytes[1484..][..16]);
+			self.v5.copy_from_slice(&bytes[1500..][..16]);
+			self.v6.copy_from_slice(&bytes[1516..][..16]);
+			self.v7.copy_from_slice(&bytes[1532..][..16]);
+			self.v8.copy_from_slice(&bytes[1548..][..16]);
+			self.v9.copy_from_slice(&bytes[1564..][..16]);
+			self.x0 = u64::from_le_bytes(bytes[1580..][..8].try_into().unwrap());
+			self.x1 = u64::from_le_bytes(bytes[1588..][..8].try_into().unwrap());
+			self.x10 = u64::from_le_bytes(bytes[1596..][..8].try_into().unwrap());
+			self.x11 = u64::from_le_bytes(bytes[1604..][..8].try_into().unwrap());
+			self.x12 = u64::from_le_bytes(bytes[1612..][..8].try_into().unwrap());
+			self.x13 = u64::from_le_bytes(bytes[1620..][..8].try_into().unwrap());
+			self.x14 = u64::from_le_bytes(bytes[1628..][..8].try_into().unwrap());
+			self.x15 = u64::from_le_bytes(bytes[1636..][..8].try_into().unwrap());
+			self.x16 = u64::from_le_bytes(bytes[1644..][..8].try_into().unwrap());
+			self.x17 = u64::from_le_bytes(bytes[1652..][..8].try_into().unwrap());
+			self.x18 = u64::from_le_bytes(bytes[1660..][..8].try_into().unwrap());
+			self.x19 = u64::from_le_bytes(bytes[1668..][..8].try_into().unwrap());
+			self.x2 = u64::from_le_bytes(bytes[1676..][..8].try_into().unwrap());
+			self.x20 = u64::from_le_bytes(bytes[1684..][..8].try_into().unwrap());
+			self.x21 = u64::from_le_bytes(bytes[1692..][..8].try_into().unwrap());
+			self.x22 = u64::from_le_bytes(bytes[1700..][..8].try_into().unwrap());
+			self.x23 = u64::from_le_bytes(bytes[1708..][..8].try_into().unwrap());
+			self.x24 = u64::from_le_bytes(bytes[1716..][..8].try_into().unwrap());
+			self.x25 = u64::from_le_bytes(bytes[1724..][..8].try_into().unwrap());
+			self.x26 = u64::from_le_bytes(bytes[1732..][..8].try_into().unwrap());
+			self.x27 = u64::from_le_bytes(bytes[1740..][..8].try_into().unwrap());
+			self.x28 = u64::from_le_bytes(bytes[1748..][..8].try_into().unwrap());
+			self.x3 = u64::from_le_bytes(bytes[1756..][..8].try_into().unwrap());
+			self.x4 = u64::from_le_bytes(bytes[1764..][..8].try_into().unwrap());
+			self.x5 = u64::from_le_bytes(bytes[1772..][..8].try_into().unwrap());
+			self.x6 = u64::from_le_bytes(bytes[1780..][..8].try_into().unwrap());
+			self.x7 = u64::from_le_bytes(bytes[1788..][..8].try_into().unwrap());
+			self.x8 = u64::from_le_bytes(bytes[1796..][..8].try_into().unwrap());
+			self.x9 = u64::from_le_bytes(bytes[1804..][..8].try_into().unwrap());
+			Ok(())
 		}
 	}
 }

@@ -1429,15 +1429,217 @@ impl RegState for x86RegFile {
 
 pub mod gdb {
 	use super::*;
-	use gdbstub::arch::RegId;
-
+	use gdbstub::arch::{RegId, Registers};
 	use std::num::NonZeroUsize;
+
 	impl RegId for x86Reg {
 		fn from_raw_id(id: usize) -> Option<(Self, Option<NonZeroUsize>)> {
 			let reg_id: u32 = id.try_into().ok()?;
 			let reg: x86Reg = reg_id.try_into().ok()?;
 			let size = NonZeroUsize::new(reg.size() as usize);
 			Some((reg, size))
+		}
+	}
+
+	impl Registers for x86RegFile {
+		type ProgramCounter = u32;
+	
+		fn pc(&self) -> Self::ProgramCounter {
+			self.emil_pc
+		}
+	
+		fn gdb_serialize(&self, mut write_byte: impl FnMut(Option<u8>)) {
+			self.bnd0.iter().for_each(|b| write_byte(Some(*b)));
+			self.bnd1.iter().for_each(|b| write_byte(Some(*b)));
+			self.bnd2.iter().for_each(|b| write_byte(Some(*b)));
+			self.bnd3.iter().for_each(|b| write_byte(Some(*b)));
+			self.cr0.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr1.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr10.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr11.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr12.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr13.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr14.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr15.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr2.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr3.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr4.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr5.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr6.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr7.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr8.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cr9.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.cs.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.dr0.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.dr1.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.dr2.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.dr3.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.dr4.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.dr5.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.dr6.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.dr7.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ds.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.eax.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ebp.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ebx.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ecx.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.edi.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.edx.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.eflags.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.eip.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.emil_pc.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.es.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.esi.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.esp.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fsbase.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.gdtr.iter().for_each(|b| write_byte(Some(*b)));
+			self.gs.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.gsbase.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.idtr.iter().for_each(|b| write_byte(Some(*b)));
+			self.ldtr.iter().for_each(|b| write_byte(Some(*b)));
+			self.msrs.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.mxcsr.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.rflags.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ss.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.st0.iter().for_each(|b| write_byte(Some(*b)));
+			self.st1.iter().for_each(|b| write_byte(Some(*b)));
+			self.st2.iter().for_each(|b| write_byte(Some(*b)));
+			self.st3.iter().for_each(|b| write_byte(Some(*b)));
+			self.st4.iter().for_each(|b| write_byte(Some(*b)));
+			self.st5.iter().for_each(|b| write_byte(Some(*b)));
+			self.st6.iter().for_each(|b| write_byte(Some(*b)));
+			self.st7.iter().for_each(|b| write_byte(Some(*b)));
+			self.top.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.tr.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.tsc.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.tscaux.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x87_r0.iter().for_each(|b| write_byte(Some(*b)));
+			self.x87_r1.iter().for_each(|b| write_byte(Some(*b)));
+			self.x87_r2.iter().for_each(|b| write_byte(Some(*b)));
+			self.x87_r3.iter().for_each(|b| write_byte(Some(*b)));
+			self.x87_r4.iter().for_each(|b| write_byte(Some(*b)));
+			self.x87_r5.iter().for_each(|b| write_byte(Some(*b)));
+			self.x87_r6.iter().for_each(|b| write_byte(Some(*b)));
+			self.x87_r7.iter().for_each(|b| write_byte(Some(*b)));
+			self.x87control.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x87lastcs.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x87lastdp.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x87lastds.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x87lastip.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x87opcode.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x87pop.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x87pop2.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x87push.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x87status.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.x87tag.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.xcr0.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.xmm0.iter().for_each(|b| write_byte(Some(*b)));
+			self.xmm1.iter().for_each(|b| write_byte(Some(*b)));
+			self.xmm2.iter().for_each(|b| write_byte(Some(*b)));
+			self.xmm3.iter().for_each(|b| write_byte(Some(*b)));
+			self.xmm4.iter().for_each(|b| write_byte(Some(*b)));
+			self.xmm5.iter().for_each(|b| write_byte(Some(*b)));
+			self.xmm6.iter().for_each(|b| write_byte(Some(*b)));
+			self.xmm7.iter().for_each(|b| write_byte(Some(*b)));
+		}
+	
+		fn gdb_deserialize(&mut self, bytes: &[u8]) -> Result<(), ()> {
+			if bytes.len() != 604 { return Err(()); }
+			self.bnd0.copy_from_slice(&bytes[0..][..16]);
+			self.bnd1.copy_from_slice(&bytes[16..][..16]);
+			self.bnd2.copy_from_slice(&bytes[32..][..16]);
+			self.bnd3.copy_from_slice(&bytes[48..][..16]);
+			self.cr0 = u32::from_le_bytes(bytes[64..][..4].try_into().unwrap());
+			self.cr1 = u32::from_le_bytes(bytes[68..][..4].try_into().unwrap());
+			self.cr10 = u32::from_le_bytes(bytes[72..][..4].try_into().unwrap());
+			self.cr11 = u32::from_le_bytes(bytes[76..][..4].try_into().unwrap());
+			self.cr12 = u32::from_le_bytes(bytes[80..][..4].try_into().unwrap());
+			self.cr13 = u32::from_le_bytes(bytes[84..][..4].try_into().unwrap());
+			self.cr14 = u32::from_le_bytes(bytes[88..][..4].try_into().unwrap());
+			self.cr15 = u32::from_le_bytes(bytes[92..][..4].try_into().unwrap());
+			self.cr2 = u32::from_le_bytes(bytes[96..][..4].try_into().unwrap());
+			self.cr3 = u32::from_le_bytes(bytes[100..][..4].try_into().unwrap());
+			self.cr4 = u32::from_le_bytes(bytes[104..][..4].try_into().unwrap());
+			self.cr5 = u32::from_le_bytes(bytes[108..][..4].try_into().unwrap());
+			self.cr6 = u32::from_le_bytes(bytes[112..][..4].try_into().unwrap());
+			self.cr7 = u32::from_le_bytes(bytes[116..][..4].try_into().unwrap());
+			self.cr8 = u32::from_le_bytes(bytes[120..][..4].try_into().unwrap());
+			self.cr9 = u32::from_le_bytes(bytes[124..][..4].try_into().unwrap());
+			self.cs = u16::from_le_bytes(bytes[128..][..2].try_into().unwrap());
+			self.dr0 = u32::from_le_bytes(bytes[130..][..4].try_into().unwrap());
+			self.dr1 = u32::from_le_bytes(bytes[134..][..4].try_into().unwrap());
+			self.dr2 = u32::from_le_bytes(bytes[138..][..4].try_into().unwrap());
+			self.dr3 = u32::from_le_bytes(bytes[142..][..4].try_into().unwrap());
+			self.dr4 = u32::from_le_bytes(bytes[146..][..4].try_into().unwrap());
+			self.dr5 = u32::from_le_bytes(bytes[150..][..4].try_into().unwrap());
+			self.dr6 = u32::from_le_bytes(bytes[154..][..4].try_into().unwrap());
+			self.dr7 = u32::from_le_bytes(bytes[158..][..4].try_into().unwrap());
+			self.ds = u16::from_le_bytes(bytes[162..][..2].try_into().unwrap());
+			self.eax = u32::from_le_bytes(bytes[164..][..4].try_into().unwrap());
+			self.ebp = u32::from_le_bytes(bytes[168..][..4].try_into().unwrap());
+			self.ebx = u32::from_le_bytes(bytes[172..][..4].try_into().unwrap());
+			self.ecx = u32::from_le_bytes(bytes[176..][..4].try_into().unwrap());
+			self.edi = u32::from_le_bytes(bytes[180..][..4].try_into().unwrap());
+			self.edx = u32::from_le_bytes(bytes[184..][..4].try_into().unwrap());
+			self.eflags = u32::from_le_bytes(bytes[188..][..4].try_into().unwrap());
+			self.eip = u32::from_le_bytes(bytes[192..][..4].try_into().unwrap());
+			self.emil_pc = u32::from_le_bytes(bytes[196..][..4].try_into().unwrap());
+			self.es = u16::from_le_bytes(bytes[200..][..2].try_into().unwrap());
+			self.esi = u32::from_le_bytes(bytes[202..][..4].try_into().unwrap());
+			self.esp = u32::from_le_bytes(bytes[206..][..4].try_into().unwrap());
+			self.fs = u16::from_le_bytes(bytes[210..][..2].try_into().unwrap());
+			self.fsbase = u32::from_le_bytes(bytes[212..][..4].try_into().unwrap());
+			self.gdtr.copy_from_slice(&bytes[216..][..6]);
+			self.gs = u16::from_le_bytes(bytes[222..][..2].try_into().unwrap());
+			self.gsbase = u32::from_le_bytes(bytes[224..][..4].try_into().unwrap());
+			self.idtr.copy_from_slice(&bytes[228..][..6]);
+			self.ldtr.copy_from_slice(&bytes[234..][..6]);
+			self.msrs = u64::from_le_bytes(bytes[240..][..8].try_into().unwrap());
+			self.mxcsr = u32::from_le_bytes(bytes[248..][..4].try_into().unwrap());
+			self.rflags = u64::from_le_bytes(bytes[252..][..8].try_into().unwrap());
+			self.ss = u16::from_le_bytes(bytes[260..][..2].try_into().unwrap());
+			self.st0.copy_from_slice(&bytes[262..][..10]);
+			self.st1.copy_from_slice(&bytes[272..][..10]);
+			self.st2.copy_from_slice(&bytes[282..][..10]);
+			self.st3.copy_from_slice(&bytes[292..][..10]);
+			self.st4.copy_from_slice(&bytes[302..][..10]);
+			self.st5.copy_from_slice(&bytes[312..][..10]);
+			self.st6.copy_from_slice(&bytes[322..][..10]);
+			self.st7.copy_from_slice(&bytes[332..][..10]);
+			self.top = u16::from_le_bytes(bytes[342..][..2].try_into().unwrap());
+			self.tr = u32::from_le_bytes(bytes[344..][..4].try_into().unwrap());
+			self.tsc = u32::from_le_bytes(bytes[348..][..4].try_into().unwrap());
+			self.tscaux = u32::from_le_bytes(bytes[352..][..4].try_into().unwrap());
+			self.x87_r0.copy_from_slice(&bytes[356..][..10]);
+			self.x87_r1.copy_from_slice(&bytes[366..][..10]);
+			self.x87_r2.copy_from_slice(&bytes[376..][..10]);
+			self.x87_r3.copy_from_slice(&bytes[386..][..10]);
+			self.x87_r4.copy_from_slice(&bytes[396..][..10]);
+			self.x87_r5.copy_from_slice(&bytes[406..][..10]);
+			self.x87_r6.copy_from_slice(&bytes[416..][..10]);
+			self.x87_r7.copy_from_slice(&bytes[426..][..10]);
+			self.x87control = u16::from_le_bytes(bytes[436..][..2].try_into().unwrap());
+			self.x87lastcs = u16::from_le_bytes(bytes[438..][..2].try_into().unwrap());
+			self.x87lastdp = u32::from_le_bytes(bytes[440..][..4].try_into().unwrap());
+			self.x87lastds = u16::from_le_bytes(bytes[444..][..2].try_into().unwrap());
+			self.x87lastip = u32::from_le_bytes(bytes[446..][..4].try_into().unwrap());
+			self.x87opcode = u16::from_le_bytes(bytes[450..][..2].try_into().unwrap());
+			self.x87pop = u32::from_le_bytes(bytes[452..][..4].try_into().unwrap());
+			self.x87pop2 = u32::from_le_bytes(bytes[456..][..4].try_into().unwrap());
+			self.x87push = u32::from_le_bytes(bytes[460..][..4].try_into().unwrap());
+			self.x87status = u16::from_le_bytes(bytes[464..][..2].try_into().unwrap());
+			self.x87tag = u16::from_le_bytes(bytes[466..][..2].try_into().unwrap());
+			self.xcr0 = u64::from_le_bytes(bytes[468..][..8].try_into().unwrap());
+			self.xmm0.copy_from_slice(&bytes[476..][..16]);
+			self.xmm1.copy_from_slice(&bytes[492..][..16]);
+			self.xmm2.copy_from_slice(&bytes[508..][..16]);
+			self.xmm3.copy_from_slice(&bytes[524..][..16]);
+			self.xmm4.copy_from_slice(&bytes[540..][..16]);
+			self.xmm5.copy_from_slice(&bytes[556..][..16]);
+			self.xmm6.copy_from_slice(&bytes[572..][..16]);
+			self.xmm7.copy_from_slice(&bytes[588..][..16]);
+			Ok(())
 		}
 	}
 }

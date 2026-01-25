@@ -705,15 +705,161 @@ impl RegState for rv64gcRegFile {
 
 pub mod gdb {
 	use super::*;
-	use gdbstub::arch::RegId;
-
+	use gdbstub::arch::{RegId, Registers};
 	use std::num::NonZeroUsize;
+
 	impl RegId for rv64gcReg {
 		fn from_raw_id(id: usize) -> Option<(Self, Option<NonZeroUsize>)> {
 			let reg_id: u32 = id.try_into().ok()?;
 			let reg: rv64gcReg = reg_id.try_into().ok()?;
 			let size = NonZeroUsize::new(reg.size() as usize);
 			Some((reg, size))
+		}
+	}
+
+	impl Registers for rv64gcRegFile {
+		type ProgramCounter = u64;
+	
+		fn pc(&self) -> Self::ProgramCounter {
+			self.emil_pc
+		}
+	
+		fn gdb_serialize(&self, mut write_byte: impl FnMut(Option<u8>)) {
+			self.a0.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.a1.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.a2.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.a3.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.a4.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.a5.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.a6.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.a7.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.emil_pc.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fa0.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fa1.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fa2.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fa3.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fa4.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fa5.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fa6.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fa7.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs0.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs1.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs10.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs11.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs2.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs3.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs4.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs5.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs6.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs7.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs8.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.fs9.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ft0.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ft1.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ft10.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ft11.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ft2.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ft3.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ft4.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ft5.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ft6.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ft7.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ft8.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ft9.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.gp.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.ra.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.s0.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.s1.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.s10.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.s11.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.s2.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.s3.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.s4.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.s5.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.s6.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.s7.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.s8.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.s9.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.sp.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.t0.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.t1.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.t2.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.t3.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.t4.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.t5.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.t6.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.tp.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+			self.zero.to_le_bytes().iter().for_each(|b| write_byte(Some(*b)));
+		}
+	
+		fn gdb_deserialize(&mut self, bytes: &[u8]) -> Result<(), ()> {
+			if bytes.len() != 520 { return Err(()); }
+			self.a0 = u64::from_le_bytes(bytes[0..][..8].try_into().unwrap());
+			self.a1 = u64::from_le_bytes(bytes[8..][..8].try_into().unwrap());
+			self.a2 = u64::from_le_bytes(bytes[16..][..8].try_into().unwrap());
+			self.a3 = u64::from_le_bytes(bytes[24..][..8].try_into().unwrap());
+			self.a4 = u64::from_le_bytes(bytes[32..][..8].try_into().unwrap());
+			self.a5 = u64::from_le_bytes(bytes[40..][..8].try_into().unwrap());
+			self.a6 = u64::from_le_bytes(bytes[48..][..8].try_into().unwrap());
+			self.a7 = u64::from_le_bytes(bytes[56..][..8].try_into().unwrap());
+			self.emil_pc = u64::from_le_bytes(bytes[64..][..8].try_into().unwrap());
+			self.fa0 = u64::from_le_bytes(bytes[72..][..8].try_into().unwrap());
+			self.fa1 = u64::from_le_bytes(bytes[80..][..8].try_into().unwrap());
+			self.fa2 = u64::from_le_bytes(bytes[88..][..8].try_into().unwrap());
+			self.fa3 = u64::from_le_bytes(bytes[96..][..8].try_into().unwrap());
+			self.fa4 = u64::from_le_bytes(bytes[104..][..8].try_into().unwrap());
+			self.fa5 = u64::from_le_bytes(bytes[112..][..8].try_into().unwrap());
+			self.fa6 = u64::from_le_bytes(bytes[120..][..8].try_into().unwrap());
+			self.fa7 = u64::from_le_bytes(bytes[128..][..8].try_into().unwrap());
+			self.fs0 = u64::from_le_bytes(bytes[136..][..8].try_into().unwrap());
+			self.fs1 = u64::from_le_bytes(bytes[144..][..8].try_into().unwrap());
+			self.fs10 = u64::from_le_bytes(bytes[152..][..8].try_into().unwrap());
+			self.fs11 = u64::from_le_bytes(bytes[160..][..8].try_into().unwrap());
+			self.fs2 = u64::from_le_bytes(bytes[168..][..8].try_into().unwrap());
+			self.fs3 = u64::from_le_bytes(bytes[176..][..8].try_into().unwrap());
+			self.fs4 = u64::from_le_bytes(bytes[184..][..8].try_into().unwrap());
+			self.fs5 = u64::from_le_bytes(bytes[192..][..8].try_into().unwrap());
+			self.fs6 = u64::from_le_bytes(bytes[200..][..8].try_into().unwrap());
+			self.fs7 = u64::from_le_bytes(bytes[208..][..8].try_into().unwrap());
+			self.fs8 = u64::from_le_bytes(bytes[216..][..8].try_into().unwrap());
+			self.fs9 = u64::from_le_bytes(bytes[224..][..8].try_into().unwrap());
+			self.ft0 = u64::from_le_bytes(bytes[232..][..8].try_into().unwrap());
+			self.ft1 = u64::from_le_bytes(bytes[240..][..8].try_into().unwrap());
+			self.ft10 = u64::from_le_bytes(bytes[248..][..8].try_into().unwrap());
+			self.ft11 = u64::from_le_bytes(bytes[256..][..8].try_into().unwrap());
+			self.ft2 = u64::from_le_bytes(bytes[264..][..8].try_into().unwrap());
+			self.ft3 = u64::from_le_bytes(bytes[272..][..8].try_into().unwrap());
+			self.ft4 = u64::from_le_bytes(bytes[280..][..8].try_into().unwrap());
+			self.ft5 = u64::from_le_bytes(bytes[288..][..8].try_into().unwrap());
+			self.ft6 = u64::from_le_bytes(bytes[296..][..8].try_into().unwrap());
+			self.ft7 = u64::from_le_bytes(bytes[304..][..8].try_into().unwrap());
+			self.ft8 = u64::from_le_bytes(bytes[312..][..8].try_into().unwrap());
+			self.ft9 = u64::from_le_bytes(bytes[320..][..8].try_into().unwrap());
+			self.gp = u64::from_le_bytes(bytes[328..][..8].try_into().unwrap());
+			self.ra = u64::from_le_bytes(bytes[336..][..8].try_into().unwrap());
+			self.s0 = u64::from_le_bytes(bytes[344..][..8].try_into().unwrap());
+			self.s1 = u64::from_le_bytes(bytes[352..][..8].try_into().unwrap());
+			self.s10 = u64::from_le_bytes(bytes[360..][..8].try_into().unwrap());
+			self.s11 = u64::from_le_bytes(bytes[368..][..8].try_into().unwrap());
+			self.s2 = u64::from_le_bytes(bytes[376..][..8].try_into().unwrap());
+			self.s3 = u64::from_le_bytes(bytes[384..][..8].try_into().unwrap());
+			self.s4 = u64::from_le_bytes(bytes[392..][..8].try_into().unwrap());
+			self.s5 = u64::from_le_bytes(bytes[400..][..8].try_into().unwrap());
+			self.s6 = u64::from_le_bytes(bytes[408..][..8].try_into().unwrap());
+			self.s7 = u64::from_le_bytes(bytes[416..][..8].try_into().unwrap());
+			self.s8 = u64::from_le_bytes(bytes[424..][..8].try_into().unwrap());
+			self.s9 = u64::from_le_bytes(bytes[432..][..8].try_into().unwrap());
+			self.sp = u64::from_le_bytes(bytes[440..][..8].try_into().unwrap());
+			self.t0 = u64::from_le_bytes(bytes[448..][..8].try_into().unwrap());
+			self.t1 = u64::from_le_bytes(bytes[456..][..8].try_into().unwrap());
+			self.t2 = u64::from_le_bytes(bytes[464..][..8].try_into().unwrap());
+			self.t3 = u64::from_le_bytes(bytes[472..][..8].try_into().unwrap());
+			self.t4 = u64::from_le_bytes(bytes[480..][..8].try_into().unwrap());
+			self.t5 = u64::from_le_bytes(bytes[488..][..8].try_into().unwrap());
+			self.t6 = u64::from_le_bytes(bytes[496..][..8].try_into().unwrap());
+			self.tp = u64::from_le_bytes(bytes[504..][..8].try_into().unwrap());
+			self.zero = u64::from_le_bytes(bytes[512..][..8].try_into().unwrap());
+			Ok(())
 		}
 	}
 }
