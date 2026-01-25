@@ -227,7 +227,7 @@ impl Register for rv64gcReg {
 	}
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct rv64gcRegFile {
 	pub a0: u64,
 	pub a1: u64,

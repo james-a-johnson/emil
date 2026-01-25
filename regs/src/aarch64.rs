@@ -3881,7 +3881,7 @@ impl Register for aarch64Reg {
 	}
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct aarch64RegFile {
 	pub fp: u64,
 	pub lr: u64,

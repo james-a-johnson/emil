@@ -389,7 +389,7 @@ impl Register for x86Reg {
 	}
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct x86RegFile {
 	pub bnd0: [u8; 16],
 	pub bnd1: [u8; 16],

@@ -1,10 +1,11 @@
 import argparse
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import binaryninja as bn
 
 NATIVE_SIZES: set[int] = set([1, 2, 4, 8])
+"""Sizes of integers in bytes that host machines natively support"""
 
 
 def map_reg_name(name: str) -> str:
@@ -27,12 +28,19 @@ def map_reg_name(name: str) -> str:
 
 @dataclass
 class Register:
+    """A single register in an architecture.
+
+    Holds all of the required information to represent the register in an emulator
+    and parse it from binary ninja.
+    """
+
     name: str = field(init=False)
     """Name of the register that should be used in the struct"""
     arch_name: str
     """Name used by Binary Ninja for the register"""
     size: int
     offset: int
+    """Offset into the parent register if it has one. Otherwise just zero."""
     index: int
     """Index of the register as defined by Binary Ninja"""
     parent: Optional[str]
@@ -61,6 +69,36 @@ class Register:
         return Register(name, info.size, info.offset, info.index, parent)
 
 
+@dataclass
+class Architecture:
+    """All of the registers supported by an architecture."""
+
+    name: str
+    """Name of the architecture."""
+    all_regs: Dict[str, Register]
+    """All of the registers defined by the architecture."""
+    full_size: List[Register]
+    """List of the full size registers defined by the architecture."""
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __getitem__(self, reg_name: str) -> Register:
+        return self.all_regs[reg_name]
+
+    @staticmethod
+    def from_bn_arch(name: str, arch: bn.Architecture) -> "Architecture":
+        all_regs = [
+            Register.from_bn_reg(name, info) for name, info in arch.regs.items()
+        ]
+        regs: Dict[str, Register] = {reg.name: reg for reg in all_regs}
+        full_size = []
+        for reg in regs.values():
+            if reg.full_width:
+                full_size.append(reg)
+        return Architecture(name, regs, sorted(full_size))
+
+
 def mask(size: int) -> int:
     hex = "ff" * size
     return int.from_bytes(bytes.fromhex(hex), "little")
@@ -72,21 +110,22 @@ def list_archs(_args):
         print(arch)
 
 
-def gen_reg_enum(arch: bn.Architecture, regs: Dict[str, Register], file):
+def gen_reg_enum(arch: Architecture, file):
+    """Define the enum that represents each register in the architecture."""
     reg_type = f"{arch}Reg"
-    reg_names = list(regs.keys())
+    reg_names = list(arch.all_regs.keys())
     reg_names = sorted(reg_names)
     file.write("#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]\n")
     file.write(f"pub enum {reg_type} {{\n")
     for reg_name in reg_names:
-        reg = regs[reg_name]
+        reg = arch.all_regs[reg_name]
         file.write(f"\t{reg.name},\n")
     file.write("}\n\n")
     file.write(f"impl TryFrom<u32> for {reg_type} {{\n")
     file.write("\ttype Error = u32;\n\n")
     file.write("\tfn try_from(reg_id: u32) -> Result<Self, u32> {\n")
     file.write("\t\tmatch reg_id {\n")
-    for reg in regs.values():
+    for reg in arch.all_regs.values():
         file.write(f"\t\t\t{reg.index} => Ok(Self::{reg.name}),\n")
     file.write("\t\t\t_ => Err(reg_id),\n")
     file.write("\t\t}\n\t}\n}\n\n")
@@ -99,12 +138,21 @@ def gen_reg_enum(arch: bn.Architecture, regs: Dict[str, Register], file):
     file.write(f"impl Register for {reg_type} {{\n")
     file.write("\tfn size(&self) -> u8 {\n")
     file.write("\t\tmatch self {\n")
-    for reg in regs.values():
+    for reg in arch.all_regs.values():
         file.write(f"\t\t\tSelf::{reg.name} => {reg.size},\n")
     file.write("\t\t}\n\t}\n}\n\n")
 
 
 def gen_read_reg(reg: Register, all: Dict[str, Register]) -> str:
+    """Generate the case that will handle reading the specified register.
+
+    Returns the code that handles reading the register. Returned code must be added to the register file
+    struct.
+
+    :param reg: Register to generate read code for
+    :param all: Dictionary of all of the registers in the architecture
+    :return: String of code to read register assuming that code is in the register file struct
+    """
     read = ""
     if reg.full_width:
         match reg.size:
@@ -165,6 +213,12 @@ def gen_read_reg(reg: Register, all: Dict[str, Register]) -> str:
 
 
 def gen_write_reg(reg: Register, all: Dict[str, Register]) -> str:
+    """Generate code to write specified register.
+
+    :param reg: Register to write value to
+    :param all: Dictionary of all of the registers in the architecture
+    :return: Code to add to register file struct
+    """
     write = ""
     if reg.full_width:
         match reg.size:
@@ -248,25 +302,19 @@ def gen_write_reg(reg: Register, all: Dict[str, Register]) -> str:
     return write
 
 
-def gen_reg_file(arch: bn.Architecture, regs: Dict[str, Register], file):
+def gen_reg_file(arch: Architecture, file):
+    """Add the register file struct to the file."""
     reg_file = f"{arch}RegFile"
     reg_id = f"{arch}Reg"
     # Binary Ninja's list of full width registers is not the most precise. Need to make our own list of all of the
     # expected full width registers.
-    full_width = []
-    defaultable = True
-    for reg in regs.values():
-        if reg.full_width:
-            full_width.append(reg)
-        if reg.size > 32:
-            defaultable = False
-    full_width = sorted(full_width)
+    defaultable = all(map(lambda r: r.size <= 32, arch.full_size))
     if defaultable:
-        file.write("#[derive(Clone, Copy, Debug, Default)]\n")
+        file.write("#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]\n")
     else:
-        file.write("#[derive(Clone, Copy, Debug)]\n")
+        file.write("#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n")
     file.write(f"pub struct {reg_file} {{\n")
-    for r in full_width:
+    for r in arch.full_size:
         match r.size:
             case 1:
                 file.write(f"\tpub {r}: u8,\n")
@@ -284,7 +332,7 @@ def gen_reg_file(arch: bn.Architecture, regs: Dict[str, Register], file):
         file.write(
             f"impl Default for {reg_file} {{\n\tfn default() -> Self {{\n\t\tSelf {{\n"
         )
-        for r in full_width:
+        for r in arch.full_size:
             match r.size:
                 case 1 | 2 | 4 | 8:
                     file.write(f"\t\t\t{r}: 0,\n")
@@ -296,9 +344,9 @@ def gen_reg_file(arch: bn.Architecture, regs: Dict[str, Register], file):
     file.write(f"\ttype RegID = {reg_id};\n\n")
     file.write("\tfn read(&self, id: Self::RegID) -> ILVal {\n")
     file.write("\t\tmatch id {\n")
-    for reg in regs.values():
+    for reg in arch.all_regs.values():
         file.write(f"\t\t\t{reg_id}::{reg.name} => {{\n")
-        read = gen_read_reg(reg, regs)
+        read = gen_read_reg(reg, arch.all_regs)
         for line in read.split("\n"):
             if line == "":
                 continue
@@ -310,9 +358,9 @@ def gen_reg_file(arch: bn.Architecture, regs: Dict[str, Register], file):
 
     file.write("\tfn write(&mut self, id: Self::RegID, val: &ILVal) {\n")
     file.write("\t\tmatch id {\n")
-    for reg in regs.values():
+    for reg in arch.all_regs.values():
         file.write(f"\t\t\t{reg_id}::{reg.name} => {{\n")
-        write = gen_write_reg(reg, regs)
+        write = gen_write_reg(reg, arch.all_regs)
         for line in write.split("\n"):
             if line == "":
                 continue
@@ -326,8 +374,7 @@ def gen_reg_file(arch: bn.Architecture, regs: Dict[str, Register], file):
 
 def gen_arch(args):
     arch = bn.Architecture[args.arch]
-    all_regs = [Register.from_bn_reg(name, info) for name, info in arch.regs.items()]
-    regs: Dict[str, Register] = {reg.name: reg for reg in all_regs}
+    arch = Architecture.from_bn_arch(args.arch, arch)
     file = args.outfile
     file.write(f"//! Register file definition for {arch}.\n//!\n")
     file.write("//! This file was generated by `gen_reg_file.py`\n\n")
@@ -335,8 +382,8 @@ def gen_arch(args):
     file.write("use crate::{Register, RegState};\n")
     file.write("#[allow(unused_imports)]\n")
     file.write("use val::{Big, ILVal};\n\n")
-    gen_reg_enum(arch, regs, file)
-    gen_reg_file(arch, regs, file)
+    gen_reg_enum(arch, file)
+    gen_reg_file(arch, file)
 
 
 def main():

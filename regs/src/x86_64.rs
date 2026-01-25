@@ -821,7 +821,7 @@ impl Register for x86_64Reg {
 	}
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct x86_64RegFile {
 	pub bnd0: [u8; 16],
 	pub bnd1: [u8; 16],
