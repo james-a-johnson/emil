@@ -74,6 +74,7 @@ pub enum aarch64Reg {
 	d7,
 	d8,
 	d9,
+	emil_pc,
 	fp,
 	h0,
 	h1,
@@ -2581,6 +2582,7 @@ impl TryFrom<u32> for aarch64Reg {
 			1282 => Ok(Self::p31),
 			65533 => Ok(Self::sysreg_unknown),
 			65534 => Ok(Self::syscall_info),
+			65535 => Ok(Self::emil_pc),
 			_ => Err(reg_id),
 		}
 	}
@@ -3877,12 +3879,14 @@ impl Register for aarch64Reg {
 			Self::p31 => 32,
 			Self::sysreg_unknown => 8,
 			Self::syscall_info => 4,
+			Self::emil_pc => 8,
 		}
 	}
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct aarch64RegFile {
+	pub emil_pc: u64,
 	pub fp: u64,
 	pub lr: u64,
 	pub p0: [u8; 32],
@@ -8473,6 +8477,9 @@ impl RegState for aarch64RegFile {
 			}
 			aarch64Reg::syscall_info => {
 				ILVal::Word(self.syscall_info)
+			}
+			aarch64Reg::emil_pc => {
+				ILVal::Quad(self.emil_pc)
 			}
 		}
 	}
@@ -14597,7 +14604,24 @@ impl RegState for aarch64RegFile {
 			aarch64Reg::syscall_info => {
 				self.syscall_info = val.get_word();
 			}
+			aarch64Reg::emil_pc => {
+				self.emil_pc = val.get_quad();
+			}
 		}
 	}
 }
 
+pub mod gdb {
+	use super::*;
+	use gdbstub::arch::RegId;
+
+	use std::num::NonZeroUsize;
+	impl RegId for aarch64Reg {
+		fn from_raw_id(id: usize) -> Option<(Self, Option<NonZeroUsize>)> {
+			let reg_id: u32 = id.try_into().ok()?;
+			let reg: aarch64Reg = reg_id.try_into().ok()?;
+			let size = NonZeroUsize::new(reg.size() as usize);
+			Some((reg, size))
+		}
+	}
+}

@@ -18,6 +18,7 @@ pub enum rv64gcReg {
 	a5,
 	a6,
 	a7,
+	emil_pc,
 	fa0,
 	fa1,
 	fa2,
@@ -145,6 +146,7 @@ impl TryFrom<u32> for rv64gcReg {
 			61 => Ok(Self::ft9),
 			62 => Ok(Self::ft10),
 			63 => Ok(Self::ft11),
+			64 => Ok(Self::emil_pc),
 			_ => Err(reg_id),
 		}
 	}
@@ -223,6 +225,7 @@ impl Register for rv64gcReg {
 			Self::ft9 => 8,
 			Self::ft10 => 8,
 			Self::ft11 => 8,
+			Self::emil_pc => 8,
 		}
 	}
 }
@@ -237,6 +240,7 @@ pub struct rv64gcRegFile {
 	pub a5: u64,
 	pub a6: u64,
 	pub a7: u64,
+	pub emil_pc: u64,
 	pub fa0: u64,
 	pub fa1: u64,
 	pub fa2: u64,
@@ -492,6 +496,9 @@ impl RegState for rv64gcRegFile {
 			rv64gcReg::ft11 => {
 				ILVal::Quad(self.ft11)
 			}
+			rv64gcReg::emil_pc => {
+				ILVal::Quad(self.emil_pc)
+			}
 		}
 	}
 
@@ -689,7 +696,24 @@ impl RegState for rv64gcRegFile {
 			rv64gcReg::ft11 => {
 				self.ft11 = val.get_quad();
 			}
+			rv64gcReg::emil_pc => {
+				self.emil_pc = val.get_quad();
+			}
 		}
 	}
 }
 
+pub mod gdb {
+	use super::*;
+	use gdbstub::arch::RegId;
+
+	use std::num::NonZeroUsize;
+	impl RegId for rv64gcReg {
+		fn from_raw_id(id: usize) -> Option<(Self, Option<NonZeroUsize>)> {
+			let reg_id: u32 = id.try_into().ok()?;
+			let reg: rv64gcReg = reg_id.try_into().ok()?;
+			let size = NonZeroUsize::new(reg.size() as usize);
+			Some((reg, size))
+		}
+	}
+}

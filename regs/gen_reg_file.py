@@ -79,6 +79,9 @@ class Architecture:
     """All of the registers defined by the architecture."""
     full_size: List[Register]
     """List of the full size registers defined by the architecture."""
+    little_endian: bool
+    usize: int
+    """Number of bytes required to address memory"""
 
     def __str__(self) -> str:
         return self.name
@@ -91,12 +94,24 @@ class Architecture:
         all_regs = [
             Register.from_bn_reg(name, info) for name, info in arch.regs.items()
         ]
+        greatest_index = max(map(lambda r: r.index, all_regs))
+        # Add special register for emil to use as the program counter. Currently just used with the
+        # gdb stub implementation.
+        all_regs.append(
+            Register("emil_pc", arch.address_size, 0, greatest_index + 1, None)
+        )
         regs: Dict[str, Register] = {reg.name: reg for reg in all_regs}
         full_size = []
         for reg in regs.values():
             if reg.full_width:
                 full_size.append(reg)
-        return Architecture(name, regs, sorted(full_size))
+        return Architecture(
+            name,
+            regs,
+            sorted(full_size),
+            arch.endianness == bn.Endianness.LittleEndian,
+            arch.address_size,
+        )
 
 
 def mask(size: int) -> int:
@@ -372,6 +387,91 @@ def gen_reg_file(arch: Architecture, file):
     file.write("}\n\n")
 
 
+def gen_regid_trait(arch: Architecture) -> str:
+    """Implement the RegId trait from gdbstub for the given architecture.
+
+    Uses the gdb index as the id of the register.
+    """
+    impl = f"impl RegId for {arch}Reg {{\n"
+    impl += "\tfn from_raw_id(id: usize) -> Option<(Self, Option<NonZeroUsize>)> {\n"
+    impl += "\t\tlet reg_id: u32 = id.try_into().ok()?;\n"
+    impl += f"\t\tlet reg: {arch}Reg = reg_id.try_into().ok()?;\n"
+    impl += "\t\tlet size = NonZeroUsize::new(reg.size() as usize);\n"
+    impl += "\t\tSome((reg, size))\n"
+    impl += "\t}\n}"
+    return impl
+
+
+def gen_registers_trait(arch: Architecture) -> str:
+    impl = ""
+    impl += f"impl Registers for {arch}RegFile {{\n"
+    match arch.usize:
+        case 1:
+            impl += "\ttype ProgramCounter = u8;\n\n"
+        case 2:
+            impl += "\ttype ProgramCounter = u16;\n\n"
+        case 4:
+            impl += "\ttype ProgramCounter = u32;\n\n"
+        case 8:
+            impl += "\ttype ProgramCounter = u64;\n\n"
+        case _:
+            raise ValueError("Don't support address size that is not a power of two")
+    impl += "\tfn pc(&self) -> Self::ProgramCounter {\n"
+    impl += "\t\tself.emil_pc\n\t}\n\n"
+    impl += "\tfn gdb_serialize(&self, mut write_byte: impl FnMut(Option<u8>)) {\n"
+    byte_method = "to_le_bytes" if arch.little_endian else "to_be_bytes"
+    for reg in arch.full_size:
+        if reg.size in NATIVE_SIZES:
+            impl += f"\t\tself.{reg}.{byte_method}().iter().for_each(|b| write_byte(Some(*b)));\n"
+        elif arch.little_endian:
+            impl += f"\t\tself.{reg}.iter().for_each(|b| write_byte(Some(*b)));\n"
+        else:
+            impl += f"\t\tself.{reg}.iter().rev().for_each(|b| write_byte(Some(*b)));\n"
+
+    impl += "\t}\n\n"
+
+    impl += "\tfn gdb_deserialize(&mut self, bytes: &[u8]) -> Result<(), ()> {\n"
+    total_size = sum(map(lambda r: r.size, arch.full_size))
+    impl += f"\t\tif bytes.len() != {total_size} {{ return Err(()); }}\n"
+    parse_method = "from_le_bytes" if arch.little_endian else "from_be_bytes"
+    offset = 0
+    for reg in arch.full_size:
+        match reg.size:
+            case 1:
+                impl += f"\t\tself.{reg} = bytes[{offset}];\n"
+            case 2:
+                impl += f"\t\tself.{reg} = u16::{parse_method}(bytes[{offset}..][..2].try_into().unwrap());\n"
+            case 4:
+                impl += f"\t\tself.{reg} = u32::{parse_method}(bytes[{offset}..][..4].try_into().unwrap());\n"
+            case 8:
+                impl += f"\t\tself.{reg} = u64::{parse_method}(bytes[{offset}..][..8].try_into().unwrap());\n"
+            case _:
+                impl += f"\t\tself.{reg}.copy_from_slice(&bytes[{offset}..][..{reg.size}]);\n"
+                if not arch.little_endian:
+                    impl += f"\t\tself.{reg}.reverse();"
+        offset += reg.size
+
+    impl += "\t\tOk(())\n"
+    impl += "\t}\n"
+    impl += "}\n"
+    return impl
+
+
+def gen_gdb_info(arch: Architecture, file):
+    """Add the gdb module to the architecture description.
+
+    This will add all the required info for supporting the target using the gdbstub crate.
+    """
+    file.write("pub mod gdb {\n")
+    file.write("\tuse super::*;\n")
+    file.write("\tuse gdbstub::arch::RegId;\n\n")
+    file.write("\tuse std::num::NonZeroUsize;\n")
+    reg_id_impl = gen_regid_trait(arch)
+    for impl_line in reg_id_impl.splitlines():
+        file.write(f"\t{impl_line}\n")
+    file.write("}")
+
+
 def gen_arch(args):
     arch = bn.Architecture[args.arch]
     arch = Architecture.from_bn_arch(args.arch, arch)
@@ -384,6 +484,7 @@ def gen_arch(args):
     file.write("use val::{Big, ILVal};\n\n")
     gen_reg_enum(arch, file)
     gen_reg_file(arch, file)
+    gen_gdb_info(arch, file)
 
 
 def main():

@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 val = { path = "../val" }
+gdbstub = "0.7"

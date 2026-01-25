@@ -62,6 +62,7 @@ pub enum x86Reg {
 	edx,
 	eflags,
 	eip,
+	emil_pc,
 	es,
 	esi,
 	esp,
@@ -253,6 +254,7 @@ impl TryFrom<u32> for x86Reg {
 			4 => Ok(Self::bnd1),
 			5 => Ok(Self::bnd2),
 			6 => Ok(Self::bnd3),
+			4105 => Ok(Self::emil_pc),
 			_ => Err(reg_id),
 		}
 	}
@@ -385,6 +387,7 @@ impl Register for x86Reg {
 			Self::bnd1 => 16,
 			Self::bnd2 => 16,
 			Self::bnd3 => 16,
+			Self::emil_pc => 4,
 		}
 	}
 }
@@ -429,6 +432,7 @@ pub struct x86RegFile {
 	pub edx: u32,
 	pub eflags: u32,
 	pub eip: u32,
+	pub emil_pc: u32,
 	pub es: u16,
 	pub esi: u32,
 	pub esp: u32,
@@ -873,6 +877,9 @@ impl RegState for x86RegFile {
 			}
 			x86Reg::bnd3 => {
 				ILVal::Big(Big::from(self.bnd3))
+			}
+			x86Reg::emil_pc => {
+				ILVal::Word(self.emil_pc)
 			}
 		}
 	}
@@ -1413,7 +1420,24 @@ impl RegState for x86RegFile {
 				let arr: [u8; 16] = big.as_ref().try_into().expect("Value wrong size for bnd3");
 				self.bnd3 = arr;
 			}
+			x86Reg::emil_pc => {
+				self.emil_pc = val.get_word();
+			}
 		}
 	}
 }
 
+pub mod gdb {
+	use super::*;
+	use gdbstub::arch::RegId;
+
+	use std::num::NonZeroUsize;
+	impl RegId for x86Reg {
+		fn from_raw_id(id: usize) -> Option<(Self, Option<NonZeroUsize>)> {
+			let reg_id: u32 = id.try_into().ok()?;
+			let reg: x86Reg = reg_id.try_into().ok()?;
+			let size = NonZeroUsize::new(reg.size() as usize);
+			Some((reg, size))
+		}
+	}
+}

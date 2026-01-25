@@ -66,6 +66,7 @@ pub enum x86_64Reg {
 	edx,
 	eflags,
 	eip,
+	emil_pc,
 	es,
 	esi,
 	esp,
@@ -541,6 +542,7 @@ impl TryFrom<u32> for x86_64Reg {
 			362 => Ok(Self::zmm29),
 			363 => Ok(Self::zmm30),
 			364 => Ok(Self::zmm31),
+			4105 => Ok(Self::emil_pc),
 			_ => Err(reg_id),
 		}
 	}
@@ -817,6 +819,7 @@ impl Register for x86_64Reg {
 			Self::zmm29 => 64,
 			Self::zmm30 => 64,
 			Self::zmm31 => 64,
+			Self::emil_pc => 8,
 		}
 	}
 }
@@ -855,6 +858,7 @@ pub struct x86_64RegFile {
 	pub dr6: u64,
 	pub dr7: u64,
 	pub ds: u16,
+	pub emil_pc: u64,
 	pub es: u16,
 	pub fs: u16,
 	pub fsbase: u64,
@@ -994,6 +998,7 @@ impl Default for x86_64RegFile {
 			dr6: 0,
 			dr7: 0,
 			ds: 0,
+			emil_pc: 0,
 			es: 0,
 			fs: 0,
 			fsbase: 0,
@@ -2022,6 +2027,9 @@ impl RegState for x86_64RegFile {
 			}
 			x86_64Reg::zmm31 => {
 				ILVal::Big(Big::from(self.zmm31))
+			}
+			x86_64Reg::emil_pc => {
+				ILVal::Quad(self.emil_pc)
 			}
 		}
 	}
@@ -3220,7 +3228,24 @@ impl RegState for x86_64RegFile {
 				let arr: [u8; 64] = big.as_ref().try_into().expect("Value wrong size for zmm31");
 				self.zmm31 = arr;
 			}
+			x86_64Reg::emil_pc => {
+				self.emil_pc = val.get_quad();
+			}
 		}
 	}
 }
 
+pub mod gdb {
+	use super::*;
+	use gdbstub::arch::RegId;
+
+	use std::num::NonZeroUsize;
+	impl RegId for x86_64Reg {
+		fn from_raw_id(id: usize) -> Option<(Self, Option<NonZeroUsize>)> {
+			let reg_id: u32 = id.try_into().ok()?;
+			let reg: x86_64Reg = reg_id.try_into().ok()?;
+			let size = NonZeroUsize::new(reg.size() as usize);
+			Some((reg, size))
+		}
+	}
+}

@@ -44,6 +44,7 @@ pub trait RegState {
 mod test {
     use super::*;
     use crate::x86::{x86Reg as X86, x86RegFile as X86State};
+    use gdbstub::arch::RegId;
     use val::Big;
 
     #[test]
@@ -71,6 +72,19 @@ mod test {
             regs.st6,
             [1, 2, 3, 4, 5, 6, 7, 8, 0, 0],
             "Setting array register sets proper bytes"
+        );
+    }
+
+    #[test]
+    fn x86_gdb() {
+        let reg = X86::try_from(66).unwrap();
+        let (gdb_reg, size) = X86::from_raw_id(66).unwrap();
+        assert_eq!(reg, gdb_reg, "Same id parses to same register");
+        assert_eq!(reg, X86::eax, "Id parses to correct register");
+        assert_eq!(
+            size,
+            std::num::NonZeroUsize::new(4),
+            "EAX is 4 bytes in size"
         );
     }
 }
