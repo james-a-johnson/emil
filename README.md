@@ -1,21 +1,39 @@
 # emil
 
-Emulation of Binary Ninja LLIL.
+Emulation of Binary Ninja's LLIL.
 
-This project allows for emulation of programs that have been analyzed in a
+This project enables emulation of programs that have been analyzed in a
 Binary Ninja database. This allows for emulating programs that you don't trust
 to run on your host or don't match the architecture of your host environment.
 
 Emil is done as a capstone project for the Master of Science in Cybersecurity
 program at Georgia Institute of Technology.
 
-This work is currently a work in progress.
+Emil is currently a work in progress.
 
-## Important for Upgrades
-Things can just break when updating the binaryninja-api dependency. Had a weird
-issue where the `echo` program stopped working. It worked on
-`92d75df37c76813ac4a71e35096dcb31ac1b18af` then stopped working on
-`stable/5.2.8614` but then started working again at some point after that.
+## Current Status
+Currently the arm64 architecture has the best support. It has been tested and
+some full programs have been emulated using it. The major problems with
+supporting architectures right now (in theory) is just supporting all of the
+architectural intrinsics that Binary Ninja defines.
 
-git bisect told me the commit `183ef5e2f0ba6124efac98efba67757f1e8b2aa9` broke it.
-That doesn't seem to be relevant at all so not sure what happened.
+There is also some support for rv64 as well. That is less tested but should work
+if there are no intrinsics that get hit.
+
+## Adding a New Architecture
+1. Add support for all of the architecture registers
+    - You can use the python script at `regs/gen_reg_file.py`
+    - That script will automatically generate a struct that will handle register
+      reads and writes for the architecture from the Binary Ninja architecture
+      description
+2. Add the architecture to `emulator/src/arch/[arch].rs`
+    - Need to create a struct that implements the `State` trait
+    - Will require the registers from the first step and creating an intrinsic
+      enum or struct
+    - Can add support for any intrinsics, syscalls, or other extra behavior you
+      want
+3. Initialize the state you created with required memory and then pass it to an
+   emulator and start emulating
+
+## Development Notes
+**Make sure the binaryninja-api version matches the version you have installed**
